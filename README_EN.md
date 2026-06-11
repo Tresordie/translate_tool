@@ -1,8 +1,8 @@
 # LinguaFlow · AI Smart Translation
 
-> An online translation tool powered by LLM APIs, supporting 30+ languages worldwide.
+> An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.1-blue)
+![Version](https://img.shields.io/badge/version-0.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 English | [中文](README.md)
@@ -10,6 +10,8 @@ English | [中文](README.md)
 ---
 
 ## ✨ Features
+
+### Web Version
 
 - **30+ Languages** — Chinese, English, Japanese, Korean, French, German, Spanish, Russian, Arabic, and more
 - **Flexible API** — Compatible with any OpenAI Chat Completions API provider (OpenAI, DeepSeek, Qwen, etc.)
@@ -21,6 +23,14 @@ English | [中文](README.md)
 - **Privacy First** — All settings and history stored locally in browser localStorage
 - **Responsive Design** — Works seamlessly on desktop and mobile devices
 - **Zero Dependencies** — Single HTML file, no installation required
+
+### Chrome Extension
+
+- **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
+- **Popup Translation Panel** — Click the toolbar icon for quick text translation
+- **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
+- **Toggle Switch** — Enable/disable text selection translation in settings
+- **Language Preference Memory** — Automatically saves source and target language choices
 
 ## 📸 Preview
 
@@ -73,10 +83,50 @@ English | [中文](README.md)
 
 ```
 translation_tool/
-├── index.html          # Complete application (single file)
-├── README.md           # Chinese documentation
-└── README_EN.md        # English documentation
+├── index.html              # Web version (single file)
+├── preview.png             # Web version screenshot
+├── chrome_extension/       # Chrome browser extension
+│   ├── manifest.json       # Extension config
+│   ├── popup.html          # Popup UI
+│   ├── popup.css           # Popup styles
+│   ├── popup.js            # Popup logic
+│   ├── content.js          # Text selection translation
+│   ├── content.css         # Tooltip styles
+│   ├── background.js       # Service worker
+│   ├── icons/              # Extension icons
+│   └── _locales/           # i18n files
+├── README.md               # Chinese documentation
+└── README_EN.md            # English documentation
 ```
+
+## 🧩 Chrome Extension
+
+In addition to the web version, this project includes a **Chrome browser extension** with **text selection translation**.
+
+### Extension Features
+
+- **Popup Translation Panel** — Click the toolbar icon for quick text translation
+- **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
+- **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
+- **30+ Languages** — Same language support as the web version
+- **Typing Effect** — Translation results appear character by character
+- **Toggle Switch** — Enable/disable text selection translation in settings
+
+### Installation
+
+1. Copy the `chrome_extension` folder to your local machine
+2. Open Chrome and navigate to `chrome://extensions/`
+3. Enable **Developer mode** in the top-right corner
+4. Click **"Load unpacked"**
+5. Select the `chrome_extension` folder
+6. Click the LinguaFlow icon in the toolbar and configure your API to get started
+
+### How to Use Text Selection Translation
+
+1. Select text on any webpage with your mouse
+2. A purple translation icon appears near the selection
+3. Click the icon to see the translation in a floating tooltip
+4. Copy the result with one click
 
 ## 📋 Browser Compatibility
 
@@ -86,6 +136,15 @@ translation_tool/
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.2 (2026-06-12)
+
+- Added **Chrome browser extension** with text selection translation
+- Text selection translation: select text on any webpage, auto-popup translation icon with floating tooltip
+- Right-click context menu translation
+- Popup translation panel via toolbar icon
+- Toggle switch for enabling/disabling text selection translation
+- Automatic language preference memory
 
 ### v0.1 (2026-06-11)
 

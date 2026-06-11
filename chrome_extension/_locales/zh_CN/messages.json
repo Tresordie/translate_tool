@@ -1,0 +1,4 @@
+{
+  "appName": { "message": "LinguaFlow - AI 智能翻译" },
+  "appDesc": { "message": "基于大模型 API 的浏览器翻译插件，支持划词翻译和 30+ 语言互译" }
+}
