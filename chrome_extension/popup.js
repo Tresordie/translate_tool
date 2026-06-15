@@ -71,7 +71,21 @@ function init() {
     }
   });
 
-  // Check for text from content script
+  // Restore draft text (auto-saved while typing)
+  chrome.storage.local.get(['draft'], ({ draft }) => {
+    if (draft?.sourceText) {
+      sourceText.value = draft.sourceText;
+      updateCharCount();
+    }
+    if (draft?.resultText) {
+      resultText.textContent = draft.resultText;
+      resultText.dataset.text = draft.resultText;
+      resultArea.classList.add('visible');
+      resultFooter.style.display = 'flex';
+    }
+  });
+
+  // Check for text from content script (overrides draft)
   chrome.storage.local.get(['selectedText'], ({ selectedText }) => {
     if (selectedText) {
       sourceText.value = selectedText;
@@ -138,10 +152,23 @@ $('swapLangs').addEventListener('click', () => {
   saveLangPrefs();
 });
 
-// ===== Char count =====
-sourceText.addEventListener('input', updateCharCount);
+// ===== Char count + Auto-save draft =====
+let saveTimer = null;
+sourceText.addEventListener('input', () => {
+  updateCharCount();
+  // Debounced auto-save (300ms after last keystroke)
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveDraft, 300);
+});
 function updateCharCount() {
   charCount.textContent = sourceText.value.length;
+}
+function saveDraft() {
+  const draft = {
+    sourceText: sourceText.value,
+    resultText: resultText.dataset.text || '',
+  };
+  chrome.storage.local.set({ draft });
 }
 
 // ===== Clear =====
@@ -152,6 +179,8 @@ $('clearBtn').addEventListener('click', () => {
   resultFooter.style.display = 'none';
   updateCharCount();
   sourceText.focus();
+  // Clear saved draft
+  chrome.storage.local.remove('draft');
 });
 
 // ===== Copy =====
@@ -226,6 +255,8 @@ async function doTranslate() {
     await typeText(resultText, result);
     resultText.dataset.text = result;
     resultFooter.style.display = 'flex';
+    // Save draft after successful translation
+    saveDraft();
   } catch (err) {
     resultText.textContent = '翻译失败: ' + err.message;
     resultText.classList.add('error');

@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.2-blue)
+![Version](https://img.shields.io/badge/version-0.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 [English](README_EN.md) | 中文
@@ -136,6 +136,14 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.3 (2026-06-12)
+
+- **翻译历史单条删除** — 鼠标悬停历史记录时显示垃圾桶图标，可单独删除某条记录
+- **网页版自动保存草稿** — 输入内容自动缓存到 localStorage，意外关闭标签页后可恢复
+- **Chrome 扩展 Popup 状态保持** — 输入内容自动缓存，Popup 关闭后重新打开内容不丢失
+- 翻译完成后自动保存结果到草稿
+- 清空按钮同时清除草稿缓存
 
 ### v0.2 (2026-06-12)
 

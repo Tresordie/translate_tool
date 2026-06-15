@@ -529,12 +529,31 @@
       cursor: pointer;
       transition: var(--transition);
       background: rgba(255,255,255,0.4);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
     }
+    .history-item-content { flex: 1; min-width: 0; }
     .history-item:hover {
       border-color: var(--primary-light);
       background: rgba(237,233,254,0.4);
       transform: translateX(4px);
     }
+    .history-item:hover .hi-delete { opacity: 1; }
+    .hi-delete {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: var(--transition);
+      color: #9ca3af;
+    }
+    .hi-delete:hover { background: rgba(239,68,68,0.1); color: #ef4444; }
+    .hi-delete svg { width: 14px; height: 14px; }
     .hi-meta {
       display: flex; align-items: center; gap: 8px;
       font-size: 0.74rem; color: var(--primary);
@@ -824,6 +843,22 @@
         document.getElementById('settingsPanel').classList.add('open');
       }
 
+      // Restore draft
+      try {
+        const draft = JSON.parse(localStorage.getItem('translate_draft') || '{}');
+        if (draft.sourceText) {
+          document.getElementById('sourceText').value = draft.sourceText;
+          updateCharCount();
+        }
+        if (draft.resultText) {
+          const output = document.getElementById('outputText');
+          output.textContent = draft.resultText;
+          output.dataset.text = draft.resultText;
+        }
+        if (draft.sourceLang) sourceLang.value = draft.sourceLang;
+        if (draft.targetLang) targetLang.value = draft.targetLang;
+      } catch {}
+
       renderHistory();
     }
 
@@ -936,6 +971,7 @@
 
         addHistory(sourceLang, targetLang, text, result);
         status.textContent = `翻译完成  ${sourceLang.flag} → ${targetLang.flag}`;
+        saveDraft();
       } catch (err) {
         loadingBar.classList.remove('active');
         output.innerHTML = `<span class="output-placeholder" style="color:#ef4444;">翻译失败: ${escapeHtml(err.message)}</span>`;
@@ -969,13 +1005,20 @@
       card.classList.add('visible');
       list.innerHTML = history.map((h, i) => `
         <div class="history-item" onclick="loadHistory(${i})">
-          <div class="hi-meta">
-            <span>${h.srcFlag} ${h.srcLang}</span>
-            <span class="hi-arrow">→</span>
-            <span>${h.tgtFlag} ${h.tgtLang}</span>
-            <span class="hi-time">${h.time}</span>
+          <div class="history-item-content">
+            <div class="hi-meta">
+              <span>${h.srcFlag} ${h.srcLang}</span>
+              <span class="hi-arrow">→</span>
+              <span>${h.tgtFlag} ${h.tgtLang}</span>
+              <span class="hi-time">${h.time}</span>
+            </div>
+            <div class="hi-text">${escapeHtml(h.text)}</div>
           </div>
-          <div class="hi-text">${escapeHtml(h.text)}</div>
+          <button class="hi-delete" onclick="event.stopPropagation(); deleteHistoryItem(${i})" title="删除">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </button>
         </div>
       `).join('');
     }
@@ -995,17 +1038,39 @@
       renderHistory();
     }
 
+    function deleteHistoryItem(index) {
+      history.splice(index, 1);
+      localStorage.setItem('translate_history', JSON.stringify(history));
+      renderHistory();
+    }
+
     // ===== Utility =====
+    let _draftTimer = null;
     function updateCharCount() {
       const text = document.getElementById('sourceText').value;
       document.getElementById('charCount').textContent = `${text.length} 字符`;
+      // Auto-save draft (debounced 300ms)
+      clearTimeout(_draftTimer);
+      _draftTimer = setTimeout(saveDraft, 300);
+    }
+    function saveDraft() {
+      const draft = {
+        sourceText: document.getElementById('sourceText').value,
+        resultText: document.getElementById('outputText').dataset.text || '',
+        sourceLang: document.getElementById('sourceLang').value,
+        targetLang: document.getElementById('targetLang').value,
+      };
+      localStorage.setItem('translate_draft', JSON.stringify(draft));
     }
 
     function clearSource() {
       document.getElementById('sourceText').value = '';
       document.getElementById('outputText').innerHTML = '<span class="output-placeholder">翻译结果将显示在这里...</span>';
+      document.getElementById('outputText').dataset.text = '';
       document.getElementById('statusText').textContent = '';
       updateCharCount();
+      // Clear saved draft
+      localStorage.removeItem('translate_draft');
     }
 
     async function pasteFromClipboard() {

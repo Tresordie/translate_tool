@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.2-blue)
+![Version](https://img.shields.io/badge/version-0.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 English | [中文](README.md)
@@ -136,6 +136,14 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.3 (2026-06-12)
+
+- **Individual history deletion** — Hover over a history item to reveal a trash icon for single-entry deletion
+- **Web version auto-save draft** — Input text is auto-cached to localStorage, recoverable after accidental tab close
+- **Chrome extension popup state persistence** — Input text auto-cached, content preserved when popup closes and reopens
+- Translation results auto-saved to draft after completion
+- Clear button now also clears draft cache
 
 ### v0.2 (2026-06-12)
 
