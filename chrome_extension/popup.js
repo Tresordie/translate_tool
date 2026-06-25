@@ -224,7 +224,20 @@ async function doTranslate() {
   resultText.textContent = '';
   resultText.classList.remove('error');
 
-  const systemPrompt = `You are a professional translator. Translate from ${src.name} (${src.code}) to ${tgt.name} (${tgt.code}). Output ONLY the translated text. Preserve formatting and special characters.`;
+  const systemPrompt = `You are a professional translator. Translate from ${src.name} (${src.code}) to ${tgt.name} (${tgt.code}).
+
+IMPORTANT GUIDELINES:
+1. **Context Understanding**: Carefully analyze the context, tone, and intended meaning before translating.
+2. **Format Preservation**: Preserve ALL original formatting including Markdown syntax, HTML tags, line breaks, special characters, and code snippets (do NOT translate code).
+3. **Natural Translation**: Produce fluent, natural-sounding translations that maintain the original intent.
+4. **Consistency**: Maintain consistent terminology throughout.
+5. **Auto-Formatting**: After translation, automatically organize and format the output:
+   - Remove unnecessary blank lines and extra whitespace
+   - Ensure proper paragraph separation
+   - Fix any broken formatting from the source text
+   - Normalize list indentation and spacing
+
+Output ONLY the translated and formatted text.`;
 
   try {
     const response = await fetch(`${config.baseUrl}/chat/completions`, {
@@ -249,8 +262,11 @@ async function doTranslate() {
     }
 
     const data = await response.json();
-    const result = data.choices?.[0]?.message?.content?.trim() || '';
+    let result = data.choices?.[0]?.message?.content?.trim() || '';
     if (!result) throw new Error('翻译结果为空');
+
+    // Auto-format the result
+    result = autoFormatResult(result);
 
     await typeText(resultText, result);
     resultText.dataset.text = result;
@@ -284,6 +300,31 @@ function typeText(el, text, speed = 15) {
       }
     }, speed);
   });
+}
+
+// ===== Auto-Format Result =====
+function autoFormatResult(text) {
+  // 1. Normalize line endings
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // 2. Remove trailing whitespace from each line
+  text = text.split('\n').map(line => line.trimEnd()).join('\n');
+  // 3. Collapse multiple blank lines into one
+  text = text.replace(/\n{3,}/g, '\n\n');
+  // 4. Remove leading/trailing blank lines
+  text = text.replace(/^\n+/, '').replace(/\n+$/, '');
+  // 5. Fix spacing around markdown headings
+  text = text.replace(/([^\n])\n(#{1,6}\s)/g, '$1\n\n$2');
+  // 6. Normalize list indentation
+  text = text.replace(/^([\s]*[-*+])\s{2,}/gm, '$1 ');
+  text = text.replace(/^([\s]*\d+\.)\s{2,}/gm, '$1 ');
+  // 7. Ensure proper spacing after punctuation
+  text = text.replace(/([。！？；])([^\n\s])/g, '$1 $2');
+  // 8. Remove extra spaces before punctuation
+  text = text.replace(/\s+([。！？，；：、])/g, '$1');
+  // 9. Normalize code block spacing
+  text = text.replace(/```\w*\n{2,}/g, '```\n');
+  text = text.replace(/\n{2,}```/g, '\n```');
+  return text;
 }
 
 // ===== Helpers =====

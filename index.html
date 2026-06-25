@@ -636,7 +636,7 @@
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
           API 设置
         </button>
@@ -936,7 +936,29 @@
       delete output.dataset.text;
       loadingBar.classList.add('active');
 
-      const systemPrompt = `You are a professional translator with expertise in ${sourceLang.name} and ${targetLang.name}. Translate the following text from ${sourceLang.name} (${sourceLang.code}) to ${targetLang.name} (${targetLang.code}). Output ONLY the translated text, nothing else. Maintain the original meaning, tone, formatting, and any special characters.`;
+      const systemPrompt = `You are a professional translator with expertise in ${sourceLang.name} and ${targetLang.name}. 
+
+Your task is to translate text from ${sourceLang.name} (${sourceLang.code}) to ${targetLang.name} (${targetLang.code}).
+
+IMPORTANT GUIDELINES:
+1. **Context Understanding**: Before translating, carefully analyze the context, tone, and intended meaning of the source text.
+2. **Format Preservation**: Preserve ALL original formatting including:
+   - Markdown syntax (headings, bold, italic, lists, code blocks, links, etc.)
+   - HTML tags and attributes
+   - Line breaks and spacing
+   - Special characters and symbols
+   - Code snippets (do NOT translate code)
+3. **Natural Translation**: Produce fluent, natural-sounding translations that maintain the original intent while being culturally appropriate for the target language.
+4. **Consistency**: Maintain consistent terminology throughout the translation.
+5. **Auto-Formatting**: After translation, automatically organize and format the output:
+   - Remove unnecessary blank lines and extra whitespace
+   - Ensure proper paragraph separation (single blank line between paragraphs)
+   - Fix any broken formatting from the source text
+   - Normalize list indentation and spacing
+   - Ensure consistent heading levels
+   - Clean up any redundant punctuation
+
+Output ONLY the translated and formatted text. Do not add explanations or notes.`;
 
       try {
         const url = `${config.baseUrl}/chat/completions`;
@@ -962,9 +984,12 @@
         }
 
         const data = await response.json();
-        const result = data.choices?.[0]?.message?.content?.trim() || '';
+        let result = data.choices?.[0]?.message?.content?.trim() || '';
 
         if (!result) throw new Error('翻译结果为空，请检查模型配置');
+
+        // Auto-format the result
+        result = autoFormatResult(result);
 
         loadingBar.classList.remove('active');
         await typeText(output, result);
@@ -1108,6 +1133,40 @@
       const div = document.createElement('div');
       div.textContent = str;
       return div.innerHTML;
+    }
+
+    // ===== Auto-Format Result =====
+    function autoFormatResult(text) {
+      // 1. Normalize line endings
+      text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      
+      // 2. Remove leading/trailing whitespace from each line
+      text = text.split('\n').map(line => line.trimEnd()).join('\n');
+      
+      // 3. Collapse multiple blank lines into one
+      text = text.replace(/\n{3,}/g, '\n\n');
+      
+      // 4. Remove leading/trailing blank lines
+      text = text.replace(/^\n+/, '').replace(/\n+$/, '');
+      
+      // 5. Fix spacing around markdown headings (ensure blank line before heading)
+      text = text.replace(/([^\n])\n(#{1,6}\s)/g, '$1\n\n$2');
+      
+      // 6. Normalize list indentation (ensure consistent spacing after list markers)
+      text = text.replace(/^([\s]*[-*+])\s{2,}/gm, '$1 ');
+      text = text.replace(/^([\s]*\d+\.)\s{2,}/gm, '$1 ');
+      
+      // 7. Ensure proper spacing after punctuation (Chinese/English)
+      text = text.replace(/([。！？；])([^\n\s])/g, '$1 $2');
+      
+      // 8. Remove extra spaces before punctuation
+      text = text.replace(/\s+([。！？，；：、])/g, '$1');
+      
+      // 9. Normalize code block spacing
+      text = text.replace(/```\w*\n{2,}/g, '```\n');
+      text = text.replace(/\n{2,}```/g, '\n```');
+      
+      return text;
     }
 
     // ===== Keyboard shortcut =====

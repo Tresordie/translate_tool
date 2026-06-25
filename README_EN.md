@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.3-blue)
+![Version](https://img.shields.io/badge/version-0.4-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 English | [中文](README.md)
@@ -15,6 +15,8 @@ English | [中文](README.md)
 
 - **30+ Languages** — Chinese, English, Japanese, Korean, French, German, Spanish, Russian, Arabic, and more
 - **Flexible API** — Compatible with any OpenAI Chat Completions API provider (OpenAI, DeepSeek, Qwen, etc.)
+- **Context-Aware Translation** — AI automatically analyzes text context, tone, and intent for more accurate and natural translations
+- **Original Format Preservation** — Fully preserves Markdown, HTML, code blocks, and other original formats with auto-formatting after translation
 - **Stunning UI** — Animated starry background, glassmorphism cards, gradient flow buttons
 - **Typing Effect** — Translation results appear character by character for a smooth experience
 - **Translation History** — Auto-saves up to 20 recent translations with one-click recall
@@ -29,6 +31,8 @@ English | [中文](README.md)
 - **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
 - **Popup Translation Panel** — Click the toolbar icon for quick text translation
 - **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
+- **Context-Aware Translation** — AI understands context for more accurate translations
+- **Original Format Preservation** — Supports Markdown, HTML format input with auto-formatting
 - **Toggle Switch** — Enable/disable text selection translation in settings
 - **Language Preference Memory** — Automatically saves source and target language choices
 
@@ -136,6 +140,14 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.4 (2026-06-25)
+
+- **Context-Aware Translation** — AI automatically analyzes text context, tone, and intent before translating for more accurate and natural results
+- **Original Format Preservation** — Fully preserves Markdown, HTML, code blocks, and other original format inputs
+- **Auto-Formatting** — Automatically cleans up extra blank lines, normalizes list indentation, fixes punctuation spacing, and more after translation
+- **Format Repair** — Automatically fixes broken formatting from source text to ensure clean, well-organized output
+- All translation modules (web version, popup, text selection, background service) upgraded in sync
 
 ### v0.3 (2026-06-12)
 
