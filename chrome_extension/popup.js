@@ -44,6 +44,11 @@ const charCount = $('charCount');
 const translateBtn = $('translateBtn');
 const settingsPanel = $('settingsPanel');
 const toast = $('toast');
+const historySection = $('historySection');
+const historyList = $('historyList');
+
+// ===== History State =====
+let history = [];
 
 // ===== Init =====
 function init() {
@@ -85,6 +90,20 @@ function init() {
     }
   });
 
+  // Load history
+  chrome.storage.local.get(['history'], ({ history: h }) => {
+    history = h || [];
+    renderHistory();
+  });
+
+  // Restore popup size
+  chrome.storage.local.get(['popupSize'], ({ popupSize }) => {
+    if (popupSize) {
+      document.body.style.width = popupSize.width + 'px';
+      document.body.style.height = popupSize.height + 'px';
+    }
+  });
+
   // Check for text from content script (overrides draft)
   chrome.storage.local.get(['selectedText'], ({ selectedText }) => {
     if (selectedText) {
@@ -93,8 +112,12 @@ function init() {
       chrome.storage.local.remove('selectedText');
       // Auto translate
       setTimeout(() => doTranslate(), 100);
+      return;
     }
   });
+
+  // Check for pending/completed background translation
+  restoreTranslateResult();
 }
 
 // ===== Settings =====
@@ -202,6 +225,102 @@ sourceText.addEventListener('keydown', (e) => {
   }
 });
 
+// ===== Restore Background Translation Result =====
+function restoreTranslateResult() {
+  chrome.storage.local.get(['translateTask', 'translatingState'], (data) => {
+    const task = data.translateTask;
+    const state = data.translatingState;
+
+    // If there's a completed translation result from background
+    if (task && task.status === 'done' && state) {
+      // Only restore if it matches our current state or is recent (< 5 min)
+      const isRecent = (Date.now() - task.endTime) < 5 * 60 * 1000;
+      const isMatch = state.text === task.text;
+      if (isRecent || isMatch) {
+        const result = task.result;
+        if (result) {
+          resultText.textContent = result;
+          resultText.dataset.text = result;
+          resultArea.classList.add('visible');
+          resultFooter.style.display = 'flex';
+          // Add to history
+          const src = LANGUAGES.find(l => l.code === task.srcCode) || LANGUAGES[0];
+          const tgt = LANGUAGES.find(l => l.code === task.tgtCode) || LANGUAGES[1];
+          addHistory(src, tgt, task.text, result);
+          saveDraft();
+        }
+        chrome.storage.local.remove(['translateTask', 'translatingState']);
+        return;
+      }
+    }
+
+    // If translation is still running in background
+    if (task && task.status === 'running' && state) {
+      // Show loading state
+      sourceText.value = state.text || '';
+      updateCharCount();
+      if (state.srcCode) sourceLang.value = state.srcCode;
+      if (state.tgtCode) targetLang.value = state.tgtCode;
+      translateBtn.disabled = true;
+      translateBtn.innerHTML = '\u7ffb\u8bd1\u4e2d<span class="loading-dots"><span></span><span></span><span></span></span>';
+      resultArea.classList.add('visible');
+      resultFooter.style.display = 'none';
+      resultText.textContent = '';
+      resultText.classList.remove('error');
+
+      // Poll for result every 500ms
+      const pollInterval = setInterval(() => {
+        chrome.storage.local.get(['translateTask'], ({ translateTask }) => {
+          if (!translateTask || translateTask.id !== task.id) return;
+
+          if (translateTask.status === 'done') {
+            clearInterval(pollInterval);
+            translateBtn.disabled = false;
+            translateBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> \u5f00\u59cb\u7ffb\u8bd1<span class="btn-shortcut">Ctrl+\u21b5</span>';
+            const result = translateTask.result;
+            if (result) {
+              typeText(resultText, result).then(() => {
+                resultText.dataset.text = result;
+                resultFooter.style.display = 'flex';
+                const src = LANGUAGES.find(l => l.code === translateTask.srcCode) || LANGUAGES[0];
+                const tgt = LANGUAGES.find(l => l.code === translateTask.tgtCode) || LANGUAGES[1];
+                addHistory(src, tgt, translateTask.text, result);
+                saveDraft();
+              });
+            }
+            chrome.storage.local.remove(['translateTask', 'translatingState']);
+          } else if (translateTask.status === 'error') {
+            clearInterval(pollInterval);
+            translateBtn.disabled = false;
+            translateBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> \u5f00\u59cb\u7ffb\u8bd1<span class="btn-shortcut">Ctrl+\u21b5</span>';
+            resultText.textContent = '\u7ffb\u8bd1\u5931\u8d25: ' + translateTask.error;
+            resultText.classList.add('error');
+            chrome.storage.local.remove(['translateTask', 'translatingState']);
+          }
+          // If still running, keep polling
+        });
+      }, 500);
+
+      // Stop polling after 60 seconds max
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        if (translateBtn.disabled) {
+          translateBtn.disabled = false;
+          translateBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> \u5f00\u59cb\u7ffb\u8bd1<span class="btn-shortcut">Ctrl+\u21b5</span>';
+          resultText.textContent = '\u7ffb\u8bd1\u8d85\u65f6';
+          resultText.classList.add('error');
+        }
+      }, 60000);
+      return;
+    }
+
+    // Clean up stale state
+    if (state && !task) {
+      chrome.storage.local.remove('translatingState');
+    }
+  });
+}
+
 async function doTranslate() {
   const text = sourceText.value.trim();
   if (!text) { showToast('请输入文本', 'error'); return; }
@@ -224,61 +343,48 @@ async function doTranslate() {
   resultText.textContent = '';
   resultText.classList.remove('error');
 
-  const systemPrompt = `You are a professional translator. Translate from ${src.name} (${src.code}) to ${tgt.name} (${tgt.code}).
-
-IMPORTANT GUIDELINES:
-1. **Context Understanding**: Carefully analyze the context, tone, and intended meaning before translating.
-2. **Format Preservation**: Preserve ALL original formatting including Markdown syntax, HTML tags, line breaks, special characters, and code snippets (do NOT translate code).
-3. **Natural Translation**: Produce fluent, natural-sounding translations that maintain the original intent.
-4. **Consistency**: Maintain consistent terminology throughout.
-5. **Auto-Formatting**: After translation, automatically organize and format the output:
-   - Remove unnecessary blank lines and extra whitespace
-   - Ensure proper paragraph separation
-   - Fix any broken formatting from the source text
-   - Normalize list indentation and spacing
-
-Output ONLY the translated and formatted text.`;
+  // Save state before translation (in case popup closes)
+  chrome.storage.local.set({
+    translatingState: {
+      text: text,
+      srcCode: src.code,
+      tgtCode: tgt.code,
+      timestamp: Date.now(),
+    }
+  });
 
   try {
-    const response = await fetch(`${config.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: text }
-        ],
-        temperature: 0.3,
-      }),
+    // Send translation request to background service worker
+    const response = await chrome.runtime.sendMessage({
+      action: 'translate',
+      text: text,
+      config: config,
+      srcCode: src.code,
+      tgtCode: tgt.code,
     });
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error?.message || `HTTP ${response.status}`);
+    if (!response.success) {
+      throw new Error(response.error);
     }
 
-    const data = await response.json();
-    let result = data.choices?.[0]?.message?.content?.trim() || '';
+    const result = response.result;
     if (!result) throw new Error('翻译结果为空');
 
-    // Auto-format the result
-    result = autoFormatResult(result);
+    // Clear the translating state
+    chrome.storage.local.remove('translatingState');
 
     await typeText(resultText, result);
     resultText.dataset.text = result;
     resultFooter.style.display = 'flex';
-    // Save draft after successful translation
     saveDraft();
+    addHistory(src, tgt, text, result);
   } catch (err) {
+    chrome.storage.local.remove('translatingState');
     resultText.textContent = '翻译失败: ' + err.message;
     resultText.classList.add('error');
   } finally {
     translateBtn.disabled = false;
-    translateBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> 翻译`;
+    translateBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> 开始翻译<span class="btn-shortcut">Ctrl+↵</span>`;
   }
 }
 
@@ -326,6 +432,139 @@ function autoFormatResult(text) {
   text = text.replace(/\n{2,}```/g, '\n```');
   return text;
 }
+
+// ===== History Management =====
+function addHistory(src, tgt, text, result) {
+  history.unshift({
+    srcLang: src.name,
+    tgtLang: tgt.name,
+    srcCode: src.code,
+    tgtCode: tgt.code,
+    text: text.substring(0, 80),
+    result: result.substring(0, 80),
+    time: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+  });
+  if (history.length > 20) history = history.slice(0, 20);
+  chrome.storage.local.set({ history });
+  renderHistory();
+}
+
+function renderHistory() {
+  if (history.length === 0) {
+    historySection.classList.remove('visible');
+    return;
+  }
+  historySection.classList.add('visible');
+  historyList.innerHTML = history.map((h, i) => `
+    <div class="history-item" data-index="${i}">
+      <div class="hi-meta">
+        <span>${h.srcLang}</span>
+        <span class="hi-arrow">→</span>
+        <span>${h.tgtLang}</span>
+        <span class="hi-time">${h.time}</span>
+      </div>
+      <div class="hi-text">${escapeHtml(h.text)}</div>
+      <div class="hi-text">${escapeHtml(h.result)}</div>
+      <button class="hi-delete" data-index="${i}" title="删除">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+        </svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// History item click: load translation
+historyList.addEventListener('click', (e) => {
+  // Delete button
+  const deleteBtn = e.target.closest('.hi-delete');
+  if (deleteBtn) {
+    e.stopPropagation();
+    const index = parseInt(deleteBtn.dataset.index);
+    history.splice(index, 1);
+    chrome.storage.local.set({ history });
+    renderHistory();
+    return;
+  }
+  // Item click: load history
+  const item = e.target.closest('.history-item');
+  if (item) {
+    const index = parseInt(item.dataset.index);
+    const h = history[index];
+    if (h) {
+      sourceLang.value = h.srcCode;
+      targetLang.value = h.tgtCode;
+      sourceText.value = h.text;
+      updateCharCount();
+      saveLangPrefs();
+    }
+  }
+});
+
+// Clear all history
+$('clearHistoryBtn').addEventListener('click', () => {
+  history = [];
+  chrome.storage.local.remove('history');
+  renderHistory();
+});
+
+// ===== Resize Drag =====
+(function initResize() {
+  const MIN_W = 320;
+  const MAX_W = 800;
+  const MIN_H = 300;
+  const MAX_H = 780;
+  let startX, startY, startW, startH, dir;
+
+  document.querySelectorAll('.resize-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dir = handle.dataset.dir;
+      startX = e.screenX;
+      startY = e.screenY;
+      startW = document.body.offsetWidth;
+      startH = document.body.offsetHeight;
+      document.body.classList.add('resizing');
+
+      document.addEventListener('mousemove', onResize);
+      document.addEventListener('mouseup', onResizeEnd);
+    });
+  });
+
+  function onResize(e) {
+    let dx = e.screenX - startX;
+    let dy = e.screenY - startY;
+    let newW = startW;
+    let newH = startH;
+
+    if (dir.includes('e')) newW = Math.min(MAX_W, Math.max(MIN_W, startW + dx));
+    if (dir.includes('w')) newW = Math.min(MAX_W, Math.max(MIN_W, startW - dx));
+    if (dir.includes('s')) newH = Math.min(MAX_H, Math.max(MIN_H, startH + dy));
+    if (dir.includes('n')) newH = Math.min(MAX_H, Math.max(MIN_H, startH - dy));
+
+    document.body.style.width = newW + 'px';
+    document.body.style.height = newH + 'px';
+  }
+
+  function onResizeEnd() {
+    document.body.classList.remove('resizing');
+    document.removeEventListener('mousemove', onResize);
+    document.removeEventListener('mouseup', onResizeEnd);
+    // Save size
+    const popupSize = {
+      width: document.body.offsetWidth,
+      height: document.body.offsetHeight,
+    };
+    chrome.storage.local.set({ popupSize });
+  }
+})();
 
 // ===== Helpers =====
 function getConfig() {

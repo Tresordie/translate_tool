@@ -22,10 +22,59 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // Handle messages from content script or popup
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'translate') {
+    // Save translation task to storage so it persists even if popup closes
+    const taskId = Date.now().toString();
+    chrome.storage.local.set({
+      translateTask: {
+        id: taskId,
+        status: 'running',
+        text: msg.text,
+        config: msg.config,
+        srcCode: msg.srcCode,
+        tgtCode: msg.tgtCode,
+        startTime: Date.now(),
+      }
+    });
+
     handleTranslation(msg.text, msg.config)
-      .then(result => sendResponse({ success: true, result }))
-      .catch(err => sendResponse({ success: false, error: err.message }));
+      .then(result => {
+        // Save result to storage (persists after popup closes)
+        chrome.storage.local.set({
+          translateTask: {
+            id: taskId,
+            status: 'done',
+            result: result,
+            text: msg.text,
+            srcCode: msg.srcCode,
+            tgtCode: msg.tgtCode,
+            endTime: Date.now(),
+          }
+        });
+        sendResponse({ success: true, result, taskId });
+      })
+      .catch(err => {
+        chrome.storage.local.set({
+          translateTask: {
+            id: taskId,
+            status: 'error',
+            error: err.message,
+            text: msg.text,
+            srcCode: msg.srcCode,
+            tgtCode: msg.tgtCode,
+            endTime: Date.now(),
+          }
+        });
+        sendResponse({ success: false, error: err.message });
+      });
     return true; // async response
+  }
+
+  // Check if there's a pending translation result
+  if (msg.action === 'checkTranslateResult') {
+    chrome.storage.local.get(['translateTask'], ({ translateTask }) => {
+      sendResponse(translateTask || null);
+    });
+    return true;
   }
 });
 
@@ -47,15 +96,35 @@ async function handleTranslation(text, config) {
     uk: '乌克兰语', hi: '印地语', bn: '孟加拉语', he: '希伯来语', fa: '波斯语',
   };
 
-  const systemPrompt = `You are a professional translator. Translate from ${LANGUAGES[srcLang] || srcLang} (${srcLang}) to ${LANGUAGES[tgtLang] || tgtLang} (${tgtLang}).
+  const systemPrompt = `You are a professional translator with deep expertise in linguistics, culture, and domain knowledge.
 
-IMPORTANT GUIDELINES:
-1. **Context Understanding**: Carefully analyze the context, tone, and intended meaning before translating.
-2. **Format Preservation**: Preserve ALL original formatting including Markdown syntax, HTML tags, line breaks, special characters, and code snippets (do NOT translate code).
-3. **Natural Translation**: Produce fluent, natural-sounding translations that maintain the original intent.
-4. **Consistency**: Maintain consistent terminology throughout.
+Translate from ${LANGUAGES[srcLang] || srcLang} (${srcLang}) to ${LANGUAGES[tgtLang] || tgtLang} (${tgtLang}).
 
-Output ONLY the translated text with preserved formatting.`;
+CRITICAL WORKFLOW — follow this thinking process before translating:
+
+**Step 1: Deep Context Analysis (think before you translate)**
+Silently analyze the source text:
+- **Domain & Topic**: What field? (technology, medicine, legal, literature, casual, news, academic, marketing, docs)
+- **Text Type**: Formal document, informal chat, technical manual, creative writing, UI text, email?
+- **Tone & Register**: Formal, informal, humorous, serious, persuasive, instructional, empathetic, neutral?
+- **Audience**: General public, experts, children, business professionals?
+- **Key Concepts**: Identify domain-specific terminology, idioms, cultural references requiring careful handling.
+- **Intent**: Inform, persuade, entertain, instruct, or warn?
+
+**Step 2: Translation with Context Awareness**
+- Choose vocabulary appropriate for the identified domain and register
+- Adapt idioms and cultural references to closest target-language equivalents
+- Maintain the same tone and emotional weight as the original
+- Use domain-standard terminology
+- Preserve the author's voice and writing style
+
+**Step 3: Format Preservation**
+Preserve ALL original formatting: Markdown, HTML tags, line breaks, special characters, code snippets (do NOT translate code).
+
+**Step 4: Consistency**
+Maintain consistent terminology throughout.
+
+Output ONLY the translated and formatted text.`;
 
   const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: 'POST',
@@ -79,5 +148,26 @@ Output ONLY the translated text with preserved formatting.`;
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content?.trim() || '';
+  let result = data.choices?.[0]?.message?.content?.trim() || '';
+  
+  // Auto-format the result
+  result = autoFormatResult(result);
+  
+  return result;
+}
+
+// ===== Auto-Format Result =====
+function autoFormatResult(text) {
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  text = text.split('\n').map(line => line.trimEnd()).join('\n');
+  text = text.replace(/\n{3,}/g, '\n\n');
+  text = text.replace(/^\n+/, '').replace(/\n+$/, '');
+  text = text.replace(/([^\n])\n(#{1,6}\s)/g, '$1\n\n$2');
+  text = text.replace(/^([\s]*[-*+])\s{2,}/gm, '$1 ');
+  text = text.replace(/^([\s]*\d+\.)\s{2,}/gm, '$1 ');
+  text = text.replace(/([。！？；])([^\n\s])/g, '$1 $2');
+  text = text.replace(/\s+([。！？，；：、])/g, '$1');
+  text = text.replace(/```\w*\n{2,}/g, '```\n');
+  text = text.replace(/\n{2,}```/g, '\n```');
+  return text;
 }

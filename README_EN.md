@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.4-blue)
+![Version](https://img.shields.io/badge/version-0.6-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 English | [中文](README.md)
@@ -15,9 +15,9 @@ English | [中文](README.md)
 
 - **30+ Languages** — Chinese, English, Japanese, Korean, French, German, Spanish, Russian, Arabic, and more
 - **Flexible API** — Compatible with any OpenAI Chat Completions API provider (OpenAI, DeepSeek, Qwen, etc.)
-- **Context-Aware Translation** — AI automatically analyzes text context, tone, and intent for more accurate and natural translations
+- **Deep Context-Aware Translation** — AI performs a 5-step deep analysis before translating (domain identification → text type assessment → tone analysis → audience profiling → intent understanding) for significantly more accurate translations
 - **Original Format Preservation** — Fully preserves Markdown, HTML, code blocks, and other original formats with auto-formatting after translation
-- **Stunning UI** — Animated starry background, glassmorphism cards, gradient flow buttons
+- **Dark AI-Themed UI** — Dark theme with neon purple/cyan gradients, grid texture background, animated glow orbs — unified visual style across web and extension
 - **Typing Effect** — Translation results appear character by character for a smooth experience
 - **Translation History** — Auto-saves up to 20 recent translations with one-click recall
 - **Quick Actions** — Swap languages, paste from clipboard, clear, and copy results
@@ -31,7 +31,11 @@ English | [中文](README.md)
 - **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
 - **Popup Translation Panel** — Click the toolbar icon for quick text translation
 - **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
-- **Context-Aware Translation** — AI understands context for more accurate translations
+- **Dark AI-Themed UI** — Dark theme with neon purple/cyan gradients, grid texture, rounded corners, and AI pulse indicator
+- **Deep Context-Aware Translation** — AI performs 5-step context analysis (domain/text type/tone/audience/intent) for precise translations
+- **Resizable Popup** — Drag any edge or corner to freely resize the popup (320–800px wide, 300–780px tall), size auto-saved
+- **Uninterrupted Translation** — Translation continues in background Service Worker even if popup closes; results auto-restored on reopen
+- **Translation History** — Auto-saves up to 20 recent translations with individual deletion and clear-all
 - **Original Format Preservation** — Supports Markdown, HTML format input with auto-formatting
 - **Toggle Switch** — Enable/disable text selection translation in settings
 - **Language Preference Memory** — Automatically saves source and target language choices
@@ -112,6 +116,11 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - **Popup Translation Panel** — Click the toolbar icon for quick text translation
 - **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
 - **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
+- **Dark AI-Themed UI** — Dark theme with neon purple/cyan gradients, grid background, AI pulse indicator
+- **Resizable Popup** — Drag any edge or corner to resize (320–800px wide, 300–780px tall), auto-saved
+- **Uninterrupted Translation** — Background Service Worker continues translating even after popup closes; results auto-restored
+- **Translation History** — Auto-saves up to 20 entries with individual deletion and clear-all
+- **Deep Context-Aware Translation** — 5-step analysis workflow for precise, natural translations
 - **30+ Languages** — Same language support as the web version
 - **Typing Effect** — Translation results appear character by character
 - **Toggle Switch** — Enable/disable text selection translation in settings
@@ -140,6 +149,31 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.6 (2026-06-25)
+
+- **Web Version Dark AI-Themed UI** — Complete visual overhaul to dark theme, unified with Chrome extension
+  - Dark cards replace original glassmorphism white background
+  - Neon purple/cyan gradient color system
+  - 32px grid texture background + rotating glow orb animation
+  - All components (inputs, selects, buttons) dark-themed with neon glow interactions
+  - Translate button upgraded with purple→cyan gradient + dual glow shadow
+  - History cards, settings panel, and language bar fully dark-adapted
+- **Deep Context-Aware Translation** — All translation modules (web, popup, text selection, background service) upgraded to 5-step analysis workflow
+  - Step 1: Domain & topic identification (tech, medicine, legal, literature, casual, news, academic, etc.)
+  - Step 2: Text type & tone assessment (formal, informal, humorous, serious, persuasive, instructional, etc.)
+  - Step 3: Audience & key concept analysis (terminology, idioms, cultural references)
+  - Step 4: Intent understanding (inform, persuade, entertain, instruct, warn)
+  - Step 5: Context-aware translation based on analysis, preserving author's voice and style
+
+### v0.5 (2026-06-25)
+
+- **Chrome Extension Dark AI-Themed UI** — New dark theme with neon purple/cyan gradients, grid texture background, rounded popup design
+- **AI-Style Effects** — Logo breathing indicator, translate button glow border, header sweep animation
+- **Resizable Popup** — Drag any of 8 directions (edges + corners) to freely resize, size auto-saved and restored
+- **Background Translation Persistence** — Translation continues in background Service Worker when popup loses focus; auto-restores results on reopen
+- **Chrome Extension Translation History** — Popup gains history section with individual deletion and clear-all
+- Resize height limit increased from 600px to 780px
 
 ### v0.4 (2026-06-25)
 

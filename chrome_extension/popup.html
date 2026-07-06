@@ -5,16 +5,32 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
+  <!-- Resize handles -->
+  <div class="resize-handle resize-n" data-dir="n"></div>
+  <div class="resize-handle resize-s" data-dir="s"></div>
+  <div class="resize-handle resize-e" data-dir="e"></div>
+  <div class="resize-handle resize-w" data-dir="w"></div>
+  <div class="resize-handle resize-ne" data-dir="ne"></div>
+  <div class="resize-handle resize-nw" data-dir="nw"></div>
+  <div class="resize-handle resize-se" data-dir="se"></div>
+  <div class="resize-handle resize-sw" data-dir="sw"></div>
+
   <div class="app">
     <!-- Header -->
     <div class="header">
       <div class="header-left">
-        <svg class="logo-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="2" y1="12" x2="22" y2="12"/>
-          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-        </svg>
-        <span class="logo-text">LinguaFlow</span>
+        <div class="logo-wrap">
+          <svg class="logo-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          <span class="ai-pulse"></span>
+        </div>
+        <div class="header-text">
+          <span class="logo-text">LinguaFlow</span>
+          <span class="header-tag">AI Translation</span>
+        </div>
       </div>
       <button class="settings-btn" id="toggleSettings" title="设置">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -76,7 +92,8 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
       </svg>
-      翻译
+      开始翻译
+      <span class="btn-shortcut">Ctrl+↵</span>
     </button>
 
     <!-- Result Area -->
@@ -91,6 +108,18 @@
           复制
         </button>
       </div>
+    </div>
+
+    <!-- History Section -->
+    <div class="history-section" id="historySection">
+      <div class="history-header">
+        <div class="history-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          翻译历史
+        </div>
+        <button class="history-clear-btn" id="clearHistoryBtn" title="清空历史">清空</button>
+      </div>
+      <div class="history-list" id="historyList"></div>
     </div>
   </div>
 
