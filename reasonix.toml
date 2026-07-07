@@ -1,0 +1,2 @@
+[permissions]
+allow = ["Bash(cd \"I:/deepseek/translate_tool\" && python3 -c \"with open('chrome_extension/fullpage.js', 'r', encoding='utf-8') as f: content = f.read(); [print(f'{i}: {repr(line)}') for i, line in enumerate(content.split(chr(10)), 1) if 395 <= i <= 425]\")", "Bash(cd \"I:/deepseek/translate_tool\" && python3 -c \"with open('chrome_extension/content.js', 'r', encoding='utf-8') as f: content = f.read(); [print(f'{i}: {repr(line)}') for i, line in enumerate(content.split(chr(10)), 1) if 288 <= i <= 320]\")", "Edit"]

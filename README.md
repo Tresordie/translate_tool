@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.7-blue)
+![Version](https://img.shields.io/badge/version-0.7.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 [English](README_EN.md) | 中文
@@ -100,11 +100,14 @@ translation_tool/
 │   ├── popup.html          # 弹窗界面
 │   ├── popup.css           # 弹窗样式
 │   ├── popup.js            # 弹窗逻辑
+│   ├── fullpage.html       # 全屏翻译页面
+│   ├── fullpage.js         # 全屏页面逻辑
 │   ├── content.js          # 划词翻译脚本
 │   ├── content.css         # 划词翻译样式
 │   ├── background.js       # 后台服务
 │   ├── icons/              # 扩展图标
 │   └── _locales/           # 国际化文件
+├── vibe_images/            # 图标源文件
 ├── README.md               # 中文说明文档
 └── README_EN.md            # 英文说明文档
 ```
@@ -150,6 +153,14 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.7.1 (2026-07-07)
+
+- **全屏页面修复** — 修复了 Chrome 扩展全屏模式（fullpage.html）中 API 设置按钮无响应、语言下拉为空的问题
+  - 修复 `fullpage.js` 中 `autoFormatResult` 函数的正则表达式损坏（`\n` 被替换为字面换行符，导致 JS 语法错误）
+  - 移除全屏页面中所有内联事件处理器（`onclick`/`oninput`），改用 `addEventListener`，符合 Chrome 扩展 CSP 策略
+  - 历史记录列表改用事件委托机制，不再依赖内联 `onclick`
+  - 全屏页面存储层从 `localStorage` 迁移到 `chrome.storage.local`，与 Popup 共享配置和历史
 
 ### v0.7 (2026-06-25)
 

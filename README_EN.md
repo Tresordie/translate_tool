@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.7-blue)
+![Version](https://img.shields.io/badge/version-0.7.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 English | [中文](README.md)
@@ -100,11 +100,14 @@ translation_tool/
 │   ├── popup.html          # Popup UI
 │   ├── popup.css           # Popup styles
 │   ├── popup.js            # Popup logic
+│   ├── fullpage.html       # Fullscreen translation page
+│   ├── fullpage.js         # Fullscreen page logic
 │   ├── content.js          # Text selection translation
 │   ├── content.css         # Tooltip styles
 │   ├── background.js       # Service worker
 │   ├── icons/              # Extension icons
 │   └── _locales/           # i18n files
+├── vibe_images/            # Icon source files
 ├── README.md               # Chinese documentation
 └── README_EN.md            # English documentation
 ```
@@ -151,6 +154,14 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.7.1 (2026-07-07)
+
+- **Fullscreen Page Fixes** — Fixed the Chrome extension fullscreen mode (fullpage.html) where the API Settings button was unresponsive and language dropdowns were empty
+  - Fixed corrupted regex in `fullpage.js` `autoFormatResult` function (`\n` escape sequences were replaced with literal newlines, causing JS syntax error)
+  - Replaced all inline event handlers (`onclick`/`oninput`) with `addEventListener` in fullpage, complying with Chrome Extension CSP policy
+  - History list now uses event delegation instead of inline `onclick` handlers
+  - Migrated fullpage storage from `localStorage` to `chrome.storage.local` for consistent config/history sharing with Popup
 
 ### v0.7 (2026-06-25)
 
