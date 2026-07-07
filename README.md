@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.6-blue)
+![Version](https://img.shields.io/badge/version-0.7-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 [English](README_EN.md) | 中文
@@ -17,6 +17,8 @@
 - **灵活接入** — 支持任意兼容 OpenAI Chat Completions 接口的大模型（OpenAI、DeepSeek、通义千问等）
 - **深度上下文翻译** — AI 翻译前执行 5 步深度分析（领域识别→文体判断→语气分析→受众定位→意图理解），译文更精准自然
 - **原始格式保留** — 完整保留 Markdown、HTML、代码块等原始格式，翻译后自动整理排版
+- **Chrome 扩展全屏模式** — Popup 右上角新增「全屏按钮」，点击后在新标签页打开完整翻译界面（无高度限制）
+- **弹窗高度动态适配** — 最大高度改为 `screen.availHeight`，可拖拽到屏幕最底部
 - **深色科技风界面** — 暗色主题 + 霓虹紫/青色渐变 + 网格纹理背景 + 动态光晕，网页版与插件视觉统一
 - **打字机效果** — 翻译结果逐字显示，体验流畅
 - **翻译历史** — 自动保存最近 20 条翻译记录，点击即可回填
@@ -148,6 +150,12 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.7 (2026-06-25)
+
+- **Chrome 扩展全屏模式** — Popup 右上角新增「全屏按钮」，点击后在新标签页打开完整翻译界面（无高度限制）
+- **弹窗高度动态适配** — 最大高度改为 `screen.availHeight`，可拖拽到屏幕最底部
+- **扩展内资源路径修复** — 使用 `chrome.runtime.getURL()` 正确访问扩展内部 HTML 文件
 
 ### v0.6 (2026-06-25)
 

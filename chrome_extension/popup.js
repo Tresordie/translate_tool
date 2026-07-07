@@ -126,6 +126,12 @@ $('toggleSettings').addEventListener('click', () => {
   $('toggleSettings').classList.toggle('active');
 });
 
+// Open full screen in new tab
+$('openFullscreen').addEventListener('click', () => {
+  const fullPageUrl = chrome.runtime.getURL('fullpage.html');
+  chrome.tabs.create({ url: fullPageUrl });
+});
+
 $('saveSettings').addEventListener('click', () => {
   const config = {
     baseUrl: $('baseUrl').value.trim().replace(/\/+$/, ''),
@@ -519,7 +525,7 @@ $('clearHistoryBtn').addEventListener('click', () => {
   const MIN_W = 320;
   const MAX_W = 800;
   const MIN_H = 300;
-  const MAX_H = 780;
+  const MAX_H = screen.availHeight;
   let startX, startY, startW, startH, dir;
 
   document.querySelectorAll('.resize-handle').forEach(handle => {

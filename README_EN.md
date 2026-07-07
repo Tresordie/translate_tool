@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.6-blue)
+![Version](https://img.shields.io/badge/version-0.7-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 English | [中文](README.md)
@@ -17,6 +17,8 @@ English | [中文](README.md)
 - **Flexible API** — Compatible with any OpenAI Chat Completions API provider (OpenAI, DeepSeek, Qwen, etc.)
 - **Deep Context-Aware Translation** — AI performs a 5-step deep analysis before translating (domain identification → text type assessment → tone analysis → audience profiling → intent understanding) for significantly more accurate translations
 - **Original Format Preservation** — Fully preserves Markdown, HTML, code blocks, and other original formats with auto-formatting after translation
+- **Chrome Extension Fullscreen Mode** — New "fullscreen button" in popup top-right corner, opens full translation page in new tab (no height limit)
+- **Dynamic Popup Height** — Max height set to `screen.availHeight`, can drag to screen bottom
 - **Dark AI-Themed UI** — Dark theme with neon purple/cyan gradients, grid texture background, animated glow orbs — unified visual style across web and extension
 - **Typing Effect** — Translation results appear character by character for a smooth experience
 - **Translation History** — Auto-saves up to 20 recent translations with one-click recall
@@ -149,6 +151,12 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.7 (2026-06-25)
+
+- **Chrome Extension Fullscreen Mode** — New "fullscreen button" in popup top-right corner, opens full translation page in new tab (no height limit)
+- **Dynamic Popup Height** — Max height set to `screen.availHeight`, can drag to screen bottom
+- **Extension Resource Path Fix** — Use `chrome.runtime.getURL()` to correctly access internal HTML files
 
 ### v0.6 (2026-06-25)
 
