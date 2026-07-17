@@ -33,7 +33,12 @@ const LANGUAGES = [
 ];
 
 // ===== DOM =====
-const $ = id => document.getElementById(id);
+const $ = id => { const el = document.getElementById(id); if (!el) console.error("[Popup] #"+id+" not found"); return el; };
+const safeBind = (id, event, fn) => {
+  const el = $(id);
+  if (el) el.addEventListener(event, fn);
+};
+
 const sourceLang = $('sourceLang');
 const targetLang = $('targetLang');
 const sourceText = $('sourceText');
@@ -121,18 +126,36 @@ function init() {
 }
 
 // ===== Settings =====
-$('toggleSettings').addEventListener('click', () => {
+safeBind('toggleSettings', 'click', () => {
   settingsPanel.classList.toggle('open');
   $('toggleSettings').classList.toggle('active');
 });
 
 // Open full screen in new tab
-$('openFullscreen').addEventListener('click', () => {
+safeBind('openFullscreen', 'click', () => {
   const fullPageUrl = chrome.runtime.getURL('fullpage.html');
   chrome.tabs.create({ url: fullPageUrl });
 });
 
-$('saveSettings').addEventListener('click', () => {
+// Open todo list in new tab
+safeBind('openTodoList', 'click', () => {
+  const todoUrl = chrome.runtime.getURL('todolist.html');
+  chrome.tabs.create({ url: todoUrl });
+});
+
+// Open work report in new tab
+safeBind('openWorkReport', 'click', () => {
+  const reportUrl = chrome.runtime.getURL('workreport.html');
+  chrome.tabs.create({ url: reportUrl });
+});
+
+// Open English learning in new tab
+safeBind('openEnglishLearning', 'click', () => {
+  const englishUrl = chrome.runtime.getURL('english_learning.html');
+  chrome.tabs.create({ url: englishUrl });
+});
+
+safeBind('saveSettings', 'click', () => {
   const config = {
     baseUrl: $('baseUrl').value.trim().replace(/\/+$/, ''),
     apiKey: $('apiKey').value.trim(),
@@ -172,7 +195,7 @@ function saveLangPrefs() {
 }
 
 // ===== Swap =====
-$('swapLangs').addEventListener('click', () => {
+safeBind('swapLangs', 'click', () => {
   [sourceLang.value, targetLang.value] = [targetLang.value, sourceLang.value];
   if (resultText.textContent && sourceText.value.trim()) {
     sourceText.value = resultText.dataset.text || '';
@@ -201,7 +224,7 @@ function saveDraft() {
 }
 
 // ===== Clear =====
-$('clearBtn').addEventListener('click', () => {
+safeBind('clearBtn', 'click', () => {
   sourceText.value = '';
   resultText.textContent = '';
   resultArea.classList.remove('visible');
@@ -213,7 +236,7 @@ $('clearBtn').addEventListener('click', () => {
 });
 
 // ===== Copy =====
-$('copyBtn').addEventListener('click', () => {
+safeBind('copyBtn', 'click', () => {
   const text = resultText.dataset.text || resultText.textContent;
   if (!text) return;
   navigator.clipboard.writeText(text).then(
@@ -446,8 +469,8 @@ function addHistory(src, tgt, text, result) {
     tgtLang: tgt.name,
     srcCode: src.code,
     tgtCode: tgt.code,
-    text: text.substring(0, 80),
-    result: result.substring(0, 80),
+    text: text,
+    result: result,
     time: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
   });
   if (history.length > 20) history = history.slice(0, 20);
@@ -514,7 +537,7 @@ historyList.addEventListener('click', (e) => {
 });
 
 // Clear all history
-$('clearHistoryBtn').addEventListener('click', () => {
+safeBind('clearHistoryBtn', 'click', () => {
   history = [];
   chrome.storage.local.remove('history');
   renderHistory();
@@ -586,4 +609,4 @@ function showToast(msg, type) {
 }
 
 // ===== Start =====
-init();
+try { init(); } catch(e) { console.error("[Popup] init error:", e); }

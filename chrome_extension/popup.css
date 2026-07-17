@@ -7,6 +7,7 @@
   --neon-cyan: #22d3ee;
   --neon-purple: #a855f7;
   --neon-blue: #3b82f6;
+  --orange: #f59e0b;
   --bg-dark: #0a0a0f;
   --bg-card: #111118;
   --bg-card2: #16161f;
@@ -31,12 +32,14 @@ html {
 
 body {
   width: 400px;
-  height: 480px;
+  min-height: 480px;
+  max-height: 600px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-size: 14px;
   color: var(--text);
   background: var(--bg-dark);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   border-radius: 16px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-glow);
@@ -209,6 +212,75 @@ body::after {
   border-color: var(--neon-cyan);
   color: var(--neon-cyan);
   box-shadow: 0 0 12px rgba(34,211,238,0.2);
+}
+
+.todolist-btn {
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.2);
+  color: var(--text-secondary);
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(8px);
+  margin-left: 6px;
+}
+.todolist-btn:hover {
+  background: rgba(245,158,11,0.2);
+  border-color: var(--orange);
+  color: #f59e0b;
+  box-shadow: 0 0 12px rgba(245,158,11,0.2);
+}
+
+.report-btn {
+  background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.2);
+  color: var(--text-secondary);
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(8px);
+  margin-left: 6px;
+}
+.report-btn:hover {
+  background: rgba(16,185,129,0.2);
+  border-color: var(--neon-green);
+  color: #10b981;
+  box-shadow: 0 0 12px rgba(16,185,129,0.2);
+}
+
+.english-btn {
+  background: rgba(139,92,246,0.1);
+  border: 1px solid rgba(139,92,246,0.2);
+  color: var(--text-secondary);
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(8px);
+  margin-left: 6px;
+}
+.english-btn:hover {
+  background: rgba(139,92,246,0.2);
+  border-color: var(--primary);
+  color: #a78bfa;
+  box-shadow: 0 0 12px rgba(139,92,246,0.2);
 }
 
 /* ========== Settings ========== */

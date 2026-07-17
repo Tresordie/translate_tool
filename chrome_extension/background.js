@@ -76,6 +76,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return true;
   }
+
+  // Run AppleScript via native messaging host
+  if (msg.action === 'runAppleScript') {
+    handleAppleScriptViaNative(msg.script)
+      .then(result => sendResponse(result))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
 });
 
 async function handleTranslation(text, config) {
@@ -170,4 +178,45 @@ function autoFormatResult(text) {
   text = text.replace(/```\w*\n{2,}/g, '```\n');
   text = text.replace(/\n{2,}```/g, '\n```');
   return text;
+}
+
+// ===== Native Messaging: AppleScript =====
+function handleAppleScriptViaNative(script) {
+  return new Promise((resolve, reject) => {
+    try {
+      const port = chrome.runtime.connectNative('com.linguflow.reminders');
+      let resolved = false;
+
+      port.onMessage.addListener((response) => {
+        if (!resolved) {
+          resolved = true;
+          port.disconnect();
+          resolve(response);
+        }
+      });
+
+      port.onDisconnect.addListener(() => {
+        if (!resolved) {
+          resolved = true;
+          const err = chrome.runtime.lastError;
+          if (err && err.message.includes('not found')) {
+            resolve({
+              success: false,
+              needInstall: true,
+              error: '原生宿主未安装。请先在终端运行: ./install_native_host.sh [扩展ID]'
+            });
+          } else {
+            resolve({
+              success: false,
+              error: err ? err.message : '原生宿主连接断开'
+            });
+          }
+        }
+      });
+
+      port.postMessage({ action: 'runAppleScript', script: script });
+    } catch (e) {
+      resolve({ success: false, error: e.message });
+    }
+  });
 }

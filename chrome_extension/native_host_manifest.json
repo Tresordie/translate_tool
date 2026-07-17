@@ -1,0 +1,9 @@
+{
+  "name": "com.linguflow.reminders",
+  "description": "LinguaFlow Apple Reminders Native Host",
+  "path": "NATIVE_HOST_PYTHON_PATH",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://EXTENSION_ID_PLACEHOLDER/"
+  ]
+}

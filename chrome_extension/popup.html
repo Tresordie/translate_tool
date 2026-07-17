@@ -42,13 +42,31 @@
           <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
         </svg>
       </button>
+      <button class="todolist-btn" id="openTodoList" title="打开任务清单">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+      </button>
+      <button class="report-btn" id="openWorkReport" title="打开工作报告">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+      </button>
+      <button class="english-btn" id="openEnglishLearning" title="英语学习">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+      </button>
     </div>
 
     <!-- Settings Panel -->
     <div class="settings-panel" id="settingsPanel">
       <div class="form-group">
         <label>Base URL</label>
-        <input id="baseUrl" type="text" placeholder="https://api.openai.com/v1" />
+        <input id="baseUrl" type="text" placeholder="https://api.deepseek.com" />
       </div>
       <div class="form-group">
         <label>API Key</label>
@@ -56,7 +74,7 @@
       </div>
       <div class="form-group">
         <label>模型 / Model</label>
-        <input id="modelName" type="text" placeholder="gpt-4o / deepseek-chat" />
+        <input id="modelName" type="text" placeholder="deepseek-v4-pro" />
       </div>
       <div class="form-group checkbox-group">
         <label>

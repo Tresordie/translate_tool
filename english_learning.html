@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>英语学习助手 v4.0 ✨</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --card-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            --hover-shadow: 0 15px 50px rgba(0,0,0,0.15);
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255,255,255,0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 30px;
+            box-shadow: var(--card-shadow);
+            padding: 50px;
+            position: relative;
+            z-index: 1;
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            position: relative;
+        }
+
+        .header h1 {
+            background: var(--bg-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 3em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header-subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+            border-radius: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+        }
+
+        .section:hover {
+            box-shadow: var(--hover-shadow);
+            transform: translateY(-2px);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            background: var(--bg-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 600;
+        }
+
+        .toggle-icon {
+            font-size: 28px;
+            color: var(--primary-color);
+            transition: transform 0.3s;
+            background: white;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .toggle-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            max-height: 2000px;
+            overflow: visible;
+            transition: all 0.4s ease-out;
+            opacity: 1;
+        }
+
+        .section-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .preset-card {
+            padding: 20px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .preset-card:hover {
+            border-color: var(--primary-color);
+            background: linear-gradient(135deg, #f0f4ff 0%, #ffffff 100%);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+
+        .preset-card.active {
+            border-color: var(--primary-color);
+            background: var(--bg-gradient);
+            color: white;
+        }
+
+        .preset-card.active .preset-name,
+        .preset-card.active .preset-desc {
+            color: white;
+        }
+
+        .preset-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .preset-name {
+            font-weight: 600;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .preset-desc {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 25px;
+        }
+
+        .btn {
+            padding: 14px 32px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .btn-primary {
+            background: var(--bg-gradient);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .test-result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .test-result.success {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border: 2px solid #10b981;
+            display: block;
+        }
+
+        .test-result.error {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border: 2px solid #ef4444;
+            display: block;
+        }
+
+        .test-result.info {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border: 2px solid #3b82f6;
+            display: block;
+        }
+
+        .input-area {
+            position: relative;
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 18px;
+            border: 2px solid #e5e7eb;
+            border-radius: 15px;
+            font-size: 18px;
+            resize: vertical;
+            min-height: 120px;
+            font-family: inherit;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+
+        .pronunciation-panel {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border-left: 5px solid var(--primary-color);
+            transition: all 0.3s;
+        }
+
+        .result-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        }
+
+        .result-card h3 {
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .result-card p {
+            color: #4b5563;
+            line-height: 1.8;
+            margin-bottom: 10px;
+        }
+
+        .history-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .history-item {
+            background: white;
+            padding: 18px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 4px solid var(--primary-color);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .history-item:hover {
+            transform: translateX(8px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            border-left-color: var(--secondary-color);
+        }
+
+        .history-word {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #333;
+        }
+
+        .history-time {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .history-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-delete {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn-delete:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+
+        .error-message {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #dc2626;
+            padding: 18px;
+            border-radius: 12px;
+            margin-top: 15px;
+            display: none;
+            border: 2px solid #ef4444;
+        }
+
+        .error-message.active {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin: 5px;
+        }
+
+        .badge-primary {
+            background: var(--bg-gradient);
+            color: white;
+        }
+
+        .badge-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 25px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .section {
+                padding: 20px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .preset-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .history-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 英语学习助手</h1>
+            <p class="header-subtitle">智能学习 · 高效记忆 · 轻松掌握</p>
+        </div>
+
+        <!-- API配置区域 -->
+        <div class="section">
+            <div class="section-header" id="apiConfigHeader">
+                <h2 class="section-title">⚙️ API 配置</h2>
+                <span class="toggle-icon" id="apiConfig-icon">▼</span>
+            </div>
+            <div class="section-content" id="apiConfig-content">
+                <div style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
+                    <p style="color: #1e40af; margin: 5px 0;"><strong>📋 使用流程:</strong></p>
+                    <p style="color: #1e40af; margin: 5px 0;">1️⃣ 选择预设配置或手动填写</p>
+                    <p style="color: #1e40af; margin: 5px 0;">2️⃣ 填写 API Key 并测试连接</p>
+                    <p style="color: #1e40af; margin: 5px 0;">3️⃣ 保存配置后开始学习</p>
+                </div>
+
+                <div class="preset-grid">
+                    <div class="preset-card" data-preset="deepseek">
+                        <div class="preset-icon">🐋</div>
+                        <div class="preset-name">DeepSeek</div>
+                        <div class="preset-desc">api.deepseek.com</div>
+                    </div>
+                    <div class="preset-card" data-preset="openai">
+                        <div class="preset-icon">🤖</div>
+                        <div class="preset-name">OpenAI</div>
+                        <div class="preset-desc">api.openai.com</div>
+                    </div>
+                    <div class="preset-card" data-preset="ollama">
+                        <div class="preset-icon">🏠</div>
+                        <div class="preset-name">Ollama</div>
+                        <div class="preset-desc">本地部署</div>
+                    </div>
+                    <div class="preset-card" data-preset="siliconflow">
+                        <div class="preset-icon">🇨🇳</div>
+                        <div class="preset-name">硅基流动</div>
+                        <div class="preset-desc">api.siliconflow.cn</div>
+                    </div>
+                    <div class="preset-card" data-preset="custom">
+                        <div class="preset-icon">⚡</div>
+                        <div class="preset-name">自定义</div>
+                        <div class="preset-desc">手动配置</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="apiUrl">API Base URL:</label>
+                    <input type="text" id="apiUrl" class="form-input" placeholder="https://api.deepseek.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="apiKey">API Key:</label>
+                    <input type="password" id="apiKey" class="form-input" placeholder="输入你的 API Key">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="modelName">Model Name:</label>
+                    <input type="text" id="modelName" class="form-input" placeholder="deepseek-v4-pro">
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn btn-primary" id="testBtn">🔌 测试连接</button>
+                    <button class="btn btn-success" id="saveApiBtn">💾 保存配置</button>
+                    <button class="btn btn-danger" id="clearApiBtn">🗑️ 清除</button>
+                </div>
+
+                <div id="testResult" class="test-result"></div>
+            </div>
+        </div>
+
+        <!-- 学习输入区域 -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">✏️ 学习内容</h2>
+            </div>
+            
+            <div class="input-area">
+                <textarea id="wordInput" class="form-textarea" placeholder="输入英文单词/短语或中文，例如: apple / 苹果 / hello world"></textarea>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" id="learnWordBtn">🔍 学习单词</button>
+                <button class="btn btn-success" id="saveContentBtn">💾 保存今天内容</button>
+                <button class="btn btn-warning" id="clearAllBtn">🗑️ 清空所有</button>
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+
+            <!-- 语音发音面板 -->
+            <div class="pronunciation-panel" id="pronunciationPanel">
+                <h3 style="color: var(--primary-color); margin-bottom: 20px;">🔊 语音发音</h3>
+                <div class="form-group">
+                    <label class="form-label">选择语音:</label>
+                    <select id="voiceSelect" class="form-input"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">语速: <span id="rateValue" class="badge badge-primary">1.0x</span></label>
+                    <input type="range" id="rateSlider" min="0.5" max="2" step="0.1" value="1" class="form-input" style="padding: 10px;">
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" id="speakWordBtn">🔊 朗读</button>
+                    <button class="btn btn-danger" id="stopSpeakingBtn">⏹️ 停止</button>
+                    <button class="btn btn-success" id="speakSlowlyBtn">🐢 慢速</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载动画 -->
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p style="color: var(--primary-color); font-size: 1.2em; font-weight: 600;">正在获取学习内容...</p>
+        </div>
+
+        <!-- 学习结果 -->
+        <div class="section" id="resultSection" style="display: none;">
+            <div class="section-header">
+                <h2 class="section-title">📖 学习结果</h2>
+            </div>
+            <div id="resultContent"></div>
+        </div>
+
+        <!-- 学习历史 -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">📝 学习历史</h2>
+                <button class="btn-small btn-delete" id="clearAllHistoryBtn" style="padding: 10px 20px; font-size: 14px;">🗑️ 清空全部</button>
+            </div>
+            <div id="historyList" class="history-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // ===== Chrome Extension Storage Adapter =====
+        // Safely bridge localStorage <-> chrome.storage.local
+        // If anything fails, fall back to native localStorage (page still works)
+        (function() {
+          try {
+            if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
+
+            // Test that chrome.storage.local actually works
+            chrome.storage.local.get('__test__', function() {
+              if (chrome.runtime.lastError) return;
+            });
+
+            // Copy existing localStorage data into chrome.storage for sync
+            try {
+              var keys = ['apiConfig', 'englishLearningData', 'learningHistory'];
+              keys.forEach(function(k) {
+                var val = window.localStorage.getItem(k);
+                if (val !== null) {
+                  var obj = {};
+                  obj[k] = val;
+                  chrome.storage.local.set(obj);
+                }
+              });
+            } catch(e) {}
+
+            // Listen for changes from other extension pages
+            chrome.storage.onChanged.addListener(function(changes) {
+              Object.keys(changes).forEach(function(k) {
+                if (changes[k].newValue !== undefined) {
+                  try { window.localStorage.setItem(k, changes[k].newValue); } catch(e) {}
+                }
+              });
+            });
+          } catch(e) {
+            // Any error -> use native localStorage, page still functional
+            console.warn('[EnglishLearning] Storage adapter skipped:', e.message);
+          }
+        })();
+
+        console.log('%c✨ 英语学习助手 v4.0 已加载', 'color: #667eea; font-size: 18px; font-weight: bold;');
+
+        const presets = {
+            deepseek: { url: 'https://api.deepseek.com', model: 'deepseek-v4-pro' },
+            openai: { url: 'https://api.openai.com/v1', model: 'gpt-4o' },
+            siliconflow: { url: 'https://api.siliconflow.cn/v1', model: 'Pro/deepseek-ai/DeepSeek-V3' },
+            ollama: { url: 'http://localhost:11434/v1', model: 'llama2' },
+            custom: { url: '', model: '' }
+        };
+
+        function usePreset(service) {
+            const preset = presets[service];
+            document.getElementById('apiUrl').value = preset.url;
+            document.getElementById('modelName').value = preset.model;
+            
+            // active class managed by click event listener
+            
+            if (service === 'custom') {
+                document.getElementById('apiUrl').focus();
+            }
+            
+            showTestResult('info', `✅ 已选择预设，请填写 API Key 后测试连接`);
+        }
+
+        async function testApiConnection() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const modelName = document.getElementById('modelName').value.trim();
+            const testBtn = document.getElementById('testBtn');
+            
+            if (!apiUrl || !apiKey || !modelName) {
+                showTestResult('error', '❌ 请填写完整的API配置信息');
+                return;
+            }
+            
+            testBtn.innerHTML = '⏳ 测试中...';
+            testBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`${apiUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: modelName,
+                        messages: [{ role: 'user', content: 'Hello! Connection test.' }],
+                        max_tokens: 50
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const reply = data.choices[0].message.content;
+                
+                showTestResult('success', `✅ 连接成功！模型: ${data.model || modelName}<br><p>AI回复: ${escapeHtml(reply)}</p><p style="margin-top: 10px;"><strong>🎉 配置可以正常使用！</strong></p>`);
+                
+            } catch (error) {
+                showTestResult('error', `❌ 连接失败<br><p><strong>错误:</strong> ${escapeHtml(error.message)}</p>`);
+            } finally {
+                testBtn.innerHTML = '🔌 测试连接';
+                testBtn.disabled = false;
+            }
+        }
+
+        function showTestResult(type, message) {
+            const testResult = document.getElementById('testResult');
+            testResult.className = `test-result ${type}`;
+            testResult.innerHTML = message;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function saveApiConfig() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const modelName = document.getElementById('modelName').value.trim();
+            
+            if (!apiUrl || !apiKey || !modelName) {
+                showTestResult('error', '❌ 请填写完整的API配置信息');
+                return;
+            }
+            
+            localStorage.setItem('apiConfig', JSON.stringify({ apiUrl, apiKey, modelName, savedAt: new Date().toISOString() }));
+            showTestResult('success', `✅ 配置已保存！<br><p>URL: ${apiUrl}</p><p>Model: ${modelName}</p>`);
+        }
+
+        function clearApiConfig() {
+            if (confirm('确定要清除API配置吗?')) {
+                document.getElementById('apiUrl').value = '';
+                document.getElementById('apiKey').value = '';
+                document.getElementById('modelName').value = '';
+                localStorage.removeItem('apiConfig');
+                document.getElementById('testResult').style.display = 'none';
+                document.querySelectorAll('.preset-card').forEach(card => card.classList.remove('active'));
+            }
+        }
+
+        function loadApiConfig() {
+            var config;
+            try { config = JSON.parse(localStorage.getItem('apiConfig')); } catch(e) { config = null; }
+            if (config) {
+                document.getElementById('apiUrl').value = config.apiUrl || '';
+                document.getElementById('apiKey').value = config.apiKey || '';
+                document.getElementById('modelName').value = config.modelName || '';
+            }
+        }
+
+        function toggleSection(sectionId) {
+            const content = document.getElementById(`${sectionId}-content`);
+            const icon = document.getElementById(`${sectionId}-icon`);
+            
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                icon.classList.remove('collapsed');
+            } else {
+                content.classList.add('collapsed');
+                icon.classList.add('collapsed');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load config from localStorage (works in all contexts)
+            loadApiConfig();
+            loadFromStorage();
+            displayHistory();
+            try { initVoices(); } catch(e) { console.warn('[EL] initVoices:', e.message); }
+            try { if (speechSynthesis && speechSynthesis.onvoiceschanged !== undefined) { speechSynthesis.onvoiceschanged = initVoices; } } catch(e) {}
+            // Additionally sync from chrome.storage if available
+            try {
+                if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                    chrome.storage.local.get(['apiConfig', 'englishLearningData', 'learningHistory'], function(data) {
+                        if (chrome.runtime.lastError) return;
+                        var needsReload = false;
+                        ['apiConfig', 'englishLearningData', 'learningHistory'].forEach(function(k) {
+                            if (data[k] !== undefined && !localStorage.getItem(k)) {
+                                localStorage.setItem(k, data[k]);
+                                needsReload = true;
+                            }
+                        });
+                        if (needsReload) {
+                            loadApiConfig();
+                            loadFromStorage();
+                            displayHistory();
+                        }
+                    });
+                }
+            } catch(e) {}
+        });
+
+        function initVoices() {
+            const voiceSelect = document.getElementById('voiceSelect');
+            const voices = speechSynthesis.getVoices();
+            voiceSelect.innerHTML = '';
+            
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                if (voice.lang.startsWith('en')) option.selected = true;
+                voiceSelect.appendChild(option);
+            });
+        }
+
+        function speakWord() {
+            const word = document.getElementById('wordInput').value.trim();
+            if (!word) return;
+            stopSpeaking();
+            
+            const utterance = new SpeechSynthesisUtterance(word);
+            const voices = speechSynthesis.getVoices();
+            const selectedVoice = voices.find(v => v.name === document.getElementById('voiceSelect').value);
+            if (selectedVoice) utterance.voice = selectedVoice;
+            
+            utterance.rate = parseFloat(document.getElementById('rateSlider').value);
+            utterance.lang = /^[\u4e00-\u9fa5]+$/.test(word) ? 'zh-CN' : 'en-US';
+            try { speechSynthesis.speak(utterance); } catch(e) { console.warn("[EL] speak:", e.message); }
+        }
+
+        function stopSpeaking() {
+            try { if (speechSynthesis && speechSynthesis.speaking) speechSynthesis.cancel(); } catch(e) {}
+        }
+
+        function speakSlowly() {
+            const word = document.getElementById('wordInput').value.trim();
+            if (!word) return;
+            stopSpeaking();
+            
+            const utterance = new SpeechSynthesisUtterance(word);
+            const voices = speechSynthesis.getVoices();
+            const selectedVoice = voices.find(v => v.name === document.getElementById('voiceSelect').value);
+            if (selectedVoice) utterance.voice = selectedVoice;
+            
+            utterance.rate = 0.6;
+            utterance.lang = /^[\u4e00-\u9fa5]+$/.test(word) ? 'zh-CN' : 'en-US';
+            try { speechSynthesis.speak(utterance); } catch(e) { console.warn("[EL] speak:", e.message); }
+        }
+
+        document.getElementById('rateSlider').addEventListener('input', function() {
+            document.getElementById('rateValue').textContent = parseFloat(this.value).toFixed(1) + 'x';
+        });
+
+        function saveToStorage() {
+            const data = {
+                wordInput: document.getElementById('wordInput').value,
+                resultContent: document.getElementById('resultContent').innerHTML,
+                resultSectionVisible: document.getElementById('resultSection').style.display !== 'none'
+            };
+            localStorage.setItem('englishLearningData', JSON.stringify(data));
+        }
+
+        function loadFromStorage() {
+            const data = JSON.parse(localStorage.getItem('englishLearningData'));
+            if (data) {
+                document.getElementById('wordInput').value = data.wordInput || '';
+                if (data.resultSectionVisible && data.resultContent) {
+                    document.getElementById('resultContent').innerHTML = data.resultContent;
+                    document.getElementById('resultSection').style.display = 'block';
+                }
+            }
+        }
+
+        function getHistory() {
+            return JSON.parse(localStorage.getItem('learningHistory') || '[]');
+        }
+
+        function saveHistory(item) {
+            const history = getHistory();
+            history.unshift(item);
+            if (history.length > 50) history.pop();
+            localStorage.setItem('learningHistory', JSON.stringify(history));
+            displayHistory();
+        }
+
+        function deleteHistoryItem(index, event) {
+            event.stopPropagation();
+            if (confirm('确定要删除这条学习记录吗?')) {
+                const history = getHistory();
+                history.splice(index, 1);
+                localStorage.setItem('learningHistory', JSON.stringify(history));
+                displayHistory();
+            }
+        }
+
+        function clearAllHistory() {
+            if (confirm('确定要清空所有学习历史吗?此操作不可撤销！')) {
+                localStorage.removeItem('learningHistory');
+                displayHistory();
+            }
+        }
+
+        function displayHistory() {
+            const history = getHistory();
+            const historyList = document.getElementById('historyList');
+            
+            if (history.length === 0) {
+                historyList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>暂无学习记录</p>
+                        <p style="font-size: 0.9em; margin-top: 10px;">开始学习你的第一个单词吧！</p>
+                    </div>
+                `;
+                return;
+            }
+
+            historyList.innerHTML = history.map((item, index) => `
+                <div class="history-item" data-index="${index}">
+                    <div style="flex: 1;">
+                        <div class="history-word">${item.word}</div>
+                        <div class="history-time">${new Date(item.timestamp).toLocaleString('zh-CN')}</div>
+                    </div>
+                    <div class="history-actions">
+                        <button class="btn-small btn-delete" data-del-index="${index}">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadHistory(index) {
+            const history = getHistory();
+            const item = history[index];
+            document.getElementById('wordInput').value = item.word;
+            document.getElementById('resultContent').innerHTML = item.content;
+            document.getElementById('resultSection').style.display = 'block';
+            saveToStorage();
+        }
+
+        async function learnWord() {
+            const word = document.getElementById('wordInput').value.trim();
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const modelName = document.getElementById('modelName').value.trim();
+
+            if (!word) {
+                showError('请输入单词或短语');
+                return;
+            }
+
+            if (!apiUrl || !apiKey || !modelName) {
+                showError('请先配置并测试API连接');
+                return;
+            }
+
+            hideError();
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultSection').style.display = 'none';
+
+            try {
+                const response = await fetch(`${apiUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: modelName,
+                        messages: [
+                            { role: 'system', content: '你是专业的英语教学助手，请用JSON格式返回结果。' },
+                            { role: 'user', content: `请为"${word}"提供: 1.音标(英美) 2.词性 3.中英文释义 4.用法 5.3-5个例句 6.同义词 7.反义词 8.记忆技巧。JSON格式: {"word":"","phonetic_uk":"","phonetic_us":"","part_of_speech":"","chinese_meaning":"","english_definition":"","usage":"","examples":[{"en":"","zh":""}],"synonyms":[],"antonyms":[],"memory_tip":""}` }
+                        ],
+                        temperature: 0.7
+                    })
+                });
+
+                if (!response.ok) throw new Error(`API请求失败: ${response.status}`);
+
+                const data = await response.json();
+                const content = data.choices[0].message.content;
+                
+                let result;
+                try {
+                    const jsonMatch = content.match(/\{[\s\S]*\}/);
+                    result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+                } catch (e) {
+                    result = null;
+                }
+
+                if (result) {
+                    displayResult(result);
+                    saveHistory({ word, content: document.getElementById('resultContent').innerHTML, timestamp: new Date().toISOString() });
+                } else {
+                    document.getElementById('resultContent').innerHTML = `<div class="result-card"><h3>📖 学习结果</h3><pre style="white-space: pre-wrap;">${escapeHtml(content)}</pre></div>`;
+                    document.getElementById('resultSection').style.display = 'block';
+                    saveHistory({ word, content: document.getElementById('resultContent').innerHTML, timestamp: new Date().toISOString() });
+                }
+                
+                saveToStorage();
+
+            } catch (error) {
+                showError(`请求失败: ${error.message}`);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function displayResult(result) {
+            const html = `
+                <div class="result-card">
+                    <h3>📝 ${result.word}</h3>
+                    <p><strong>英式音标:</strong> ${result.phonetic_uk || 'N/A'}</p>
+                    <p><strong>美式音标:</strong> ${result.phonetic_us || 'N/A'}</p>
+                    <p><strong>词性:</strong> ${result.part_of_speech || 'N/A'}</p>
+                </div>
+                <div class="result-card">
+                    <h3>📖 释义</h3>
+                    <p><strong>中文:</strong> ${result.chinese_meaning || 'N/A'}</p>
+                    <p><strong>英文:</strong> ${result.english_definition || 'N/A'}</p>
+                </div>
+                <div class="result-card">
+                    <h3>💡 用法</h3>
+                    <p>${result.usage || 'N/A'}</p>
+                </div>
+                <div class="result-card">
+                    <h3>📚 例句</h3>
+                    ${(result.examples || []).map((ex, i) => `<p><strong>${i+1}.</strong> ${ex.en}</p><p style="margin-left: 20px; color: #666;">${ex.zh}</p>`).join('')}
+                </div>
+                ${result.synonyms && result.synonyms.length ? `<div class="result-card"><h3>🔄 同义词</h3><p>${result.synonyms.join(', ')}</p></div>` : ''}
+                ${result.antonyms && result.antonyms.length ? `<div class="result-card"><h3>⚡ 反义词</h3><p>${result.antonyms.join(', ')}</p></div>` : ''}
+                ${result.memory_tip ? `<div class="result-card"><h3>🧠 记忆技巧</h3><p>${result.memory_tip}</p></div>` : ''}
+            `;
+            document.getElementById('resultContent').innerHTML = html;
+            document.getElementById('resultSection').style.display = 'block';
+        }
+
+        // 获取UTC+8时间信息，用于文件命名和"今天"判定
+        function getUTC8Time(date) {
+            // 将时间转换为UTC+8(北京时间)
+            const utc8Ms = date.getTime() + (date.getTimezoneOffset() * 60000) + (8 * 3600000);
+            const utc8Date = new Date(utc8Ms);
+            
+            const pad = n => String(n).padStart(2, '0');
+            const year = utc8Date.getFullYear();
+            const month = pad(utc8Date.getMonth() + 1);
+            const day = pad(utc8Date.getDate());
+            const hours = pad(utc8Date.getHours());
+            const minutes = pad(utc8Date.getMinutes());
+            const seconds = pad(utc8Date.getSeconds());
+            
+            // 用于文件命名: 2026-06-19_14-30-45 (避免 Windows 文件名非法字符 : *)
+            const timestamp = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+            // 用于"今天"判定: 2026-06-19
+            const dateStr = `${year}-${month}-${day}`;
+            // 用于显示: 2026-06-19 14:30:45 UTC+8
+            const display = `${year}-${month}-${day} ${hours}:${minutes}:${seconds} (UTC+8)`;
+            
+            return { timestamp, dateStr, display, utc8Date };
+        }
+
+        function getUTC8DateString(date) {
+            return getUTC8Time(date).dateStr;
+        }
+
+        function saveContent() {
+            console.log('开始保存今天内容...');
+            const history = getHistory();
+            console.log('历史记录总数:', history.length);
+            
+            if (history.length === 0) {
+                showError('还没有学习内容，请先学习一些单词');
+                return;
+            }
+
+            const now = new Date();
+            const utc8 = getUTC8Time(now);
+            
+            console.log('今天日期(UTC+8):', utc8.dateStr);
+            
+            const todayHistory = history.filter(item => {
+                const itemDate = getUTC8DateString(new Date(item.timestamp));
+                console.log('记录日期(UTC+8):', itemDate, item.word);
+                return itemDate === utc8.dateStr;
+            });
+            
+            console.log('今天(UTC+8)学习记录数:', todayHistory.length);
+            
+            if (todayHistory.length === 0) {
+                showError('今天还没有学习内容，请先学习一些单词');
+                return;
+            }
+
+            try {
+                console.log('生成Markdown...');
+                const md = generateMarkdown(todayHistory, now);
+                console.log('生成HTML...');
+                const html = generateHTML(todayHistory, now);
+
+                console.log('下载Markdown文件...');
+                downloadFile(`${utc8.timestamp}-英语学习笔记.md`, md, 'text/markdown');
+                
+                console.log('下载HTML文件...');
+                setTimeout(() => {
+                    downloadFile(`${utc8.timestamp}-英语学习笔记.html`, html, 'text/html');
+                    console.log('保存完成!');
+                }, 500);
+
+                // 显示成功消息
+                const successMsg = `✅ 已保存今天(UTC+8) ${todayHistory.length} 个单词\n\n📝 ${utc8.timestamp}-英语学习笔记.md\n🌐 ${utc8.timestamp}-英语学习笔记.html\n\n💡 如果浏览器阻止下载,请允许弹出窗口`;
+                
+                // 使用自定义的成功提示
+                showSuccess(successMsg);
+                
+            } catch (error) {
+                console.error('保存失败:', error);
+                showError(`保存失败: ${error.message}`);
+            }
+        }
+
+        function showSuccess(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.style.background = 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)';
+            errorEl.style.color = '#065f46';
+            errorEl.style.border = '2px solid #10b981';
+            errorEl.textContent = message;
+            errorEl.classList.add('active');
+            
+            // 10秒后隐藏
+            setTimeout(() => {
+                errorEl.classList.remove('active');
+                errorEl.style.background = '';
+                errorEl.style.color = '';
+                errorEl.style.border = '';
+            }, 10000);
+        }
+
+        // 将一段HTML片段中的标签、实体解码为纯文本
+        function htmlToText(html) {
+            if (!html) return '';
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            return (div.textContent || div.innerText || '').trim();
+        }
+
+        // 从 result-card 的 HTML 中提取 "字段: 值" 形式的内容
+        // 匹配 displayResult() 生成的: <p><strong>字段:</strong> 值</p>
+        function extractText(content, field) {
+            if (!content) return '';
+            // 匹配 <strong>字段:</strong> 后面紧跟到 </p> 的值
+            const re = new RegExp('<strong>\\s*' + field + '\\s*:?</strong>([\\s\\S]*?)</p>', 'i');
+            const m = content.match(re);
+            if (!m) return '';
+            const text = htmlToText(m[1]);
+            return text && text !== 'N/A' ? text : '';
+        }
+
+        // 提取某个 <h3>小节</h3> 之后到下一个 <h3> 或卡片结束之间的内容
+        function extractSection(content, field) {
+            if (!content) return '';
+            // 从 <h3>field</h3> 之后开始, 到下一个 <h3> 结束
+            const re = new RegExp('<h3[^>]*>' + field + '[\\s\\S]*?</h3>([\\s\\S]*?)(?=<h3|$)', 'i');
+            const m = content.match(re);
+            if (!m) return '';
+            const text = htmlToText(m[1]);
+            return text && text !== 'N/A' ? text : '';
+        }
+
+        // 提取例句: 多对 "1. 英文" + 缩进的中文翻译
+        // displayResult() 中: <p><strong>i.</strong> en</p><p style="...">zh</p>
+        function extractExamples(content) {
+            if (!content) return [];
+            const examples = [];
+            // 英文行: <p><strong>1.</strong> hello</p>
+            const enRegex = /<p>\s*<strong>\d+\.\s*<\/strong>\s*([\s\S]*?)<\/p>/gi;
+            // 中文行: <p style="...">你好</p> (紧跟在英文行后)
+            const zhRegex = /<p\s+style="[^"]*"[^>]*>\s*([\s\S]*?)<\/p>/gi;
+            const enMatches = [...content.matchAll(enRegex)];
+            const zhMatches = [...content.matchAll(zhRegex)];
+
+            const count = Math.max(enMatches.length, zhMatches.length);
+            for (let i = 0; i < count; i++) {
+                const en = enMatches[i] ? htmlToText(enMatches[i][1]) : '';
+                const zh = zhMatches[i] ? htmlToText(zhMatches[i][1]) : '';
+                if (en || zh) {
+                    examples.push({ en, zh });
+                }
+            }
+            return examples;
+        }
+
+        function generateMarkdown(history, date) {
+            let md = `# 📚 英语学习笔记\n\n`;
+            md += `---\n\n`;
+            md += `> 📅 **学习日期**: ${date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}\n`;
+            md += `> \n`;
+            md += `> ⏰ **导出时间**: ${date.toLocaleString('zh-CN')} (UTC: ${date.toISOString()})\n`;
+            md += `> \n`;
+            md += `> 📊 **今日学习**: **${history.length}** 个单词/短语\n`;
+            md += `> \n`;
+            md += `> 💡 **学习建议**: 每天坚持学习10-20个单词,配合复习效果更佳!\n\n`;
+            md += `---\n\n`;
+            
+            // 目录
+            md += `## 📖 目录\n\n`;
+            history.forEach((item, index) => {
+                const time = new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                const anchor = item.word.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-').replace(/-+/g, '-');
+                md += `${index + 1}. [**${item.word}**](#${anchor}) - _${time}_\n`;
+            });
+            md += `\n---\n\n`;
+            
+            // 每个单词的详细内容
+            history.forEach((item, index) => {
+                const anchor = item.word.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-').replace(/-+/g, '-');
+                md += `## ${index + 1}. ${item.word} {#${anchor}}\n\n`;
+                
+                // 解析HTML内容,提取各个部分
+                const content = item.content;
+                
+                // 提取单词标题信息
+                const wordMatch = content.match(/<h3[^>]*>📝\s*([^<]+)<\/h3>/);
+                if (wordMatch) {
+                    md += `### 📝 基本信息\n\n`;
+                }
+                
+                const phoneticUk = extractText(content, '英式音标');
+                const phoneticUs = extractText(content, '美式音标');
+                const partOfSpeech = extractText(content, '词性');
+                
+                if (phoneticUk || phoneticUs || partOfSpeech) {
+                    md += `| 项目 | 内容 |\n`;
+                    md += `|------|------|\n`;
+                    if (phoneticUk) md += `| 🔊 英式音标 | ${phoneticUk} |\n`;
+                    if (phoneticUs) md += `| 🔊 美式音标 | ${phoneticUs} |\n`;
+                    if (partOfSpeech) md += `| 🏷️ 词性 | ${partOfSpeech} |\n`;
+                    md += `\n`;
+                }
+                
+                // 释义
+                const chineseMeaning = extractText(content, '中文');
+                const englishDefinition = extractText(content, '英文');
+                if (chineseMeaning || englishDefinition) {
+                    md += `### 📖 详细释义\n\n`;
+                    if (chineseMeaning) md += `**🇨🇳 中文释义**:\n\n${chineseMeaning}\n\n`;
+                    if (englishDefinition) md += `**🇬🇧 英文释义**:\n\n${englishDefinition}\n\n`;
+                }
+                
+                // 用法
+                const usage = extractSection(content, '用法');
+                if (usage) {
+                    md += `### 💡 用法说明\n\n${usage}\n\n`;
+                }
+                
+                // 例句
+                const examples = extractExamples(content);
+                if (examples.length > 0) {
+                    md += `### 📚 经典例句\n\n`;
+                    examples.forEach((ex, i) => {
+                        md += `${i + 1}. **${ex.en}**\n`;
+                        md += `\n`;
+                        md += `   > ${ex.zh}\n\n`;
+                    });
+                }
+                
+                // 同义词
+                const synonyms = extractText(content, '同义词');
+                if (synonyms && synonyms !== 'N/A' && synonyms.trim()) {
+                    md += `### 🔄 同义词\n\n`;
+                    const synList = synonyms.split(/[,，]/).map(s => s.trim()).filter(s => s && s !== 'N/A');
+                    if (synList.length > 0) {
+                        synList.forEach(syn => {
+                            md += `- ${syn}\n`;
+                        });
+                        md += `\n`;
+                    }
+                }
+                
+                // 反义词
+                const antonyms = extractText(content, '反义词');
+                if (antonyms && antonyms !== 'N/A' && antonyms.trim()) {
+                    md += `### ⚡ 反义词\n\n`;
+                    const antList = antonyms.split(/[,，]/).map(a => a.trim()).filter(a => a && a !== 'N/A');
+                    if (antList.length > 0) {
+                        antList.forEach(ant => {
+                            md += `- ${ant}\n`;
+                        });
+                        md += `\n`;
+                    }
+                }
+                
+                // 记忆技巧
+                const memoryTip = extractText(content, '记忆技巧');
+                if (memoryTip && memoryTip !== 'N/A' && memoryTip.trim()) {
+                    md += `### 🧠 记忆技巧\n\n`;
+                    md += `> 💭 ${memoryTip}\n\n`;
+                }
+                
+                md += `---\n\n`;
+            });
+            
+            // 底部签名
+            md += `---\n\n`;
+            md += `<div align="center">\n\n`;
+            md += `✨ **Generated by English Learning Assistant**\n\n`;
+            md += `💪 _Keep learning, keep growing!_\n\n`;
+            md += `📅 _坚持每天学习,积少成多!_\n\n`;
+            md += `</div>\n`;
+            
+            return md;
+        }
+
+        function generateHTML(history, date) {
+            const cards = history.map((item, i) => `
+                <div class="word-card">
+                    <div class="word-header">
+                        <h2>${i + 1}. ${item.word}</h2>
+                        <span class="time-badge">${new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    ${item.content}
+                </div>
+            `).join('');
+
+            return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>英语学习笔记</title>
+<style>body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);padding:40px;}.container{max-width:900px;margin:0 auto;background:white;padding:50px;border-radius:20px;}.header{text-align:center;margin-bottom:40px;}h1{color:#667eea;}.word-card{background:#f8f9fa;padding:30px;border-radius:15px;margin:20px 0;border-left:5px solid #667eea;}.word-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}.time-badge{background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:5px 15px;border-radius:20px;}</style>
+</head><body><div class="container"><div class="header"><h1>📚 英语学习笔记</h1><p>${date.toLocaleDateString('zh-CN')} | ${history.length} 个单词</p></div>${cards}</div></body></html>`;
+        }
+
+        function downloadFile(filename, content, type) {
+            console.log('下载文件:', filename);
+            try {
+                const blob = new Blob([content], { type: type + ';charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                
+                // 延迟清理
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    console.log('文件下载成功:', filename);
+                }, 100);
+            } catch (error) {
+                console.error('下载文件失败:', error);
+                throw error;
+            }
+        }
+
+        function clearAll() {
+            if (confirm('确定要清空所有内容吗?')) {
+                document.getElementById('wordInput').value = '';
+                document.getElementById('resultContent').innerHTML = '';
+                document.getElementById('resultSection').style.display = 'none';
+                localStorage.removeItem('englishLearningData');
+                localStorage.removeItem('learningHistory');
+                displayHistory();
+                hideError();
+            }
+        }
+
+        function showError(message) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = message;
+            el.classList.add('active');
+            setTimeout(() => hideError(), 5000);
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').classList.remove('active');
+        }
+
+        document.getElementById('wordInput').addEventListener('input', function() {
+            saveToStorage();
+            document.getElementById('pronunciationPanel').style.display = this.value.trim() ? 'block' : 'none';
+        });
+
+        // ===== Event Listeners (CSP compliant - no inline handlers) =====
+        (function() {
+            var apiConfigHeader = document.getElementById('apiConfigHeader');
+            if (apiConfigHeader) apiConfigHeader.addEventListener('click', function() { toggleSection('apiConfig'); });
+
+            document.querySelectorAll('.preset-card[data-preset]').forEach(function(card) {
+                card.addEventListener('click', function() {
+                    var preset = this.getAttribute('data-preset');
+                    document.querySelectorAll('.preset-card').forEach(function(c) { c.classList.remove('active'); });
+                    this.classList.add('active');
+                    usePreset(preset);
+                });
+            });
+
+            var bind = function(id, fn) {
+                var el = document.getElementById(id);
+                if (el) el.addEventListener('click', fn);
+            };
+            bind('testBtn', testApiConnection);
+            bind('saveApiBtn', saveApiConfig);
+            bind('clearApiBtn', clearApiConfig);
+            bind('learnWordBtn', learnWord);
+            bind('saveContentBtn', saveContent);
+            bind('clearAllBtn', clearAll);
+            bind('speakWordBtn', speakWord);
+            bind('stopSpeakingBtn', stopSpeaking);
+            bind('speakSlowlyBtn', speakSlowly);
+            bind('clearAllHistoryBtn', clearAllHistory);
+        })();
+
+        // History event delegation (CSP compliant)
+        document.getElementById('historyList').addEventListener('click', function(e) {
+            var delBtn = e.target.closest('[data-del-index]');
+            if (delBtn) {
+                e.stopPropagation();
+                deleteHistoryItem(parseInt(delBtn.getAttribute('data-del-index')), e);
+                return;
+            }
+            var historyItem = e.target.closest('.history-item');
+            if (historyItem) {
+                loadHistory(parseInt(historyItem.getAttribute('data-index')));
+            }
+        });
+    </script>
+</body>
+</html>

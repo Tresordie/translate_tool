@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LinguaFlow · AI 智能翻译</title>
+  <title>Common Tools · 效率优化常用工具集</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <style>
     :root {
       --primary: #8b5cf6;
@@ -630,6 +630,254 @@
     @keyframes fadeUp {
       to { opacity: 1; transform: translateY(0); }
     }
+
+    /* ========== Tab Navigation ========== */
+    .tab-nav {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      margin-bottom: 24px;
+      position: relative;
+      z-index: 2;
+    }
+    .tab-nav-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 32px;
+      border: 1.5px solid rgba(139,92,246,0.15);
+      border-radius: 14px;
+      background: var(--bg-card2);
+      color: var(--text-secondary);
+      font-size: 0.92rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+    .tab-nav-btn:hover {
+      border-color: var(--neon-cyan);
+      color: var(--text);
+      background: rgba(34,211,238,0.06);
+    }
+    .tab-nav-btn.active {
+      background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(34,211,238,0.1));
+      border-color: var(--neon-purple);
+      color: var(--text);
+      box-shadow: 0 0 20px rgba(139,92,246,0.2), 0 0 8px rgba(34,211,238,0.08);
+    }
+    .tab-nav-btn svg { width: 18px; height: 18px; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* --- Tab Panel Header (TodoList / WorkReport) --- */
+    .tab-header {
+      text-align: center;
+      padding: 28px 20px 20px;
+    }
+    .tab-header-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 5px 16px;
+      border-radius: 100px;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.75);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .tab-header-badge .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .tab-header-badge .dot.orange { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+    .tab-header h2 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -1px;
+      line-height: 1.2;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #fff 0%, #c4b5fd 40%, #67e8f9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .tab-header h2.todo {
+      background: linear-gradient(135deg, #fff 0%, #fde68a 40%, #f59e0b 70%, #fbbf24 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .tab-header p {
+      font-size: 0.95rem;
+      color: rgba(255,255,255,0.5);
+      font-weight: 300;
+      letter-spacing: 0.3px;
+    }
+
+    .tab-panel iframe {
+      width: 100%;
+      min-height: 100vh;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--bg-card);
+    }
+    .btn-download {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.2);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-family: inherit;
+      transition: var(--transition);
+    }
+    .btn-download:hover { background: rgba(16,185,129,0.2); border-color: var(--neon-green); color: #10b981; }
+    .btn-download.md { background: rgba(34,211,238,0.1); border-color: rgba(34,211,238,0.2); }
+    .btn-download.md:hover { border-color: var(--neon-cyan); color: var(--neon-cyan); }
+    .btn-danger {
+      display: flex; align-items: center; gap: 4px;
+      background: transparent;
+      border: 1px solid rgba(239,68,68,0.2);
+      color: rgba(239,68,68,0.7);
+      padding: 6px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-family: inherit;
+      transition: var(--transition);
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.4); color: #ef4444; }
+    .summary-history-section { padding: 20px 28px; border-top: 1px solid rgba(139,92,246,0.1); }
+    .summary-history-item { cursor: pointer; }
+    .summary-history-item:hover { border-color: var(--neon-green); }
+
+    .record-content {
+      flex: 1;
+      font-size: 0.85rem;
+      line-height: 1.55;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .btn-record:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-cancel-edit {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.2);
+      color: rgba(239,68,68,0.8);
+      padding: 8px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      font-family: inherit;
+      transition: var(--transition);
+      display: flex; align-items: center; gap: 6px;
+      margin-left: 8px;
+    }
+    .btn-cancel-edit:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); }
+
+    .record-checkbox {
+      flex-shrink: 0; width: 16px; height: 16px;
+      accent-color: var(--neon-green); cursor: pointer; margin-right: 4px;
+      align-self: flex-start; margin-top: 3px;
+    }
+    .record-edit {
+      width: 28px; height: 28px;
+      border-radius: 8px; border: none; background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; color: var(--text-dim); transition: var(--transition);
+      opacity: 0; margin-right: 2px;
+    }
+    .record-item:hover .record-edit { opacity: 1; }
+    .record-edit:hover { background: rgba(139,92,246,0.15); color: var(--neon-purple); }
+    .btn-select-all {
+      background: rgba(139,92,246,0.08);
+      border: 1px solid rgba(139,92,246,0.15);
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-family: inherit;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+    .btn-select-all:hover { background: rgba(139,92,246,0.15); border-color: var(--neon-purple); color: var(--text); }
+
+    /* === TodoList embedded === */
+    .layout{display:grid;grid-template-columns:240px 1fr;gap:16px;align-items:start}
+    .side-card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;box-shadow:var(--glass-shadow);margin-bottom:12px}
+    .side-card h3{font-size:0.78rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+    .stat-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:0.85rem}
+    .stat-val{font-weight:600;font-size:1.2rem}
+    .stat-val.green{color:var(--neon-green)}.stat-val.orange{color:#f59e0b}.stat-val.purple{color:var(--neon-purple)}
+    .progress-ring{width:80px;height:80px;margin:0 auto 10px}
+    .progress-ring svg{width:100%;height:100%}
+    .progress-ring circle{fill:none;stroke-width:6}
+    .progress-ring .bg{stroke:rgba(139,92,246,0.12)}
+    .progress-ring .fg{stroke:var(--neon-green);stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset 0.6s ease}
+    .progress-pct{text-align:center;font-size:1.6rem;font-weight:700;color:var(--neon-green)}
+    .guide-collapse{cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:6px 0;user-select:none}
+    .guide-collapse:hover{color:var(--text)}
+    .guide-collapse .arrow{transition:transform 0.2s;font-size:0.65rem;color:var(--text-dim)}
+    .guide-collapse.open .arrow{transform:rotate(90deg)}
+    .guide-content{max-height:0;overflow:hidden;transition:max-height 0.35s ease}
+    .guide-content.open{max-height:400px}
+    .guide-section{border-top:1px solid rgba(139,92,246,0.1);padding-top:8px;margin-top:6px}
+    .guide-section h4{font-size:0.7rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+    .guide-step{font-size:0.72rem;color:var(--text-dim);line-height:1.55;margin:3px 0;display:flex;gap:5px}
+    .guide-step .num{color:#f59e0b;font-weight:600;flex-shrink:0;min-width:14px}
+    .guide-step code{background:rgba(139,92,246,0.12);padding:1px 4px;border-radius:3px;font-size:0.7rem;color:var(--neon-cyan)}
+    .input-bar{display:flex;align-items:center;gap:8px;padding:14px 20px;border-bottom:1px solid rgba(139,92,246,0.1)}
+    .input-bar input{flex:1;padding:10px 14px;border:2px solid rgba(139,92,246,0.12);border-radius:12px;font-size:0.9rem;font-family:inherit;background:var(--bg-dark);color:var(--text);outline:none;transition:var(--transition)}
+    .input-bar input:focus{border-color:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,0.08)}
+    .input-bar .date-pick,.input-bar .time-pick{width:110px;padding:10px 8px;border:2px solid rgba(139,92,246,0.12);border-radius:12px;font-size:0.82rem;font-family:inherit;background:var(--bg-dark);color:var(--text);outline:none;cursor:pointer;transition:var(--transition)}
+    .input-bar select{width:100px;padding:10px 8px;border:2px solid rgba(139,92,246,0.12);border-radius:12px;font-size:0.82rem;font-family:inherit;background:var(--bg-dark);color:var(--text);outline:none;cursor:pointer}
+    .btn-add{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#1a1a2e;border:none;padding:10px 20px;border-radius:12px;cursor:pointer;font-size:0.88rem;font-weight:600;font-family:inherit;transition:var(--transition);white-space:nowrap}
+    .btn-add:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(245,158,11,0.3)}
+    .btn-add.editing{background:linear-gradient(135deg,var(--neon-green),var(--neon-cyan))}
+    .toolbar{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid rgba(139,92,246,0.06);flex-wrap:wrap}
+    .pill{background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.15);color:var(--text-secondary);padding:5px 14px;border-radius:20px;cursor:pointer;font-size:0.8rem;font-family:inherit;transition:var(--transition)}
+    .pill.active{background:rgba(245,158,11,0.15);border-color:#f59e0b;color:#f59e0b}
+    .pill:hover{border-color:var(--neon-purple)}
+    .sync-btns{margin-left:auto;display:flex;gap:6px}
+    .btn-sync{display:flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;cursor:pointer;font-size:0.76rem;font-family:inherit;transition:var(--transition);border:1px solid}
+    .btn-ics{background:rgba(34,211,238,0.08);border-color:rgba(34,211,238,0.2);color:var(--neon-cyan)}
+    .btn-ics:hover{background:rgba(34,211,238,0.15)}
+    .btn-google{background:rgba(66,133,244,0.1);border-color:rgba(66,133,244,0.2);color:#8ab4f8}
+    .btn-google:hover{background:rgba(66,133,244,0.18)}
+    .btn-sync svg{width:13px;height:13px}
+    .todo-list{padding:10px 20px;min-height:260px}
+    .todo-empty{text-align:center;padding:50px 20px;color:var(--text-dim)}
+    .todo-empty .emoji{font-size:2.5rem;margin-bottom:10px}
+    .todo-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:12px;margin-bottom:4px;transition:0.25s ease;border-left:3px solid transparent;background:var(--bg-card2)}
+    .todo-item:hover{background:rgba(245,158,11,0.04);border-left-color:rgba(245,158,11,0.3)}
+    .todo-item.pri-high{border-left-color:#ef4444;background:rgba(239,68,68,0.04)}
+    .todo-item.pri-low{border-left-color:var(--neon-cyan);background:rgba(34,211,238,0.03)}
+    .todo-item.completed{opacity:.45;border-left-color:var(--neon-green)}
+    .todo-item.completed .todo-title{text-decoration:line-through}
+    .todo-check{width:18px;height:18px;accent-color:var(--neon-green);cursor:pointer;flex-shrink:0;margin-top:2px}
+    .todo-body{flex:1;min-width:0}
+    .todo-title{font-size:0.9rem;font-weight:500;word-break:break-word;line-height:1.4}
+    .todo-meta{display:flex;gap:12px;margin-top:3px;font-size:0.72rem;color:var(--text-dim);flex-wrap:wrap}
+    .todo-actions{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:var(--transition)}
+    .todo-item:hover .todo-actions{opacity:1}
+    .todo-actions button{width:28px;height:28px;border-radius:7px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-dim);transition:var(--transition)}
+    .todo-actions button:hover{background:rgba(139,92,246,0.12);color:var(--neon-purple)}
+    .todo-actions .btn-del:hover{background:rgba(239,68,68,0.12);color:#ef4444}
+    .todo-actions svg{width:13px;height:13px}
+    .token-section{padding:16px 20px;border-top:1px solid rgba(139,92,246,0.08);display:none}
+    .token-section.show{display:block}
+    .token-row{display:flex;gap:8px;align-items:center}
+    .token-row input{flex:1;padding:8px 12px;border:2px solid rgba(139,92,246,0.15);border-radius:10px;font-size:0.82rem;font-family:inherit;background:var(--bg-dark);color:var(--text)}
+    .token-row button{padding:8px 16px;border-radius:10px;cursor:pointer;font-size:0.82rem;font-family:inherit;font-weight:500;border:none}
+    @media(max-width:768px){.layout{grid-template-columns:1fr}.input-bar{flex-wrap:wrap}.input-bar .date-pick,.input-bar .time-pick,.input-bar select{width:auto;flex:1}}
+
   </style>
 </head>
 <body>
@@ -649,10 +897,43 @@
         <span class="dot"></span>
         <span>Powered by LLM</span>
       </div>
-      <h1>LinguaFlow</h1>
-      <p>接入大模型 API · 全球 30+ 语言智能互译</p>
+      <h1>Common Tools</h1>
+      <p>效率优化常用工具集</p>
     </div>
 
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+      <button class="tab-nav-btn active" id="tabBtnTranslate" onclick="switchTab('translate')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+        智能翻译
+      </button>
+      <button class="tab-nav-btn" id="tabBtnWorkReport" onclick="switchTab('workreport')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+        </svg>
+        工作报告
+      </button>
+      <button class="tab-nav-btn" id="tabBtnTodoList" onclick="switchTab('todolist')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+        任务清单
+      </button>
+      <button class="tab-nav-btn" id="tabBtnEnglish" onclick="switchTab('english')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        英语学习
+      </button>
+    </div>
+
+    <!-- Tab: Translation -->
+    <div class="tab-panel active" id="tabTranslate">
     <div class="container">
       <!-- Top Bar -->
       <div class="top-bar fade-up">
@@ -685,7 +966,7 @@
           <div class="settings-grid">
             <div class="form-group">
               <label>Base URL</label>
-              <input id="baseUrl" type="text" placeholder="https://api.openai.com/v1" />
+              <input id="baseUrl" type="text" placeholder="https://api.deepseek.com" />
             </div>
             <div class="form-group">
               <label>API Key</label>
@@ -693,7 +974,7 @@
             </div>
             <div class="form-group">
               <label>模型名称</label>
-              <input id="modelName" type="text" placeholder="gpt-4o / deepseek-chat" />
+              <input id="modelName" type="text" placeholder="deepseek-v4-pro" />
             </div>
           </div>
           <div class="settings-actions">
@@ -786,10 +1067,27 @@
     </div>
 
     <div class="footer">
-      LinguaFlow &mdash; AI-Powered Translation
+      Common Tools &mdash; Efficiency Optimization Toolkit
     </div>
-  </div>
+    </div><!-- /tabTranslate -->
 
+    <!-- Tab: Work Report -->
+    <div class="tab-panel" id="tabWorkReport">
+      <iframe src="workreport.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="workreportIframe" title="工作报告"></iframe>
+    </div>
+
+    <!-- Tab: Todo List -->
+    <div class="tab-panel" id="tabTodoList">
+      <iframe src="todolist.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="todolistIframe" title="任务清单"></iframe>
+    </div>
+
+    <!-- Tab: English Learning -->
+    <div class="tab-panel" id="tabEnglish">
+      <iframe src="english_learning.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="englishIframe" title="英语学习"></iframe>
+    </div>
+  </div><!-- /app-wrapper -->
+
+  <div style="display:none"></div>
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
@@ -846,6 +1144,26 @@
     // ===== State =====
     let config = JSON.parse(localStorage.getItem('translate_config') || '{}');
     let history = JSON.parse(localStorage.getItem('translate_history') || '[]');
+
+    // ===== Tab Switching =====
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+
+      if (tab === 'translate') {
+        document.getElementById('tabBtnTranslate').classList.add('active');
+        document.getElementById('tabTranslate').classList.add('active');
+      } else if (tab === 'workreport') {
+        document.getElementById('tabBtnWorkReport').classList.add('active');
+        document.getElementById('tabWorkReport').classList.add('active');
+      } else if (tab === 'todolist') {
+        document.getElementById('tabBtnTodoList').classList.add('active');
+        document.getElementById('tabTodoList').classList.add('active');
+      } else if (tab === 'english') {
+        document.getElementById('tabBtnEnglish').classList.add('active');
+        document.getElementById('tabEnglish').classList.add('active');
+      }
+    }
 
     // ===== Init =====
     function init() {
@@ -1059,8 +1377,8 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
         srcLang: src.name, tgtLang: tgt.name,
         srcFlag: src.flag, tgtFlag: tgt.flag,
         srcCode: src.code, tgtCode: tgt.code,
-        text: text.substring(0, 120),
-        result: result.substring(0, 120),
+        text: text,
+        result: result,
         time: new Date().toLocaleString('zh-CN'),
       });
       if (history.length > 20) history = history.slice(0, 20);
@@ -1197,7 +1515,6 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
       
       // 5. Fix spacing around markdown headings (ensure blank line before heading)
       text = text.replace(/([^\n])\n(#{1,6}\s)/g, '$1\n\n$2');
-      
       // 6. Normalize list indentation (ensure consistent spacing after list markers)
       text = text.replace(/^([\s]*[-*+])\s{2,}/gm, '$1 ');
       text = text.replace(/^([\s]*\d+\.)\s{2,}/gm, '$1 ');

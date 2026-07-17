@@ -275,8 +275,8 @@ function addHistory(src, tgt, text, result) {
     srcLang: src.name, tgtLang: tgt.name,
     srcFlag: src.flag, tgtFlag: tgt.flag,
     srcCode: src.code, tgtCode: tgt.code,
-    text: text.substring(0, 120),
-    result: result.substring(0, 120),
+    text: text,
+    result: result,
     time: new Date().toLocaleString('zh-CN'),
   });
   if (history.length > 20) history = history.slice(0, 20);

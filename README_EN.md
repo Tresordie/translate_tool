@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.7.1-blue)
+![Version](https://img.shields.io/badge/version-0.9.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 English | [中文](README.md)
@@ -26,7 +26,11 @@ English | [中文](README.md)
 - **Keyboard Shortcut** — `Ctrl + Enter` to translate instantly
 - **Privacy First** — All settings and history stored locally in browser localStorage
 - **Responsive Design** — Works seamlessly on desktop and mobile devices
-- **Zero Dependencies** — Single HTML file, no installation required
+- **Work Report** — Built-in work report generator with AI one-click summary, history management, and date filtering
+- **Task List** — Built-in task manager with add/complete/delete, priority levels, progress tracking, Markdown batch import/export (with checkbox syntax), Apple Reminders one-click import (URL Scheme + AppleScript file fallback), Google Calendar sync, and .ics calendar download
+- **English Learning Assistant** — Built-in English learning module with word study, AI definitions, text-to-speech, learning history, and note export
+- **Page Reuse Architecture** — Work Report, Task List, and English Learning tabs embed standalone pages via iframe, sharing the same codebase with Chrome extension
+- **Zero Dependencies** — Pure HTML + CSS + JavaScript, no installation required
 
 ### Chrome Extension
 
@@ -60,7 +64,7 @@ English | [中文](README.md)
 |-------|-------------|---------|
 | **Base URL** | LLM API endpoint | `https://api.openai.com/v1` |
 | **API Key** | Your API key | `sk-xxxxxxxxxxxxxxxx` |
-| **Model** | Model name | `gpt-4o` / `deepseek-chat` |
+| **Model** | Model name | `gpt-4o` / `deepseek-v4-pro` |
 
 4. Click **"保存配置" (Save)**
 5. Select source and target languages, enter text, and click **"开始翻译" (Translate)**
@@ -70,7 +74,7 @@ English | [中文](README.md)
 | Provider | Base URL | Model Examples |
 |----------|----------|----------------|
 | OpenAI | `https://api.openai.com/v1` | `gpt-4o`, `gpt-4o-mini` |
-| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat` |
+| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-v4-pro` |
 | Qwen (Alibaba) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
 | Zhipu AI | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
 | Moonshot | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
@@ -93,7 +97,13 @@ English | [中文](README.md)
 
 ```
 translation_tool/
-├── index.html              # Web version (single file)
+├── index.html              # Web app (translation main page)
+├── workreport.html         # Work report page (standalone, shared with extension)
+├── workreport.js           # Work report core logic (IIFE encapsulated)
+├── english_learning.html    # English learning assistant page (standalone, shared)
+├── todolist.html            # Task list page (standalone, with Markdown/AppleScript features)
+├── todolist.js              # Task list core logic (IIFE encapsulated)
+├── install_url_scheme.sh     # Apple Reminders URL Scheme bridge installer
 ├── preview.png             # Web version screenshot
 ├── chrome_extension/       # Chrome browser extension
 │   ├── manifest.json       # Extension config
@@ -105,6 +115,16 @@ translation_tool/
 │   ├── content.js          # Text selection translation
 │   ├── content.css         # Tooltip styles
 │   ├── background.js       # Service worker
+│   ├── workreport.html     # Chrome extension work report page
+│   ├── workreport.js       # Chrome extension work report logic
+│   ├── english_learning.html # English learning assistant page
+│   ├── english_learning.js   # English learning logic (external JS, CSP compliant)
+│   ├── todolist.html       # Task list page
+│   ├── todolist.js         # Task list logic
+│   ├── install_url_scheme.sh     # URL Scheme bridge installer
+│   ├── native_host.py      # Chrome Native Messaging host (optional)
+│   ├── native_host_manifest.json  # Native Messaging manifest template
+│   ├── install_native_host.sh     # Native Messaging install script
 │   ├── icons/              # Extension icons
 │   └── _locales/           # i18n files
 ├── vibe_images/            # Icon source files
@@ -154,6 +174,58 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.10.0 (2026-07-14)
+
+- **Task List Markdown Support** — Added Markdown batch import and export
+  - Supports standard `- [ ]` / `- [x]` checkbox syntax parsing
+  - Auto-detects optional markers during import: `@date`, `@time`, `#priority`
+  - One-click export current task list as Markdown, copied to clipboard
+  - Auto-deduplication — tasks with same title + date won't be imported twice
+- **Apple Reminders One-Click Import** — Click "🍎 提醒" to import reminders instantly
+  - **URL Scheme channel**: After one-time bridge install, clicking the button triggers AppleScript directly — reminders appear instantly (with macOS notification)
+  - **AppleScript file fallback**: Simultaneously downloads `.applescript` file as backup, openable in Script Editor
+  - **One-command bridge install**: Run `./install_url_scheme.sh` to register the `linguaflow-reminders://` protocol
+  - Auto-creates reminders with due dates and high/medium/low priority mapping
+- **Task List UI Overhaul** — Full CSS/HTML refactor with visual upgrades
+  - CSS variables organized into logical sections with semantic comments
+  - Enlarged input bar paddings, dark-adapted date/time pickers, custom dropdown arrows
+  - Unified toolbar button sizing + enhanced colors (cyan ics / blue Google / purple MD / red Apple) with hover glow
+  - Task card hover micro-animation, completed-state green background, sync badge labels
+  - Refined filter pills, dark settings panel background, redesigned empty state
+  - All inline styles extracted to CSS classes
+
+### v0.9.0 (2026-07-09)
+
+- **New English Learning Assistant** — Added "English Learning" module to both web and Chrome extension
+  - AI Word Study: LLM-powered phonetics, definitions, examples, synonyms/antonyms, and memory tips
+  - Text-to-Speech: Web Speech API integration with multiple voice selection and speed control
+  - Learning History: auto-saves study records with individual deletion and clear-all
+  - Note Export: export today's learning content in Markdown and HTML formats
+  - Preset API Configs: DeepSeek / OpenAI / Ollama / SiliconFlow / Custom
+- **Chrome Extension MV3 CSP Compliance** — Extracted English learning JS to external file `english_learning.js`, resolving MV3 default CSP restriction on inline `<script>` blocks
+  - `english_learning.html` loads via `<script src="english_learning.js">`
+  - `manifest.json` added `host_permissions: ["<all_urls>"]` for cross-origin API requests
+- **DeepSeek Default Model Update** — Default model updated from `deepseek-chat` to `deepseek-v4-pro`
+
+### v0.8.0 (2026-07-09)
+
+- **New Work Report Module** — Added "Work Report" tab to the web version with full report generation and management
+  - AI One-Click Summary: leverages LLM to generate intelligent summaries of work reports
+  - History Management: save, delete, and clear work report records
+  - Date Filtering: filter reports by month, week, or day
+  - Summary History: review and manage past AI-generated summaries
+- **New Task List Module** — Added "Task List" tab to the web version for lightweight task management
+  - CRUD Operations: add, complete, and delete tasks
+  - Priority Levels: assign different priorities to tasks
+  - Progress Tracking: visual overview of task completion status
+- **Page Reuse Architecture** — Work Report tab embeds a standalone `workreport.html` page via iframe, sharing the same HTML/CSS/JS codebase with Chrome extension for feature parity between web and extension
+- **JavaScript Module Encapsulation** — Both `workreport.js` and `todolist.js` are wrapped in IIFE (Immediately Invoked Function Expression) to prevent global variable conflicts
+  - Fixed `let config` duplicate declaration conflict between `index.html` inline script and `workreport.js` (`Identifier 'config' has already been declared`)
+  - IIFE scope isolation completely resolves variable pollution issues when multiple JS modules coexist
+- **Regex Fix** — Fixed JS syntax error in `autoFormatResult` where `\n` escape sequences in `/([^\n])\n(#{1,6}\s)/g` regex were expanded into literal newlines
+- **Non-Blocking Google Fonts** — Optimized Google Fonts loading strategy to prevent page render blocking, resolving slow page load issues
+- **UI Fix** — Cleaned up macOS emoji rendering issue where the task list empty state emoji displayed as an oversized colorful icon
 
 ### v0.7.1 (2026-07-07)
 
