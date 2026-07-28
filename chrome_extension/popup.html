@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="theme.css" />
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
@@ -99,14 +102,32 @@
 
     <!-- Translate Area -->
     <div class="translate-area">
-      <textarea id="sourceText" placeholder="请输入要翻译的文本...&#10;或划选网页文字后点击翻译图标"></textarea>
+      <div id="sourceEditor" class="md-editor"></div>
+      <!-- Markdown Live Preview -->
+      <div class="md-preview-panel" id="mdPreviewPanel" style="display:none;">
+        <div class="md-preview-header">
+          <div class="md-preview-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            实时预览
+          </div>
+          <button class="md-preview-close" title="关闭预览">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="md-preview-content md-rendered" id="mdPreviewContent"></div>
+      </div>
       <div class="source-footer">
         <span class="char-count" id="charCount">0</span>
-        <button class="icon-btn" id="clearBtn" title="清空">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
+        <div class="source-actions">
+          <button class="icon-btn preview-btn" id="previewToggleBtn" title="Markdown 预览">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <button class="icon-btn" id="clearBtn" title="清空">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -122,7 +143,7 @@
     <!-- Result Area -->
     <div class="result-area" id="resultArea">
       <div class="result-label">译文</div>
-      <div class="result-text" id="resultText"></div>
+      <div class="result-text md-rendered" id="resultText"></div>
       <div class="result-footer" id="resultFooter" style="display:none;">
         <button class="icon-btn" id="copyBtn" title="复制">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -149,6 +170,9 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
+  <script src="markdown.js"></script>
+  <script src="md-editor.js"></script>
   <script src="popup.js"></script>
+  <script src="theme.js"></script>
 </body>
 </html>

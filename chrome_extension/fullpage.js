@@ -1,18 +1,3 @@
-// ===== Generate Stars =====
-(function() {
-  const container = document.getElementById('stars');
-  for (let i = 0; i < 60; i++) {
-    const star = document.createElement('div');
-    star.className = 'star';
-    star.style.left = Math.random() * 100 + '%';
-    star.style.top = Math.random() * 100 + '%';
-    star.style.animationDelay = Math.random() * 3 + 's';
-    star.style.animationDuration = (2 + Math.random() * 3) + 's';
-    star.style.width = star.style.height = (1 + Math.random() * 2) + 'px';
-    container.appendChild(star);
-  }
-})();
-
 // ===== Languages =====
 const LANGUAGES = [
   { code: 'zh', name: '中文', flag: '🇨🇳' },
@@ -51,6 +36,12 @@ const LANGUAGES = [
 let config = {};
 let history = [];
 
+// ===== Markdown Editor (source input) =====
+const srcEditor = MdEditor.create(document.getElementById('sourceEditor'), {
+  placeholder: '请输入要翻译的文本...',
+  onInput: updateCharCount
+});
+
 // ===== Init =====
 async function init() {
   const sourceLang = document.getElementById('sourceLang');
@@ -84,12 +75,12 @@ async function init() {
   if (data.draft) {
     const draft = data.draft;
     if (draft.sourceText) {
-      document.getElementById('sourceText').value = draft.sourceText;
+      srcEditor.setMarkdown(draft.sourceText);
       updateCharCount();
     }
     if (draft.resultText) {
       const output = document.getElementById('outputText');
-      output.textContent = draft.resultText;
+      output.innerHTML = renderMarkdown(draft.resultText);
       output.dataset.text = draft.resultText;
     }
     if (draft.sourceLang) sourceLang.value = draft.sourceLang;
@@ -124,37 +115,24 @@ function swapLanguages() {
   [s.value, t.value] = [t.value, s.value];
 
   const output = document.getElementById('outputText');
-  const source = document.getElementById('sourceText');
-  if (output.dataset.text && source.value.trim()) {
-    source.value = output.dataset.text;
+  if (output.dataset.text && srcEditor.getMarkdown().trim()) {
+    srcEditor.setMarkdown(output.dataset.text);
     updateCharCount();
   }
 }
 
-// ===== Typing Effect =====
-function typeText(element, text, speed = 18) {
-  return new Promise(resolve => {
-    element.innerHTML = '';
-    element.classList.add('typing-cursor');
-    let i = 0;
-    const timer = setInterval(() => {
-      if (i < text.length) {
-        element.textContent += text[i];
-        i++;
-        element.scrollTop = element.scrollHeight;
-      } else {
-        clearInterval(timer);
-        element.classList.remove('typing-cursor');
-        element.dataset.text = text;
-        resolve();
-      }
-    }, speed);
-  });
+// ===== Render Result (Markdown + fade-in) =====
+function renderResult(element, text) {
+  element.classList.remove('md-fade-in');
+  void element.offsetWidth;
+  element.innerHTML = renderMarkdown(text);
+  element.dataset.text = text;
+  element.classList.add('md-fade-in');
 }
 
 // ===== Translate =====
 async function doTranslate() {
-  const text = document.getElementById('sourceText').value.trim();
+  const text = srcEditor.getMarkdown().trim();
   if (!text) { showToast('请输入要翻译的文本', 'error'); return; }
   if (!config.baseUrl || !config.apiKey || !config.model) {
     showToast('请先配置 API 设置', 'error');
@@ -254,7 +232,7 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
     result = autoFormatResult(result);
 
     loadingBar.classList.remove('active');
-    await typeText(output, result);
+    renderResult(output, result);
 
     addHistory(sourceLang, targetLang, text, result);
     status.textContent = `翻译完成  ${sourceLang.flag} → ${targetLang.flag}`;
@@ -299,7 +277,7 @@ function renderHistory() {
           <span>${h.tgtFlag} ${h.tgtLang}</span>
           <span class="hi-time">${h.time}</span>
         </div>
-        <div class="hi-text">${escapeHtml(h.text)}</div>
+        <div class="hi-text md-rendered">${renderMarkdown(h.text)}</div>
       </div>
       <button class="hi-delete" data-index="${i}" title="删除">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -330,7 +308,7 @@ function loadHistory(index) {
   const h = history[index];
   document.getElementById('sourceLang').value = h.srcCode;
   document.getElementById('targetLang').value = h.tgtCode;
-  document.getElementById('sourceText').value = h.text;
+  srcEditor.setMarkdown(h.text);
   updateCharCount();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -350,15 +328,16 @@ function deleteHistoryItem(index) {
 // ===== Utility =====
 let _draftTimer = null;
 function updateCharCount() {
-  const text = document.getElementById('sourceText').value;
+  const text = srcEditor.getMarkdown();
   document.getElementById('charCount').textContent = `${text.length} 字符`;
+  updateMdPreview();
   // Auto-save draft (debounced 300ms)
   clearTimeout(_draftTimer);
   _draftTimer = setTimeout(saveDraft, 300);
 }
 function saveDraft() {
   const draft = {
-    sourceText: document.getElementById('sourceText').value,
+    sourceText: srcEditor.getMarkdown(),
     resultText: document.getElementById('outputText').dataset.text || '',
     sourceLang: document.getElementById('sourceLang').value,
     targetLang: document.getElementById('targetLang').value,
@@ -367,11 +346,12 @@ function saveDraft() {
 }
 
 function clearSource() {
-  document.getElementById('sourceText').value = '';
+  srcEditor.clear();
   document.getElementById('outputText').innerHTML = '<span class="output-placeholder">翻译结果将显示在这里...</span>';
   document.getElementById('outputText').dataset.text = '';
   document.getElementById('statusText').textContent = '';
   updateCharCount();
+  updateMdPreview();
   // Clear saved draft
   chrome.storage.local.remove('draft');
 }
@@ -379,8 +359,9 @@ function clearSource() {
 async function pasteFromClipboard() {
   try {
     const text = await navigator.clipboard.readText();
-    document.getElementById('sourceText').value = text;
+    srcEditor.setMarkdown(text);
     updateCharCount();
+    updateMdPreview();
     showToast('已粘贴', 'success');
   } catch {
     showToast('无法读取剪贴板', 'error');
@@ -411,6 +392,32 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+// ===== Markdown Live Preview =====
+let _mdPreviewOpen = false;
+function toggleMdPreview() {
+  _mdPreviewOpen = !_mdPreviewOpen;
+  const panel = document.getElementById('mdPreviewPanel');
+  const btn = document.getElementById('previewToggleBtn');
+  if (_mdPreviewOpen) {
+    panel.style.display = 'block';
+    btn.classList.add('active');
+    updateMdPreview();
+  } else {
+    panel.style.display = 'none';
+    btn.classList.remove('active');
+  }
+}
+function updateMdPreview() {
+  if (!_mdPreviewOpen) return;
+  const text = srcEditor.getMarkdown();
+  const preview = document.getElementById('mdPreviewContent');
+  if (text.trim()) {
+    preview.innerHTML = renderMarkdown(text);
+  } else {
+    preview.innerHTML = '<p style="color:var(--text-dim);font-style:italic;">输入 Markdown 内容即可实时预览...</p>';
+  }
 }
 
 // ===== Auto-Format Result =====
@@ -452,7 +459,6 @@ function bindEvents() {
   document.getElementById('settingsBtn').addEventListener('click', toggleSettings);
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
   document.getElementById('swapBtn').addEventListener('click', swapLanguages);
-  document.getElementById('sourceText').addEventListener('input', updateCharCount);
   document.getElementById('clearSourceBtn').addEventListener('click', clearSource);
   document.getElementById('pasteBtn').addEventListener('click', pasteFromClipboard);
   document.getElementById('copyResultBtn').addEventListener('click', copyResult);

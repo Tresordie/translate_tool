@@ -41,7 +41,15 @@ const safeBind = (id, event, fn) => {
 
 const sourceLang = $('sourceLang');
 const targetLang = $('targetLang');
-const sourceText = $('sourceText');
+const srcEditor = MdEditor.create($('sourceEditor'), {
+  placeholder: '请输入要翻译的文本...',
+  onInput: () => {
+    updateCharCount();
+    // Debounced auto-save (300ms after last keystroke)
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveDraft, 300);
+  }
+});
 const resultText = $('resultText');
 const resultArea = $('resultArea');
 const resultFooter = $('resultFooter');
@@ -84,12 +92,11 @@ function init() {
   // Restore draft text (auto-saved while typing)
   chrome.storage.local.get(['draft'], ({ draft }) => {
     if (draft?.sourceText) {
-      sourceText.value = draft.sourceText;
+      srcEditor.setMarkdown(draft.sourceText);
       updateCharCount();
     }
     if (draft?.resultText) {
-      resultText.textContent = draft.resultText;
-      resultText.dataset.text = draft.resultText;
+      renderResult(draft.resultText);
       resultArea.classList.add('visible');
       resultFooter.style.display = 'flex';
     }
@@ -112,7 +119,7 @@ function init() {
   // Check for text from content script (overrides draft)
   chrome.storage.local.get(['selectedText'], ({ selectedText }) => {
     if (selectedText) {
-      sourceText.value = selectedText;
+      srcEditor.setMarkdown(selectedText);
       updateCharCount();
       chrome.storage.local.remove('selectedText');
       // Auto translate
@@ -197,8 +204,8 @@ function saveLangPrefs() {
 // ===== Swap =====
 safeBind('swapLangs', 'click', () => {
   [sourceLang.value, targetLang.value] = [targetLang.value, sourceLang.value];
-  if (resultText.textContent && sourceText.value.trim()) {
-    sourceText.value = resultText.dataset.text || '';
+  if (resultText.dataset.text && srcEditor.getMarkdown().trim()) {
+    srcEditor.setMarkdown(resultText.dataset.text || '');
     updateCharCount();
   }
   saveLangPrefs();
@@ -206,18 +213,13 @@ safeBind('swapLangs', 'click', () => {
 
 // ===== Char count + Auto-save draft =====
 let saveTimer = null;
-sourceText.addEventListener('input', () => {
-  updateCharCount();
-  // Debounced auto-save (300ms after last keystroke)
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveDraft, 300);
-});
 function updateCharCount() {
-  charCount.textContent = sourceText.value.length;
+  charCount.textContent = srcEditor.getMarkdown().length;
+  updateMdPreview();
 }
 function saveDraft() {
   const draft = {
-    sourceText: sourceText.value,
+    sourceText: srcEditor.getMarkdown(),
     resultText: resultText.dataset.text || '',
   };
   chrome.storage.local.set({ draft });
@@ -225,12 +227,14 @@ function saveDraft() {
 
 // ===== Clear =====
 safeBind('clearBtn', 'click', () => {
-  sourceText.value = '';
+  srcEditor.clear();
   resultText.textContent = '';
+  delete resultText.dataset.text;
   resultArea.classList.remove('visible');
   resultFooter.style.display = 'none';
   updateCharCount();
-  sourceText.focus();
+  srcEditor.focus();
+  updateMdPreview();
   // Clear saved draft
   chrome.storage.local.remove('draft');
 });
@@ -247,7 +251,7 @@ safeBind('copyBtn', 'click', () => {
 
 // ===== Translate =====
 translateBtn.addEventListener('click', doTranslate);
-sourceText.addEventListener('keydown', (e) => {
+srcEditor.container.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
     doTranslate();
@@ -268,8 +272,7 @@ function restoreTranslateResult() {
       if (isRecent || isMatch) {
         const result = task.result;
         if (result) {
-          resultText.textContent = result;
-          resultText.dataset.text = result;
+          renderResult(result);
           resultArea.classList.add('visible');
           resultFooter.style.display = 'flex';
           // Add to history
@@ -286,7 +289,7 @@ function restoreTranslateResult() {
     // If translation is still running in background
     if (task && task.status === 'running' && state) {
       // Show loading state
-      sourceText.value = state.text || '';
+      srcEditor.setMarkdown(state.text || '');
       updateCharCount();
       if (state.srcCode) sourceLang.value = state.srcCode;
       if (state.tgtCode) targetLang.value = state.tgtCode;
@@ -308,14 +311,12 @@ function restoreTranslateResult() {
             translateBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> \u5f00\u59cb\u7ffb\u8bd1<span class="btn-shortcut">Ctrl+\u21b5</span>';
             const result = translateTask.result;
             if (result) {
-              typeText(resultText, result).then(() => {
-                resultText.dataset.text = result;
-                resultFooter.style.display = 'flex';
-                const src = LANGUAGES.find(l => l.code === translateTask.srcCode) || LANGUAGES[0];
-                const tgt = LANGUAGES.find(l => l.code === translateTask.tgtCode) || LANGUAGES[1];
-                addHistory(src, tgt, translateTask.text, result);
-                saveDraft();
-              });
+              renderResult(result);
+              resultFooter.style.display = 'flex';
+              const src = LANGUAGES.find(l => l.code === translateTask.srcCode) || LANGUAGES[0];
+              const tgt = LANGUAGES.find(l => l.code === translateTask.tgtCode) || LANGUAGES[1];
+              addHistory(src, tgt, translateTask.text, result);
+              saveDraft();
             }
             chrome.storage.local.remove(['translateTask', 'translatingState']);
           } else if (translateTask.status === 'error') {
@@ -351,7 +352,7 @@ function restoreTranslateResult() {
 }
 
 async function doTranslate() {
-  const text = sourceText.value.trim();
+  const text = srcEditor.getMarkdown().trim();
   if (!text) { showToast('请输入文本', 'error'); return; }
 
   const config = await getConfig();
@@ -402,8 +403,7 @@ async function doTranslate() {
     // Clear the translating state
     chrome.storage.local.remove('translatingState');
 
-    await typeText(resultText, result);
-    resultText.dataset.text = result;
+    renderResult(result);
     resultFooter.style.display = 'flex';
     saveDraft();
     addHistory(src, tgt, text, result);
@@ -417,24 +417,13 @@ async function doTranslate() {
   }
 }
 
-// ===== Typing Effect =====
-function typeText(el, text, speed = 15) {
-  return new Promise(resolve => {
-    el.textContent = '';
-    el.classList.add('typing-cursor');
-    let i = 0;
-    const timer = setInterval(() => {
-      if (i < text.length) {
-        el.textContent += text[i];
-        i++;
-        el.scrollTop = el.scrollHeight;
-      } else {
-        clearInterval(timer);
-        el.classList.remove('typing-cursor');
-        resolve();
-      }
-    }, speed);
-  });
+// ===== Render Result (Markdown + fade-in) =====
+function renderResult(text) {
+  resultText.classList.remove('md-fade-in', 'error');
+  void resultText.offsetWidth;
+  resultText.innerHTML = renderMarkdown(text);
+  resultText.dataset.text = text;
+  resultText.classList.add('md-fade-in');
 }
 
 // ===== Auto-Format Result =====
@@ -492,8 +481,8 @@ function renderHistory() {
         <span>${h.tgtLang}</span>
         <span class="hi-time">${h.time}</span>
       </div>
-      <div class="hi-text">${escapeHtml(h.text)}</div>
-      <div class="hi-text">${escapeHtml(h.result)}</div>
+      <div class="hi-text md-rendered">${renderMarkdown(h.text)}</div>
+      <div class="hi-text md-rendered">${renderMarkdown(h.result)}</div>
       <button class="hi-delete" data-index="${i}" title="删除">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
@@ -508,6 +497,33 @@ function escapeHtml(str) {
   div.textContent = str;
   return div.innerHTML;
 }
+
+// ===== Markdown Live Preview =====
+let _mdPreviewOpen = false;
+function toggleMdPreview() {
+  _mdPreviewOpen = !_mdPreviewOpen;
+  const panel = document.getElementById('mdPreviewPanel');
+  const btn = document.getElementById('previewToggleBtn');
+  if (_mdPreviewOpen) {
+    panel.style.display = 'block';
+    btn.classList.add('active');
+    updateMdPreview();
+  } else {
+    panel.style.display = 'none';
+    btn.classList.remove('active');
+  }
+}
+function updateMdPreview() {
+  if (!_mdPreviewOpen) return;
+  const text = srcEditor.getMarkdown();
+  const preview = document.getElementById('mdPreviewContent');
+  if (text.trim()) {
+    preview.innerHTML = renderMarkdown(text);
+  } else {
+    preview.innerHTML = '<p style="color:var(--text-dim);font-style:italic;font-size:12px;">输入 Markdown 即可预览...</p>';
+  }
+}
+
 
 // History item click: load translation
 historyList.addEventListener('click', (e) => {
@@ -529,7 +545,7 @@ historyList.addEventListener('click', (e) => {
     if (h) {
       sourceLang.value = h.srcCode;
       targetLang.value = h.tgtCode;
-      sourceText.value = h.text;
+      srcEditor.setMarkdown(h.text);
       updateCharCount();
       saveLangPrefs();
     }

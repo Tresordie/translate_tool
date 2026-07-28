@@ -37,7 +37,40 @@
           }
         })();
 
-        console.log('%c✨ 英语学习助手 v4.0 已加载', 'color: #667eea; font-size: 18px; font-weight: bold;');
+        console.log('%c✨ 英语学习助手 v4.0 已加载', 'color: #8b5cf6; font-size: 18px; font-weight: bold;');
+
+        const wordEditor = MdEditor.create(document.getElementById('wordInput'), {
+          placeholder: '输入英文单词/短语或中文，例如: apple / 苹果 / hello world',
+          onInput: updateMdPreview
+        });
+
+        // ===== MdEditor helpers =====
+        let _mdPreviewOpen = false;
+        function toggleMdPreview() {
+          _mdPreviewOpen = !_mdPreviewOpen;
+          const panel = document.getElementById('mdPreviewPanel');
+          const btn = document.getElementById('previewToggleBtn');
+          if (_mdPreviewOpen) {
+            panel.style.display = 'block';
+            if (btn) btn.classList.add('active');
+            updateMdPreview();
+          } else {
+            panel.style.display = 'none';
+            if (btn) btn.classList.remove('active');
+          }
+        }
+        function updateMdPreview() {
+          if (!_mdPreviewOpen || !wordEditor) return;
+          const text = wordEditor.getMarkdown();
+          const preview = document.getElementById('mdPreviewContent');
+          if (preview) {
+            if (text.trim()) {
+              preview.innerHTML = renderMarkdown(text);
+            } else {
+              preview.innerHTML = '<p style="color:var(--text-dim);font-style:italic;">输入内容即可实时预览...</p>';
+            }
+          }
+        }
 
         const presets = {
             deepseek: { url: 'https://api.deepseek.com', model: 'deepseek-v4-pro' },
@@ -211,7 +244,7 @@
         }
 
         function speakWord() {
-            const word = document.getElementById('wordInput').value.trim();
+            const word = wordEditor.getMarkdown().trim();
             if (!word) return;
             stopSpeaking();
             
@@ -230,7 +263,7 @@
         }
 
         function speakSlowly() {
-            const word = document.getElementById('wordInput').value.trim();
+            const word = wordEditor.getMarkdown().trim();
             if (!word) return;
             stopSpeaking();
             
@@ -250,7 +283,7 @@
 
         function saveToStorage() {
             const data = {
-                wordInput: document.getElementById('wordInput').value,
+                wordInput: wordEditor.getMarkdown(),
                 resultContent: document.getElementById('resultContent').innerHTML,
                 resultSectionVisible: document.getElementById('resultSection').style.display !== 'none'
             };
@@ -260,7 +293,7 @@
         function loadFromStorage() {
             const data = JSON.parse(localStorage.getItem('englishLearningData'));
             if (data) {
-                document.getElementById('wordInput').value = data.wordInput || '';
+                wordEditor.setMarkdown(data.wordInput || '');
                 if (data.resultSectionVisible && data.resultContent) {
                     document.getElementById('resultContent').innerHTML = data.resultContent;
                     document.getElementById('resultSection').style.display = 'block';
@@ -328,14 +361,19 @@
         function loadHistory(index) {
             const history = getHistory();
             const item = history[index];
-            document.getElementById('wordInput').value = item.word;
-            document.getElementById('resultContent').innerHTML = item.content;
+            wordEditor.setMarkdown(item.word);
+            // Re-render from raw content if available, else use stored innerHTML
+            if (item.rawContent) {
+                document.getElementById('resultContent').innerHTML = `<div class="result-card"><div class="md-rendered">${renderMarkdown(item.rawContent)}</div></div>`;
+            } else {
+                document.getElementById('resultContent').innerHTML = item.content;
+            }
             document.getElementById('resultSection').style.display = 'block';
             saveToStorage();
         }
 
         async function learnWord() {
-            const word = document.getElementById('wordInput').value.trim();
+            const word = wordEditor.getMarkdown().trim();
             const apiUrl = document.getElementById('apiUrl').value.trim();
             const apiKey = document.getElementById('apiKey').value.trim();
             const modelName = document.getElementById('modelName').value.trim();
@@ -386,11 +424,11 @@
 
                 if (result) {
                     displayResult(result);
-                    saveHistory({ word, content: document.getElementById('resultContent').innerHTML, timestamp: new Date().toISOString() });
+                    saveHistory({ word, content: content, timestamp: new Date().toISOString() });
                 } else {
-                    document.getElementById('resultContent').innerHTML = `<div class="result-card"><h3>📖 学习结果</h3><pre style="white-space: pre-wrap;">${escapeHtml(content)}</pre></div>`;
+                    document.getElementById('resultContent').innerHTML = `<div class="result-card"><h3>📖 学习结果</h3><div class="md-rendered">${renderMarkdown(content)}</div></div>`;
                     document.getElementById('resultSection').style.display = 'block';
-                    saveHistory({ word, content: document.getElementById('resultContent').innerHTML, timestamp: new Date().toISOString() });
+                    saveHistory({ word, content: content, timestamp: new Date().toISOString() });
                 }
                 
                 saveToStorage();
@@ -412,20 +450,20 @@
                 </div>
                 <div class="result-card">
                     <h3>📖 释义</h3>
-                    <p><strong>中文:</strong> ${result.chinese_meaning || 'N/A'}</p>
-                    <p><strong>英文:</strong> ${result.english_definition || 'N/A'}</p>
+                    <div class="md-rendered"><strong>中文:</strong> ${renderMarkdown(result.chinese_meaning || 'N/A')}</div>
+                    <div class="md-rendered"><strong>英文:</strong> ${renderMarkdown(result.english_definition || 'N/A')}</div>
                 </div>
                 <div class="result-card">
                     <h3>💡 用法</h3>
-                    <p>${result.usage || 'N/A'}</p>
+                    <div class="md-rendered">${renderMarkdown(result.usage || 'N/A')}</div>
                 </div>
                 <div class="result-card">
                     <h3>📚 例句</h3>
-                    ${(result.examples || []).map((ex, i) => `<p><strong>${i+1}.</strong> ${ex.en}</p><p style="margin-left: 20px; color: #666;">${ex.zh}</p>`).join('')}
+                    ${(result.examples || []).map((ex, i) => `<div class="md-rendered"><p><strong>${i+1}.</strong> ${renderMarkdown(ex.en)}</p><p style="margin-left:20px;color:var(--text-dim);">${renderMarkdown(ex.zh)}</p></div>`).join('')}
                 </div>
-                ${result.synonyms && result.synonyms.length ? `<div class="result-card"><h3>🔄 同义词</h3><p>${result.synonyms.join(', ')}</p></div>` : ''}
-                ${result.antonyms && result.antonyms.length ? `<div class="result-card"><h3>⚡ 反义词</h3><p>${result.antonyms.join(', ')}</p></div>` : ''}
-                ${result.memory_tip ? `<div class="result-card"><h3>🧠 记忆技巧</h3><p>${result.memory_tip}</p></div>` : ''}
+                ${result.synonyms && result.synonyms.length ? `<div class="result-card"><h3>🔄 同义词</h3><div class="md-rendered"><p>${result.synonyms.join(', ')}</p></div></div>` : ''}
+                ${result.antonyms && result.antonyms.length ? `<div class="result-card"><h3>⚡ 反义词</h3><div class="md-rendered"><p>${result.antonyms.join(', ')}</p></div></div>` : ''}
+                ${result.memory_tip ? `<div class="result-card"><h3>🧠 记忆技巧</h3><div class="md-rendered">${renderMarkdown(result.memory_tip)}</div></div>` : ''}
             `;
             document.getElementById('resultContent').innerHTML = html;
             document.getElementById('resultSection').style.display = 'block';
@@ -516,9 +554,9 @@
 
         function showSuccess(message) {
             const errorEl = document.getElementById('errorMessage');
-            errorEl.style.background = 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)';
-            errorEl.style.color = '#065f46';
-            errorEl.style.border = '2px solid #10b981';
+            errorEl.style.background = 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.1))';
+            errorEl.style.color = '#10b981';
+            errorEl.style.border = '1px solid rgba(16,185,129,0.3)';
             errorEl.textContent = message;
             errorEl.classList.add('active');
             
@@ -748,7 +786,7 @@
 
         function clearAll() {
             if (confirm('确定要清空所有内容吗?')) {
-                document.getElementById('wordInput').value = '';
+                wordEditor.clear();
                 document.getElementById('resultContent').innerHTML = '';
                 document.getElementById('resultSection').style.display = 'none';
                 localStorage.removeItem('englishLearningData');
@@ -769,9 +807,9 @@
             document.getElementById('errorMessage').classList.remove('active');
         }
 
-        document.getElementById('wordInput').addEventListener('input', function() {
+        wordEditor.container.addEventListener('input', function() {
             saveToStorage();
-            document.getElementById('pronunciationPanel').style.display = this.value.trim() ? 'block' : 'none';
+            document.getElementById('pronunciationPanel').style.display = wordEditor.getMarkdown().trim() ? 'block' : 'none';
         });
 
         // ===== Event Listeners (CSP compliant - no inline handlers) =====

@@ -1,0 +1,943 @@
+/**
+ * theme.css — LinguaFlow 统一主题系统
+ * 主题: ocean(海洋·默认) / fresh(清新) / dark(暗黑) / light(浅色)
+ *       warm(暖橙) / sakura(樱花)
+ * 所有页面共享此文件，通过 html[data-theme] 切换变量集
+ */
+
+/* ============================================================
+   1. 主题变量定义
+   ============================================================ */
+
+/* --- 清新配色 --- */
+html[data-theme="fresh"] {
+  --primary: #0d9488;
+  --primary-light: #2dd4bf;
+  --primary-dark: #0f766e;
+  --accent: #0891b2;
+  --accent2: #f472b6;
+  --neon-cyan: #06b6d4;
+  --neon-purple: #0d9488;
+  --neon-blue: #0284c7;
+  --neon-green: #059669;
+  --orange: #d97706;
+  --red: #dc2626;
+  --blue: #2563eb;
+
+  /* RGB 三元组（供 rgba() 组合，随主题切换） */
+  --primary-rgb: 13,148,136;
+  --cyan-rgb: 6,182,212;
+  --accent2-rgb: 244,114,182;
+  --purple-rgb: 13,148,136;
+  --white-rgb: 13,148,136;
+  --green-rgb: 5,150,105;
+
+  --bg-dark: #f0fdf9;
+  --bg-body: #ecfdf5;
+  --bg-card: #ffffff;
+  --bg-card2: #f0fdfa;
+  --bg-elevated: #e6fffa;
+  --glass-bg: rgba(255,255,255,0.92);
+  --glass-border: rgba(13,148,136,0.15);
+  --glass-shadow: 0 4px 24px rgba(13,148,136,0.08), 0 1px 4px rgba(0,0,0,0.04);
+
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --text-dim: #94a3b8;
+  --text-strong: #0f172a;
+
+  --primary-a04: rgba(13,148,136,0.04);
+  --primary-a06: rgba(13,148,136,0.06);
+  --primary-a08: rgba(13,148,136,0.08);
+  --primary-a10: rgba(13,148,136,0.10);
+  --primary-a12: rgba(13,148,136,0.12);
+  --primary-a15: rgba(13,148,136,0.15);
+  --primary-a18: rgba(13,148,136,0.18);
+  --primary-a20: rgba(13,148,136,0.20);
+  --primary-a25: rgba(13,148,136,0.25);
+  --cyan-a06: rgba(6,182,212,0.06);
+  --cyan-a08: rgba(6,182,212,0.08);
+  --cyan-a10: rgba(6,182,212,0.10);
+  --cyan-a15: rgba(6,182,212,0.15);
+  --cyan-a20: rgba(6,182,212,0.20);
+  --green-a08: rgba(5,150,105,0.08);
+  --green-a10: rgba(5,150,105,0.10);
+  --green-a15: rgba(5,150,105,0.15);
+  --green-a20: rgba(5,150,105,0.20);
+  --red-a08: rgba(220,38,38,0.08);
+  --red-a10: rgba(220,38,38,0.10);
+  --red-a12: rgba(220,38,38,0.12);
+  --white-a08: rgba(13,148,136,0.06);
+  --white-a10: rgba(13,148,136,0.08);
+  --white-a12: rgba(13,148,136,0.10);
+  --white-a15: rgba(13,148,136,0.12);
+
+  --md-code-bg: rgba(13,148,136,0.10);
+  --md-code-color: #0f766e;
+  --md-pre-bg: #f8fafc;
+  --md-pre-border: rgba(13,148,136,0.15);
+  --md-pre-color: #334155;
+  --md-link: #0891b2;
+  --md-blockquote-border: #0d9488;
+  --md-blockquote-bg: rgba(13,148,136,0.04);
+  --md-table-border: rgba(13,148,136,0.2);
+  --md-th-bg: rgba(13,148,136,0.08);
+
+  --orb-opacity: 0.15;
+  --scanline-opacity: 0;
+  --grid-opacity: 0.3;
+  --star-opacity: 0;
+  --glow-opacity: 0;
+  --card-border-glow: 0;
+  --header-gradient: linear-gradient(135deg, #0f766e 0%, #0d9488 40%, #06b6d4 100%);
+  --btn-gradient: linear-gradient(135deg, #0d9488 0%, #06b6d4 100%);
+  --focus-ring: 0 0 0 4px rgba(13,148,136,0.1);
+  --scrollbar-color: rgba(13,148,136,0.2);
+  --scrollbar-hover: rgba(13,148,136,0.35);
+  color-scheme: light;
+}
+
+/* --- 暗黑模式 --- */
+html[data-theme="dark"] {
+  --primary: #6366f1;
+  --primary-light: #818cf8;
+  --primary-dark: #4f46e5;
+  --accent: #64748b;
+  --accent2: #475569;
+  --neon-cyan: #38bdf8;
+  --neon-purple: #6366f1;
+  --neon-blue: #3b82f6;
+  --neon-green: #34d399;
+  --orange: #fbbf24;
+  --red: #f87171;
+  --blue: #60a5fa;
+
+  /* RGB 三元组（供 rgba() 组合，随主题切换） */
+  --primary-rgb: 99,102,241;
+  --cyan-rgb: 56,189,248;
+  --accent2-rgb: 71,85,105;
+  --purple-rgb: 99,102,241;
+  --white-rgb: 255,255,255;
+  --green-rgb: 52,211,153;
+
+  --bg-dark: #09090b;
+  --bg-body: #0c0c0e;
+  --bg-card: #131316;
+  --bg-card2: #18181b;
+  --bg-elevated: #1f1f23;
+  --glass-bg: rgba(19,19,22,0.95);
+  --glass-border: rgba(99,102,241,0.12);
+  --glass-shadow: 0 8px 32px rgba(0,0,0,0.5);
+
+  --text: #e4e4e7;
+  --text-secondary: #a1a1aa;
+  --text-dim: #52525b;
+  --text-strong: #fafafa;
+
+  --primary-a04: rgba(99,102,241,0.04);
+  --primary-a06: rgba(99,102,241,0.06);
+  --primary-a08: rgba(99,102,241,0.08);
+  --primary-a10: rgba(99,102,241,0.10);
+  --primary-a12: rgba(99,102,241,0.12);
+  --primary-a15: rgba(99,102,241,0.15);
+  --primary-a18: rgba(99,102,241,0.18);
+  --primary-a20: rgba(99,102,241,0.20);
+  --primary-a25: rgba(99,102,241,0.25);
+  --cyan-a06: rgba(56,189,248,0.06);
+  --cyan-a08: rgba(56,189,248,0.08);
+  --cyan-a10: rgba(56,189,248,0.10);
+  --cyan-a15: rgba(56,189,248,0.15);
+  --cyan-a20: rgba(56,189,248,0.20);
+  --green-a08: rgba(52,211,153,0.08);
+  --green-a10: rgba(52,211,153,0.10);
+  --green-a15: rgba(52,211,153,0.15);
+  --green-a20: rgba(52,211,153,0.20);
+  --red-a08: rgba(248,113,113,0.08);
+  --red-a10: rgba(248,113,113,0.10);
+  --red-a12: rgba(248,113,113,0.12);
+  --white-a08: rgba(255,255,255,0.06);
+  --white-a10: rgba(255,255,255,0.08);
+  --white-a12: rgba(255,255,255,0.10);
+  --white-a15: rgba(255,255,255,0.12);
+
+  --md-code-bg: rgba(99,102,241,0.12);
+  --md-code-color: #a5b4fc;
+  --md-pre-bg: rgba(0,0,0,0.5);
+  --md-pre-border: rgba(99,102,241,0.12);
+  --md-pre-color: #d4d4d8;
+  --md-link: #38bdf8;
+  --md-blockquote-border: #6366f1;
+  --md-blockquote-bg: rgba(99,102,241,0.04);
+  --md-table-border: rgba(99,102,241,0.18);
+  --md-th-bg: rgba(99,102,241,0.10);
+
+  --orb-opacity: 0.2;
+  --scanline-opacity: 0;
+  --grid-opacity: 0.4;
+  --star-opacity: 0.3;
+  --glow-opacity: 0;
+  --card-border-glow: 0;
+  --header-gradient: linear-gradient(135deg, #fafafa 0%, #a5b4fc 60%, #38bdf8 100%);
+  --btn-gradient: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  --focus-ring: 0 0 0 4px rgba(99,102,241,0.12);
+  --scrollbar-color: rgba(99,102,241,0.2);
+  --scrollbar-hover: rgba(99,102,241,0.35);
+  color-scheme: dark;
+}
+
+/* --- 浅色模式 --- */
+html[data-theme="light"] {
+  --primary: #7c3aed;
+  --primary-light: #8b5cf6;
+  --primary-dark: #6d28d9;
+  --accent: #0891b2;
+  --accent2: #db2777;
+  --neon-cyan: #0891b2;
+  --neon-purple: #7c3aed;
+  --neon-blue: #2563eb;
+  --neon-green: #059669;
+  --orange: #d97706;
+  --red: #dc2626;
+  --blue: #2563eb;
+
+  /* RGB 三元组（供 rgba() 组合，随主题切换） */
+  --primary-rgb: 124,58,237;
+  --cyan-rgb: 8,145,178;
+  --accent2-rgb: 219,39,119;
+  --purple-rgb: 124,58,237;
+  --white-rgb: 124,58,237;
+  --green-rgb: 5,150,105;
+
+  --bg-dark: #f8fafc;
+  --bg-body: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card2: #f8fafc;
+  --bg-elevated: #f1f5f9;
+  --glass-bg: rgba(255,255,255,0.95);
+  --glass-border: rgba(124,58,237,0.12);
+  --glass-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04);
+
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --text-dim: #94a3b8;
+  --text-strong: #0f172a;
+
+  --primary-a04: rgba(124,58,237,0.04);
+  --primary-a06: rgba(124,58,237,0.06);
+  --primary-a08: rgba(124,58,237,0.08);
+  --primary-a10: rgba(124,58,237,0.10);
+  --primary-a12: rgba(124,58,237,0.12);
+  --primary-a15: rgba(124,58,237,0.15);
+  --primary-a18: rgba(124,58,237,0.18);
+  --primary-a20: rgba(124,58,237,0.20);
+  --primary-a25: rgba(124,58,237,0.25);
+  --cyan-a06: rgba(8,145,178,0.06);
+  --cyan-a08: rgba(8,145,178,0.08);
+  --cyan-a10: rgba(8,145,178,0.10);
+  --cyan-a15: rgba(8,145,178,0.15);
+  --cyan-a20: rgba(8,145,178,0.20);
+  --green-a08: rgba(5,150,105,0.08);
+  --green-a10: rgba(5,150,105,0.10);
+  --green-a15: rgba(5,150,105,0.15);
+  --green-a20: rgba(5,150,105,0.20);
+  --red-a08: rgba(220,38,38,0.08);
+  --red-a10: rgba(220,38,38,0.10);
+  --red-a12: rgba(220,38,38,0.12);
+  --white-a08: rgba(124,58,237,0.05);
+  --white-a10: rgba(124,58,237,0.07);
+  --white-a12: rgba(124,58,237,0.09);
+  --white-a15: rgba(124,58,237,0.11);
+
+  --md-code-bg: rgba(124,58,237,0.08);
+  --md-code-color: #6d28d9;
+  --md-pre-bg: #f8fafc;
+  --md-pre-border: rgba(124,58,237,0.12);
+  --md-pre-color: #334155;
+  --md-link: #0891b2;
+  --md-blockquote-border: #7c3aed;
+  --md-blockquote-bg: rgba(124,58,237,0.03);
+  --md-table-border: rgba(124,58,237,0.15);
+  --md-th-bg: rgba(124,58,237,0.06);
+
+  --orb-opacity: 0.08;
+  --scanline-opacity: 0;
+  --grid-opacity: 0.2;
+  --star-opacity: 0;
+  --glow-opacity: 0;
+  --card-border-glow: 0;
+  --header-gradient: linear-gradient(135deg, #1e293b 0%, #7c3aed 50%, #0891b2 100%);
+  --btn-gradient: linear-gradient(135deg, #7c3aed 0%, #0891b2 100%);
+  --focus-ring: 0 0 0 4px rgba(124,58,237,0.08);
+  --scrollbar-color: rgba(124,58,237,0.15);
+  --scrollbar-hover: rgba(124,58,237,0.3);
+  color-scheme: light;
+}
+
+/* --- 暖橙暖阳 --- */
+html[data-theme="warm"] {
+  --primary: #ea580c;
+  --primary-light: #fb923c;
+  --primary-dark: #c2410c;
+  --accent: #d97706;
+  --accent2: #0d9488;
+  --neon-cyan: #0891b2;
+  --neon-purple: #ea580c;
+  --neon-blue: #2563eb;
+  --neon-green: #059669;
+  --orange: #ea580c;
+  --red: #dc2626;
+  --blue: #2563eb;
+
+  /* RGB 三元组（供 rgba() 组合，随主题切换） */
+  --primary-rgb: 234,88,12;
+  --cyan-rgb: 8,145,178;
+  --accent2-rgb: 13,148,136;
+  --purple-rgb: 234,88,12;
+  --white-rgb: 234,88,12;
+  --green-rgb: 5,150,105;
+
+  --bg-dark: #fffbf5;
+  --bg-body: #fff7ed;
+  --bg-card: #ffffff;
+  --bg-card2: #fffaf3;
+  --bg-elevated: #ffedd5;
+  --glass-bg: rgba(255,255,255,0.92);
+  --glass-border: rgba(234,88,12,0.14);
+  --glass-shadow: 0 4px 24px rgba(234,88,12,0.08), 0 1px 4px rgba(0,0,0,0.04);
+
+  --text: #292524;
+  --text-secondary: #78716c;
+  --text-dim: #a8a29e;
+  --text-strong: #1c1917;
+
+  --primary-a04: rgba(234,88,12,0.04);
+  --primary-a06: rgba(234,88,12,0.06);
+  --primary-a08: rgba(234,88,12,0.08);
+  --primary-a10: rgba(234,88,12,0.10);
+  --primary-a12: rgba(234,88,12,0.12);
+  --primary-a15: rgba(234,88,12,0.15);
+  --primary-a18: rgba(234,88,12,0.18);
+  --primary-a20: rgba(234,88,12,0.20);
+  --primary-a25: rgba(234,88,12,0.25);
+  --cyan-a06: rgba(8,145,178,0.06);
+  --cyan-a08: rgba(8,145,178,0.08);
+  --cyan-a10: rgba(8,145,178,0.10);
+  --cyan-a15: rgba(8,145,178,0.15);
+  --cyan-a20: rgba(8,145,178,0.20);
+  --green-a08: rgba(5,150,105,0.08);
+  --green-a10: rgba(5,150,105,0.10);
+  --green-a15: rgba(5,150,105,0.15);
+  --green-a20: rgba(5,150,105,0.20);
+  --red-a08: rgba(220,38,38,0.08);
+  --red-a10: rgba(220,38,38,0.10);
+  --red-a12: rgba(220,38,38,0.12);
+  --white-a08: rgba(234,88,12,0.05);
+  --white-a10: rgba(234,88,12,0.07);
+  --white-a12: rgba(234,88,12,0.09);
+  --white-a15: rgba(234,88,12,0.11);
+
+  --md-code-bg: rgba(234,88,12,0.08);
+  --md-code-color: #c2410c;
+  --md-pre-bg: #fffbf5;
+  --md-pre-border: rgba(234,88,12,0.14);
+  --md-pre-color: #44403c;
+  --md-link: #0891b2;
+  --md-blockquote-border: #ea580c;
+  --md-blockquote-bg: rgba(234,88,12,0.04);
+  --md-table-border: rgba(234,88,12,0.18);
+  --md-th-bg: rgba(234,88,12,0.07);
+
+  --orb-opacity: 0.12;
+  --scanline-opacity: 0;
+  --grid-opacity: 0.25;
+  --star-opacity: 0;
+  --glow-opacity: 0;
+  --card-border-glow: 0;
+  --header-gradient: linear-gradient(135deg, #7c2d12 0%, #ea580c 45%, #f59e0b 100%);
+  --btn-gradient: linear-gradient(135deg, #ea580c 0%, #f97316 50%, #fbbf24 100%);
+  --focus-ring: 0 0 0 4px rgba(234,88,12,0.1);
+  --scrollbar-color: rgba(234,88,12,0.2);
+  --scrollbar-hover: rgba(234,88,12,0.35);
+  color-scheme: light;
+}
+
+/* --- 樱花粉 --- */
+html[data-theme="sakura"] {
+  --primary: #db2777;
+  --primary-light: #f472b6;
+  --primary-dark: #be185d;
+  --accent: #a855f7;
+  --accent2: #f43f5e;
+  --neon-cyan: #0891b2;
+  --neon-purple: #c026d3;
+  --neon-blue: #2563eb;
+  --neon-green: #059669;
+  --orange: #d97706;
+  --red: #dc2626;
+  --blue: #2563eb;
+
+  /* RGB 三元组（供 rgba() 组合，随主题切换） */
+  --primary-rgb: 219,39,119;
+  --cyan-rgb: 8,145,178;
+  --accent2-rgb: 244,63,94;
+  --purple-rgb: 192,38,211;
+  --white-rgb: 219,39,119;
+  --green-rgb: 5,150,105;
+
+  --bg-dark: #fffbfd;
+  --bg-body: #fdf2f8;
+  --bg-card: #ffffff;
+  --bg-card2: #fdf4f9;
+  --bg-elevated: #fce7f3;
+  --glass-bg: rgba(255,255,255,0.92);
+  --glass-border: rgba(219,39,119,0.13);
+  --glass-shadow: 0 4px 24px rgba(219,39,119,0.08), 0 1px 4px rgba(0,0,0,0.04);
+
+  --text: #3b2d35;
+  --text-secondary: #8b7580;
+  --text-dim: #b3a0aa;
+  --text-strong: #2a1c24;
+
+  --primary-a04: rgba(219,39,119,0.04);
+  --primary-a06: rgba(219,39,119,0.06);
+  --primary-a08: rgba(219,39,119,0.08);
+  --primary-a10: rgba(219,39,119,0.10);
+  --primary-a12: rgba(219,39,119,0.12);
+  --primary-a15: rgba(219,39,119,0.15);
+  --primary-a18: rgba(219,39,119,0.18);
+  --primary-a20: rgba(219,39,119,0.20);
+  --primary-a25: rgba(219,39,119,0.25);
+  --cyan-a06: rgba(8,145,178,0.06);
+  --cyan-a08: rgba(8,145,178,0.08);
+  --cyan-a10: rgba(8,145,178,0.10);
+  --cyan-a15: rgba(8,145,178,0.15);
+  --cyan-a20: rgba(8,145,178,0.20);
+  --green-a08: rgba(5,150,105,0.08);
+  --green-a10: rgba(5,150,105,0.10);
+  --green-a15: rgba(5,150,105,0.15);
+  --green-a20: rgba(5,150,105,0.20);
+  --red-a08: rgba(220,38,38,0.08);
+  --red-a10: rgba(220,38,38,0.10);
+  --red-a12: rgba(220,38,38,0.12);
+  --white-a08: rgba(219,39,119,0.05);
+  --white-a10: rgba(219,39,119,0.07);
+  --white-a12: rgba(219,39,119,0.09);
+  --white-a15: rgba(219,39,119,0.11);
+
+  --md-code-bg: rgba(219,39,119,0.08);
+  --md-code-color: #be185d;
+  --md-pre-bg: #fffbfd;
+  --md-pre-border: rgba(219,39,119,0.13);
+  --md-pre-color: #4a3540;
+  --md-link: #a855f7;
+  --md-blockquote-border: #db2777;
+  --md-blockquote-bg: rgba(219,39,119,0.04);
+  --md-table-border: rgba(219,39,119,0.16);
+  --md-th-bg: rgba(219,39,119,0.06);
+
+  --orb-opacity: 0.1;
+  --scanline-opacity: 0;
+  --grid-opacity: 0.2;
+  --star-opacity: 0;
+  --glow-opacity: 0;
+  --card-border-glow: 0;
+  --header-gradient: linear-gradient(135deg, #831843 0%, #db2777 45%, #f0abfc 100%);
+  --btn-gradient: linear-gradient(135deg, #db2777 0%, #ec4899 50%, #f0abfc 100%);
+  --focus-ring: 0 0 0 4px rgba(219,39,119,0.09);
+  --scrollbar-color: rgba(219,39,119,0.18);
+  --scrollbar-hover: rgba(219,39,119,0.32);
+  color-scheme: light;
+}
+
+/* --- 海洋蓝（深海） (默认) --- */
+html[data-theme="ocean"], :root {
+  --primary: #0ea5e9;
+  --primary-light: #38bdf8;
+  --primary-dark: #0284c7;
+  --accent: #06b6d4;
+  --accent2: #2dd4bf;
+  --neon-cyan: #22d3ee;
+  --neon-purple: #0ea5e9;
+  --neon-blue: #3b82f6;
+  --neon-green: #2dd4bf;
+  --orange: #fbbf24;
+  --red: #f87171;
+  --blue: #60a5fa;
+
+  /* RGB 三元组（供 rgba() 组合，随主题切换） */
+  --primary-rgb: 14,165,233;
+  --cyan-rgb: 34,211,238;
+  --accent2-rgb: 45,212,191;
+  --purple-rgb: 14,165,233;
+  --white-rgb: 255,255,255;
+  --green-rgb: 45,212,191;
+
+  --bg-dark: #071019;
+  --bg-body: #0a1622;
+  --bg-card: #0e1c2b;
+  --bg-card2: #132435;
+  --bg-elevated: #1a2f42;
+  --glass-bg: rgba(14,28,43,0.92);
+  --glass-border: rgba(56,189,248,0.14);
+  --glass-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 0 24px rgba(14,165,233,0.05);
+
+  --text: #dcebf7;
+  --text-secondary: #8ba7bd;
+  --text-dim: #567186;
+  --text-strong: #f0f9ff;
+
+  --primary-a04: rgba(14,165,233,0.04);
+  --primary-a06: rgba(14,165,233,0.06);
+  --primary-a08: rgba(14,165,233,0.08);
+  --primary-a10: rgba(14,165,233,0.10);
+  --primary-a12: rgba(14,165,233,0.12);
+  --primary-a15: rgba(14,165,233,0.15);
+  --primary-a18: rgba(14,165,233,0.18);
+  --primary-a20: rgba(14,165,233,0.20);
+  --primary-a25: rgba(14,165,233,0.25);
+  --cyan-a06: rgba(34,211,238,0.06);
+  --cyan-a08: rgba(34,211,238,0.08);
+  --cyan-a10: rgba(34,211,238,0.10);
+  --cyan-a15: rgba(34,211,238,0.15);
+  --cyan-a20: rgba(34,211,238,0.20);
+  --green-a08: rgba(45,212,191,0.08);
+  --green-a10: rgba(45,212,191,0.10);
+  --green-a15: rgba(45,212,191,0.15);
+  --green-a20: rgba(45,212,191,0.20);
+  --red-a08: rgba(248,113,113,0.08);
+  --red-a10: rgba(248,113,113,0.10);
+  --red-a12: rgba(248,113,113,0.12);
+  --white-a08: rgba(255,255,255,0.07);
+  --white-a10: rgba(255,255,255,0.09);
+  --white-a12: rgba(255,255,255,0.11);
+  --white-a15: rgba(255,255,255,0.13);
+
+  --md-code-bg: rgba(14,165,233,0.13);
+  --md-code-color: #7dd3fc;
+  --md-pre-bg: rgba(0,0,0,0.4);
+  --md-pre-border: rgba(56,189,248,0.14);
+  --md-pre-color: #d5e6f5;
+  --md-link: #22d3ee;
+  --md-blockquote-border: #0ea5e9;
+  --md-blockquote-bg: rgba(14,165,233,0.05);
+  --md-table-border: rgba(56,189,248,0.2);
+  --md-th-bg: rgba(14,165,233,0.10);
+
+  --orb-opacity: 0.3;
+  --scanline-opacity: 0;
+  --grid-opacity: 0.5;
+  --star-opacity: 0.5;
+  --glow-opacity: 0.3;
+  --card-border-glow: 1;
+  --header-gradient: linear-gradient(135deg, #f0f9ff 0%, #7dd3fc 45%, #2dd4bf 100%);
+  --btn-gradient: linear-gradient(135deg, #0284c7 0%, #0ea5e9 50%, #22d3ee 100%);
+  --focus-ring: 0 0 0 4px rgba(34,211,238,0.1), 0 0 12px rgba(34,211,238,0.05);
+  --scrollbar-color: rgba(14,165,233,0.2);
+  --scrollbar-hover: rgba(14,165,233,0.38);
+  color-scheme: dark;
+}
+
+/* ============================================================
+   2. 共享基础样式
+   ============================================================ */
+
+/* --- 背景画布 --- */
+.bg-canvas {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  background: var(--bg-dark);
+  transition: background 0.4s ease;
+}
+.bg-canvas::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--primary-a04) 1px, transparent 1px),
+    linear-gradient(90deg, var(--primary-a04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: var(--grid-opacity);
+}
+.bg-canvas::after {
+  content: '';
+  position: absolute; inset: -50%;
+  background:
+    radial-gradient(circle at 20% 50%, var(--primary-a12) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, var(--cyan-a08) 0%, transparent 50%),
+    radial-gradient(circle at 40% 80%, var(--primary-a06) 0%, transparent 50%);
+  animation: bgRotate 30s linear infinite;
+}
+@keyframes bgRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.orb {
+  position: absolute; border-radius: 50%; filter: blur(80px);
+  opacity: var(--orb-opacity);
+  animation: orbFloat 8s ease-in-out infinite alternate;
+  transition: opacity 0.4s ease;
+}
+.orb:nth-child(1) { width: 400px; height: 400px; background: var(--primary); top: 10%; left: -5%; animation-duration: 10s; }
+.orb:nth-child(2) { width: 350px; height: 350px; background: var(--neon-cyan); top: 60%; right: -5%; animation-duration: 12s; animation-delay: -3s; }
+.orb:nth-child(3) { width: 300px; height: 300px; background: var(--accent2); bottom: -10%; left: 30%; animation-duration: 9s; animation-delay: -5s; }
+.orb:nth-child(4) { width: 250px; height: 250px; background: var(--neon-purple); top: 5%; right: 20%; animation-duration: 11s; animation-delay: -2s; opacity: calc(var(--orb-opacity) * 0.4); }
+@keyframes orbFloat {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(40px, -30px) scale(1.15); }
+}
+
+.stars { position: absolute; inset: 0; opacity: var(--star-opacity); transition: opacity 0.4s ease; }
+.star {
+  position: absolute; width: 2px; height: 2px; background: var(--primary-light); border-radius: 50%;
+  animation: starTwinkle 3s ease-in-out infinite alternate;
+  box-shadow: 0 0 4px var(--primary-a25);
+}
+@keyframes starTwinkle {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* 扫描线（强度由 --scanline-opacity 控制） */
+.scanline-overlay {
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, var(--primary-a04) 2px, var(--primary-a04) 4px);
+  pointer-events: none; z-index: 0;
+  opacity: var(--scanline-opacity);
+  transition: opacity 0.4s ease;
+}
+
+/* --- 通用布局 --- */
+.app-wrapper { position: relative; z-index: 1; min-height: 100vh; }
+
+/* --- Header --- */
+.header h1 {
+  background: var(--header-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* --- 玻璃卡片 --- */
+.glass-card, .main-card {
+  position: relative;
+  background: var(--bg-card);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+  transition: box-shadow var(--transition), background 0.4s ease, border-color 0.4s ease;
+}
+.glass-card::before, .main-card::after {
+  content: ''; position: absolute; inset: -2px; border-radius: calc(var(--radius) + 2px); padding: 2px;
+  background: linear-gradient(135deg, var(--primary-a25), var(--cyan-a15), var(--primary-a10), var(--cyan-a20), var(--primary-a25));
+  background-size: 300% 300%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: borderGlow 6s ease-in-out infinite;
+  pointer-events: none; z-index: -1;
+  opacity: var(--glow-opacity);
+}
+@keyframes borderGlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* --- 按钮渐变 --- */
+.translate-btn, .btn-summarize {
+  background: var(--btn-gradient);
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease infinite;
+}
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* --- Toast --- */
+.toast {
+  position: fixed;
+  top: 28px; right: 28px;
+  padding: 16px 28px;
+  border-radius: var(--radius);
+  color: white;
+  font-size: 0.92rem;
+  font-weight: 500;
+  font-family: inherit;
+  z-index: 9999;
+  transform: translateX(120%);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  backdrop-filter: blur(12px);
+  display: flex; align-items: center; gap: 10px;
+}
+.toast.show { transform: translateX(0); }
+.toast.success { background: rgba(16,185,129,0.92); box-shadow: 0 8px 30px rgba(16,185,129,0.3); }
+.toast.error { background: rgba(239,68,68,0.92); box-shadow: 0 8px 30px rgba(239,68,68,0.3); }
+.toast.info { background: rgba(59,130,246,0.92); box-shadow: 0 8px 30px rgba(59,130,246,0.3); }
+
+/* --- 滚动条 --- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-color); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
+
+/* --- 入场动画 --- */
+.fade-up {
+  opacity: 0; transform: translateY(24px);
+  animation: fadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.fade-up:nth-child(2) { animation-delay: 0.1s; }
+.fade-up:nth-child(3) { animation-delay: 0.2s; }
+@keyframes fadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ============================================================
+   3. Markdown 渲染排版 (共享)
+   ============================================================ */
+.md-rendered h1, .md-rendered h2, .md-rendered h3,
+.md-rendered h4, .md-rendered h5, .md-rendered h6 {
+  margin: 0.5em 0 0.25em;
+  line-height: 1.4;
+  font-weight: 700;
+  color: var(--text);
+}
+.md-rendered h1 { font-size: 1.5em; }
+.md-rendered h2 { font-size: 1.32em; }
+.md-rendered h3 { font-size: 1.18em; }
+.md-rendered h4 { font-size: 1.08em; }
+.md-rendered h5, .md-rendered h6 { font-size: 1em; }
+.md-rendered h1:first-child, .md-rendered h2:first-child,
+.md-rendered h3:first-child, .md-rendered p:first-child { margin-top: 0; }
+.md-rendered p { margin: 0.35em 0; }
+.md-rendered strong { color: var(--text-strong); font-weight: 700; }
+.md-rendered em { color: var(--primary-light); }
+.md-rendered del { color: var(--text-dim); }
+.md-rendered a { color: var(--md-link); text-decoration: none; border-bottom: 1px solid var(--cyan-a20); }
+.md-rendered a:hover { border-bottom-color: var(--md-link); }
+.md-rendered code {
+  background: var(--md-code-bg);
+  color: var(--md-code-color);
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.88em;
+}
+.md-rendered pre {
+  background: var(--md-pre-bg);
+  border: 1px solid var(--md-pre-border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin: 0.5em 0;
+  overflow-x: auto;
+}
+.md-rendered pre code {
+  background: none;
+  padding: 0;
+  color: var(--md-pre-color);
+  font-size: 0.86em;
+  line-height: 1.6;
+}
+/* 多级缩进列表 */
+.md-rendered ul, .md-rendered ol { padding-left: 1.8em; margin: 0.35em 0; list-style-position: outside; }
+.md-rendered li { margin: 0.15em 0; }
+.md-rendered ul ul, .md-rendered ol ol,
+.md-rendered ul ol, .md-rendered ol ul { padding-left: 1.8em; margin: 0.1em 0; }
+.md-rendered li.task-item { list-style: none; margin-left: -1.2em; }
+.md-rendered li.task-item input { margin-right: 6px; accent-color: var(--neon-purple); }
+.md-rendered blockquote {
+  border-left: 3px solid var(--md-blockquote-border);
+  padding: 2px 0 2px 14px;
+  margin: 0.5em 0;
+  color: var(--text-secondary);
+  background: var(--md-blockquote-bg);
+  border-radius: 0 8px 8px 0;
+}
+.md-rendered hr {
+  border: none;
+  border-top: 1px solid var(--primary-a25);
+  margin: 0.9em 0;
+}
+.md-rendered table { border-collapse: collapse; margin: 0.5em 0; max-width: 100%; }
+.md-rendered th, .md-rendered td {
+  border: 1px solid var(--md-table-border);
+  padding: 6px 14px;
+  font-size: 0.95em;
+}
+.md-rendered th { background: var(--md-th-bg); font-weight: 700; }
+.md-rendered img { max-width: 100%; border-radius: 8px; }
+
+/* ============================================================
+   4. MdEditor 共享样式（textarea 原始 Markdown 输入）
+   ============================================================ */
+:where(textarea.md-editor) {
+  display: block;
+  width: 100%;
+  font-family: inherit;
+  resize: vertical;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+}
+:where(textarea.md-editor)::placeholder {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* ============================================================
+   5. Markdown 预览面板 (共享)
+   ============================================================ */
+.md-preview-panel {
+  border-top: 1px solid var(--primary-a15);
+  background: var(--bg-card2);
+  animation: previewSlideIn 0.25s ease;
+  border-radius: 0 0 12px 12px;
+}
+@keyframes previewSlideIn {
+  from { max-height: 0; opacity: 0; }
+  to { max-height: 400px; opacity: 1; }
+}
+.md-preview-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 18px;
+  background: var(--primary-a06);
+  border-bottom: 1px solid var(--primary-a08);
+}
+.md-preview-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.72rem; font-weight: 600; color: var(--neon-cyan);
+  text-transform: uppercase; letter-spacing: 0.8px;
+}
+.md-preview-close {
+  width: 24px; height: 24px; border-radius: 6px;
+  border: 1px solid var(--primary-a15);
+  background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-dim); transition: var(--transition);
+}
+.md-preview-close:hover {
+  color: var(--red); border-color: var(--red-a12);
+  background: var(--red-a08);
+}
+.md-preview-content {
+  padding: 14px 20px;
+  max-height: 280px;
+  overflow-y: auto;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+.preview-btn.active {
+  border-color: var(--neon-cyan) !important;
+  color: var(--neon-cyan) !important;
+  background: var(--cyan-a10) !important;
+  box-shadow: 0 0 10px var(--cyan-a15);
+}
+
+/* ============================================================
+   嵌入模式（iframe）：隐藏子页面独立标题，与宿主页面保持一致
+   （由 theme.js 检测 self !== top 时为 <html> 添加 .in-iframe）
+   ============================================================ */
+html.in-iframe .header { display: none; }
+
+/* ============================================================
+   6. 主题切换器样式
+   ============================================================ */
+.theme-fab {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  z-index: 9998;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--glass-shadow);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+  color: var(--text);
+}
+.theme-fab:hover { transform: scale(1.1) rotate(15deg); border-color: var(--primary-a25); }
+.theme-fab svg { width: 22px; height: 22px; }
+
+.theme-panel {
+  position: fixed;
+  bottom: 84px; right: 24px;
+  z-index: 9998;
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--glass-shadow);
+  padding: 16px;
+  min-width: 200px;
+  max-height: min(420px, calc(100vh - 120px));
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateY(12px) scale(0.95);
+  pointer-events: none;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  backdrop-filter: blur(20px);
+}
+.theme-panel.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.theme-panel-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+.theme-option {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+  transition: var(--transition);
+  margin-bottom: 4px;
+}
+.theme-option:last-child { margin-bottom: 0; }
+.theme-option:hover { background: var(--primary-a06); border-color: var(--primary-a15); }
+.theme-option.active { background: var(--primary-a08); border-color: var(--primary); }
+.theme-swatch {
+  width: 28px; height: 28px; border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid var(--white-a15);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.theme-swatch.swatch-fresh { background: linear-gradient(135deg, #0d9488, #6ee7b7); }
+.theme-swatch.swatch-dark { background: linear-gradient(135deg, #18181b, #6366f1); }
+.theme-swatch.swatch-light { background: linear-gradient(135deg, #f8fafc, #c4b5fd); }
+.theme-swatch.swatch-warm { background: linear-gradient(135deg, #ea580c, #fbbf24); }
+.theme-swatch.swatch-sakura { background: linear-gradient(135deg, #db2777, #f9a8d4); }
+.theme-swatch.swatch-ocean { background: linear-gradient(135deg, #071019, #0ea5e9); }
+.theme-option .check {
+  margin-left: auto;
+  opacity: 0;
+  color: var(--primary);
+  font-weight: 700;
+  transition: var(--transition);
+}
+.theme-option.active .check { opacity: 1; }
+
+/* ============================================================
+   7. 主题过渡动画
+   ============================================================ */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: background-color 0.35s ease, border-color 0.35s ease,
+              color 0.35s ease, box-shadow 0.35s ease, opacity 0.35s ease !important;
+}

@@ -82,6 +82,7 @@
   let summaries = [];
   var editingRecordId = null;
   var selectedRecordIds = [];
+  var workEditor = null;
   let currentFilter = { dateFrom: '', dateTo: '', timeFrom: '', timeTo: '' };
 
   // ===== DOM refs (with null guard) =====
@@ -154,7 +155,8 @@
   // ===== Auto-save draft =====
   let draftTimer = null;
   function saveDraft() {
-    const text = $('workInput').value;
+    if (!workEditor) return;
+    const text = workEditor.getMarkdown();
     storage.set({ work_draft: text }).then(() => {
       const dot = $('draftDot');
       dot.classList.add('saved');
@@ -162,20 +164,13 @@
     });
   }
 
-  $('workInput').addEventListener('input', () => {
-    clearTimeout(draftTimer);
-    draftTimer = setTimeout(saveDraft, 300);
-    $('draftHint').textContent = '草稿已修改...';
-  });
-
-  // Auto-save on blur (focus loss)
-  $('workInput').addEventListener('blur', () => {
-    saveDraft();
-  });
+  // Draft auto-save is handled via MdEditor onInput callback (see init)
+  // Keyboard shortcut is bound on workEditor.container (see init)
 
   // ===== Save / Update Record =====
   function saveRecord() {
-    const text = $('workInput').value.trim();
+    if (!workEditor) return;
+    const text = workEditor.getMarkdown().trim();
     if (!text) {
       showToast('请输入工作内容', 'error');
       return;
@@ -197,7 +192,7 @@
         records.unshift(updated);
       }
       storage.set({ work_records: records }).then(() => {
-        $('workInput').value = '';
+        workEditor.clear();
         storage.remove(['work_draft']);
         $('draftHint').textContent = '输入内容自动保存草稿';
         editingRecordId = null;
@@ -225,7 +220,7 @@
     if (records.length > 200) records = records.slice(0, 200);
 
     storage.set({ work_records: records }).then(() => {
-      $('workInput').value = '';
+      workEditor.clear();
       storage.remove(['work_draft']);
       $('draftHint').textContent = '输入内容自动保存草稿';
       renderRecords();
@@ -242,11 +237,10 @@
   function editRecord(id) {
     for (var i = 0; i < records.length; i++) {
       if (records[i].id === id) {
-        var inp = $('workInput');
-        if (inp) inp.value = records[i].content;
+        if (workEditor) workEditor.setMarkdown(records[i].content);
         editingRecordId = id;
         updateSaveBtnLabel();
-        inp.focus();
+        if (workEditor) workEditor.focus();
         showToast('正在编辑记录 — 修改后点击「更新记录」保存', 'success');
         return;
       }
@@ -256,8 +250,7 @@
   // ===== Cancel Edit =====
   function cancelEdit() {
     editingRecordId = null;
-    var inp = $('workInput');
-    if (inp) inp.value = '';
+    if (workEditor) workEditor.clear();
     storage.remove(['work_draft']);
     $('draftHint').textContent = '输入内容自动保存草稿';
     updateSaveBtnLabel();
@@ -360,7 +353,7 @@
         + '<div class="record-date">' + escapeHtml(r.date) + '</div>'
         + '<div class="record-clock">' + escapeHtml(r.time) + '</div>'
         + '</div>'
-        + '<div class="record-content">' + escapeHtml(r.content) + '</div>'
+        + '<div class="record-content md-rendered">' + renderMarkdown(r.content) + '</div>'
         + '<button class="record-edit" data-rid="' + r.id + '" title="编辑">'
         + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
         + '</button>'
@@ -398,25 +391,16 @@
     $('summaryMeta').textContent = count > 0 ? '（共 ' + count + ' 条记录）' : '';
   }
 
-  // ===== Typing effect =====
+  // ===== Typing effect (now renders Markdown with fade-in) =====
   function typeText(element, text, speed) {
-    speed = speed || 18;
-    return new Promise(resolve => {
-      element.innerHTML = '';
-      element.classList.add('typing-cursor');
-      let i = 0;
-      const timer = setInterval(() => {
-        if (i < text.length) {
-          element.textContent += text[i];
-          i++;
-          element.scrollTop = element.scrollHeight;
-        } else {
-          clearInterval(timer);
-          element.classList.remove('typing-cursor');
-          resolve();
-        }
-      }, speed);
-    });
+    element.innerHTML = '';
+    element.classList.remove('typing-cursor');
+    const html = renderMarkdown(text);
+    element.innerHTML = html;
+    element.classList.add('md-fade-in');
+    // Store raw markdown for MD download
+    element.dataset.rawText = text;
+    return Promise.resolve();
   }
 
   // ===== Auto-format result =====
@@ -564,7 +548,7 @@
 
   // ===== Copy Summary =====
   function copySummary() {
-    const text = $('summaryResult').textContent;
+    const text = $('summaryResult').dataset.rawText || $('summaryResult').textContent;
     if (!text || text.includes('选择日期范围')) {
       showToast('暂无总结内容可复制', 'error');
       return;
@@ -586,7 +570,8 @@
     if (format === 'md') {
       filename = 'work-summary-' + formatDate(Date.now()) + '.md';
       mime = 'text/markdown;charset=utf-8';
-      content = text;
+      // Get raw markdown from dataset, fallback to textContent
+      content = $('summaryResult').dataset.rawText || text;
     } else {
       filename = 'work-summary-' + formatDate(Date.now()) + '.html';
       mime = 'text/html;charset=utf-8';
@@ -613,6 +598,17 @@
         + htmlBody
         + '\n</body>\n</html>';
     }
+
+  // Apply inline markdown formatting (bold, italic, code)
+  function applyInlineFormatting(text) {
+    // Bold: **text**
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Italic: *text* (but not inside strong tags already applied)
+    text = text.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+    // Inline code: `code`
+    text = text.replace(/`(.+?)`/g, '<code>$1</code>');
+    return text;
+  }
 
   // Convert summary markdown text to HTML
   function markdownToHtml(md) {
@@ -646,7 +642,7 @@
       var m = trimmed.match(/^##\s+(.+)/);
       if (m) {
         if (inList) { result.push('</' + inList + '>'); inList = null; }
-        result.push('<h2>' + m[1] + '</h2>');
+        result.push('<h2>' + applyInlineFormatting(m[1]) + '</h2>');
         continue;
       }
 
@@ -654,7 +650,7 @@
       m = trimmed.match(/^###\s+(.+)/);
       if (m) {
         if (inList) { result.push('</' + inList + '>'); inList = null; }
-        result.push('<h3>' + m[1] + '</h3>');
+        result.push('<h3>' + applyInlineFormatting(m[1]) + '</h3>');
         continue;
       }
 
@@ -662,7 +658,7 @@
       m = trimmed.match(/^####\s+(.+)/);
       if (m) {
         if (inList) { result.push('</' + inList + '>'); inList = null; }
-        result.push('<h4>' + m[1] + '</h4>');
+        result.push('<h4>' + applyInlineFormatting(m[1]) + '</h4>');
         continue;
       }
 
@@ -674,7 +670,7 @@
           result.push('<ul>');
           inList = 'ul';
         }
-        result.push('<li>' + m[1] + '</li>');
+        result.push('<li>' + applyInlineFormatting(m[1]) + '</li>');
         continue;
       }
 
@@ -686,18 +682,15 @@
           result.push('<ol>');
           inList = 'ol';
         }
-        result.push('<li>' + m[1] + '</li>');
+        result.push('<li>' + applyInlineFormatting(m[1]) + '</li>');
         continue;
       }
 
       // End list on non-list line
       if (inList) { result.push('</' + inList + '>'); inList = null; }
 
-      // Bold: **text**
-      trimmed = trimmed.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-      // Inline code: `code`
-      trimmed = trimmed.replace(/`(.+?)`/g, '<code>$1</code>');
+      // Apply inline formatting for regular paragraph
+      trimmed = applyInlineFormatting(trimmed);
 
       // Regular paragraph
       result.push('<p>' + trimmed + '</p>');
@@ -836,8 +829,9 @@
           var resultEl = $('summaryResult');
           var footer = $('summaryFooter');
           if (resultEl) {
-            resultEl.textContent = sm.content;
-            resultEl.classList.add('visible');
+            resultEl.innerHTML = renderMarkdown(sm.content);
+            resultEl.classList.add('visible', 'md-fade-in');
+            resultEl.dataset.rawText = sm.content;
           }
           if (footer) footer.classList.add('visible');
           showToast('已加载 ' + sm.date + ' 的总结', 'success');
@@ -904,17 +898,43 @@
       });
     }
 
-    // Keyboard shortcut
-    var input = $('workInput');
-    if (input) {
-      input.addEventListener('keydown', function(e) {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-          e.preventDefault();
-          saveRecord();
-        }
-      });
-    }
+    // Keyboard shortcut — bound on workEditor.container after init
+    // (see init function below)
+
+    // Preview toggle: 由 HTML inline onclick 调用 window.toggleMdPreview，
+    // 此处不再重复绑定，避免一次点击触发两次切换
   })();
+
+  // ===== Preview Functions =====
+  var _mdPreviewOpen = false;
+  function toggleMdPreview() {
+    _mdPreviewOpen = !_mdPreviewOpen;
+    var panel = document.getElementById('mdPreviewPanel');
+    var btn = document.getElementById('previewToggleBtn');
+    if (_mdPreviewOpen) {
+      panel.style.display = 'block';
+      btn.classList.add('active');
+      updateMdPreview();
+    } else {
+      panel.style.display = 'none';
+      btn.classList.remove('active');
+    }
+  }
+
+  function updateMdPreview() {
+    if (!_mdPreviewOpen || !workEditor) return;
+    var text = workEditor.getMarkdown();
+    var preview = document.getElementById('mdPreviewContent');
+    if (text.trim()) {
+      preview.innerHTML = renderMarkdown(text);
+    } else {
+      preview.innerHTML = '<p style="color:var(--text-dim);font-style:italic;">输入 Markdown 内容即可实时预览...</p>';
+    }
+  }
+
+  // Expose to window for onclick handlers
+  window.toggleMdPreview = toggleMdPreview;
+  window.updateMdPreview = updateMdPreview;
 
   // ===== Init =====
   async function init() {
@@ -950,6 +970,38 @@
       if (panel) panel.classList.add('open');
     }
 
+    // Initialize MdEditor
+    var container = document.getElementById('workInput');
+    if (container) {
+      workEditor = MdEditor.create(container, {
+        placeholder: '请输入工作内容 (支持 Markdown)...',
+        onInput: function(md) {
+          clearTimeout(draftTimer);
+          draftTimer = setTimeout(saveDraft, 300);
+          $('draftHint').textContent = '草稿已修改...';
+          // Update preview if open
+          if (_mdPreviewOpen) updateMdPreview();
+        }
+      });
+    }
+
+    // Bind blur for draft save
+    if (workEditor && workEditor.container) {
+      workEditor.container.addEventListener('blur', function() {
+        saveDraft();
+      });
+    }
+
+    // Keyboard shortcut
+    if (workEditor && workEditor.container) {
+      workEditor.container.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          saveRecord();
+        }
+      });
+    }
+
     // Load records
     records = data.work_records || [];
     renderRecords();
@@ -959,9 +1011,8 @@
     renderSummaryHistory();
 
     // Restore draft
-    if (data.work_draft) {
-      const input = $('workInput');
-      if (input) input.value = data.work_draft;
+    if (data.work_draft && workEditor) {
+      workEditor.setMarkdown(data.work_draft);
     }
 
     // Init filter clear btn visibility

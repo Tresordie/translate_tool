@@ -29,6 +29,7 @@ var todos = [];
 var calConfig = {};
 var currentFilter = 'all';
 var editingTodoId = null;
+var todoEditor = null;
 
 // ===== Helpers =====
 function $(id) { var el = document.getElementById('td-' + id); if (!el) el = document.getElementById(id); if (!el) console.error('[TodoList] #'+id+' not found'); return el; }
@@ -94,7 +95,7 @@ function renderTodos() {
     html += '<div class="todo-item' + priClass + completedClass + '" data-tid="' + t.id + '">';
     html += '<input type="checkbox" class="todo-check" data-tid="' + t.id + '"' + checked + '>';
     html += '<div class="todo-body">';
-    html += '<div class="todo-title">' + escapeHtml(t.title) + '</div>';
+    html += '<div class="todo-title md-rendered">' + renderMarkdown(t.title) + '</div>';
     html += '<div class="todo-meta">';
     html += '<span>📅 ' + escapeHtml(t.date) + '</span>';
     if (t.time) html += '<span>🕐 ' + escapeHtml(t.time) + '</span>';
@@ -215,9 +216,40 @@ function toggleMdPanel() {
   } else {
     panel.classList.add('open');
     btn.classList.add('active');
-    $('mdInput').focus();
+    if (todoEditor) todoEditor.focus();
   }
 }
+
+// ===== Markdown Live Preview =====
+var _mdPreviewOpen = false;
+function toggleMdPreview() {
+  _mdPreviewOpen = !_mdPreviewOpen;
+  var panel = document.getElementById('mdPreviewPanel');
+  var btn = document.getElementById('previewToggleBtn');
+  if (_mdPreviewOpen) {
+    panel.style.display = 'block';
+    if (btn) btn.classList.add('active');
+    updateMdPreview();
+  } else {
+    panel.style.display = 'none';
+    if (btn) btn.classList.remove('active');
+  }
+}
+function updateMdPreview() {
+  if (!_mdPreviewOpen || !todoEditor) return;
+  var text = todoEditor.getMarkdown();
+  var preview = document.getElementById('mdPreviewContent');
+  if (preview) {
+    if (text.trim()) {
+      preview.innerHTML = renderMarkdown(text);
+    } else {
+      preview.innerHTML = '<p style="color:var(--text-dim);font-style:italic;">输入 Markdown 任务列表即可实时预览...</p>';
+    }
+  }
+}
+// Expose preview functions to global scope (needed by onclick handlers)
+window.toggleMdPreview = toggleMdPreview;
+window.updateMdPreview = updateMdPreview;
 
 function parseMarkdown(text) {
   var lines = text.split(/\r?\n/);
@@ -299,7 +331,7 @@ function extractTaskMeta(titleRaw, defaultDate, defaultTime, defaultPriority, is
 }
 
 function importMarkdown() {
-  var text = $('mdInput').value.trim();
+  var text = todoEditor ? todoEditor.getMarkdown().trim() : '';
   if (!text) { showToast('请粘贴 Markdown 任务列表', 'error'); return; }
 
   var items = parseMarkdown(text);
@@ -323,7 +355,7 @@ function importMarkdown() {
   else {
     if (todos.length > 500) todos = todos.slice(0, 500);
     saveTodos();
-    $('mdInput').value = '';
+    if (todoEditor) todoEditor.clear();
     toggleMdPanel();
     renderTodos();
     showToast('已导入 ' + added + ' 条任务', 'success');
@@ -615,6 +647,14 @@ function init() {
     if (guide) guide.textContent = window.location.href.split('#')[0].split('?')[0];
     renderTodos();
     handleOAuthRedirect();
+
+    // Initialize MdEditor
+    if ($('mdInput')) {
+      todoEditor = MdEditor.create($('mdInput'), {
+        placeholder: '输入任务 (支持 Markdown)...',
+        onInput: function() { updateMdPreview(); }
+      });
+    }
   });
 }
 
@@ -647,7 +687,7 @@ function toggleGuide(collapseId, contentId) {
   bind('guideToggleGoogle', 'click', function() { toggleGuide('guideToggleGoogle', 'guideContentGoogle'); });
   bind('toggleMdPanel', 'click', toggleMdPanel);
   bind('btnMdImport', 'click', importMarkdown);
-  bind('btnMdCancel', 'click', function() { toggleMdPanel(); $('mdInput').value = ''; });
+  bind('btnMdCancel', 'click', function() { toggleMdPanel(); if (todoEditor) todoEditor.clear(); });
   bind('exportMdBtn', 'click', exportMarkdown);
   bind('syncAppleBtn', 'click', handleAppleSync);
   bind('guideToggleApple', 'click', function() { toggleGuide('guideToggleApple', 'guideContentApple'); });
