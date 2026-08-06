@@ -577,7 +577,9 @@
       mime = 'text/html;charset=utf-8';
 
       // Convert summary markdown to HTML
-      var htmlBody = markdownToHtml(text);
+      // 必须使用原始 Markdown（dataset.rawText）：textContent 已被 renderMarkdown 渲染剥离了
+      // Markdown 语法（##、**、1. 等），直接转换会丢失全部格式，导致导出 HTML 与界面显示不一致
+      var htmlBody = markdownToHtml($('summaryResult').dataset.rawText || text);
 
       content = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8"/>\n'
         + '<title>Work Summary</title>\n'

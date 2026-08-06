@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.9.0-blue)
+![Version](https://img.shields.io/badge/version-0.11.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 English | [中文](README.md)
@@ -19,7 +19,8 @@ English | [中文](README.md)
 - **Original Format Preservation** — Fully preserves Markdown, HTML, code blocks, and other original formats with auto-formatting after translation
 - **Chrome Extension Fullscreen Mode** — New "fullscreen button" in popup top-right corner, opens full translation page in new tab (no height limit)
 - **Dynamic Popup Height** — Max height set to `screen.availHeight`, can drag to screen bottom
-- **Dark AI-Themed UI** — Dark theme with neon purple/cyan gradients, grid texture background, animated glow orbs — unified visual style across web and extension
+- **6 Themes with One-Click Switching** — Ocean/Fresh/Dark/Light/Warm/Sakura via floating button, vibrant colors + glassmorphism texture
+- **Refined Textured UI** — SVG noise background, triple-layer ambient glow, glass card top sheen, multi-layer depth shadows, hairline gradient borders, starfield animation — unified visual style across web and extension
 - **Typing Effect** — Translation results appear character by character for a smooth experience
 - **Translation History** — Auto-saves up to 20 recent translations with one-click recall
 - **Quick Actions** — Swap languages, paste from clipboard, clear, and copy results
@@ -37,7 +38,7 @@ English | [中文](README.md)
 - **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
 - **Popup Translation Panel** — Click the toolbar icon for quick text translation
 - **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
-- **Dark AI-Themed UI** — Dark theme with neon purple/cyan gradients, grid texture, rounded corners, and AI pulse indicator
+- **6-Theme Switching** — Shares the theme.css system with the web version, vibrant colors + glassmorphism texture
 - **Deep Context-Aware Translation** — AI performs 5-step context analysis (domain/text type/tone/audience/intent) for precise translations
 - **Resizable Popup** — Drag any edge or corner to freely resize the popup (320–800px wide, 300–780px tall), size auto-saved
 - **Uninterrupted Translation** — Translation continues in background Service Worker even if popup closes; results auto-restored on reopen
@@ -104,6 +105,11 @@ translation_tool/
 ├── todolist.html            # Task list page (standalone, with Markdown/AppleScript features)
 ├── todolist.js              # Task list core logic (IIFE encapsulated)
 ├── install_url_scheme.sh     # Apple Reminders URL Scheme bridge installer
+├── theme.css               # Shared theme system (6 theme variables + glass cards/noise/ambient glow styles)
+├── theme.js                # Theme switcher / iframe theme sync / starfield generation
+├── markdown.js             # Markdown renderer
+├── md-editor.js            # Markdown editor component
+├── ai_summary_prompt.md    # Work report AI summary prompt documentation
 ├── preview.png             # Web version screenshot
 ├── chrome_extension/       # Chrome browser extension
 │   ├── manifest.json       # Extension config
@@ -141,7 +147,7 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - **Popup Translation Panel** — Click the toolbar icon for quick text translation
 - **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
 - **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
-- **Dark AI-Themed UI** — Dark theme with neon purple/cyan gradients, grid background, AI pulse indicator
+- **6-Theme Textured UI** — Shares the theme system with the web version: vibrant colors, glassmorphism cards, noise background and depth shadows
 - **Resizable Popup** — Drag any edge or corner to resize (320–800px wide, 300–780px tall), auto-saved
 - **Uninterrupted Translation** — Background Service Worker continues translating even after popup closes; results auto-restored
 - **Translation History** — Auto-saves up to 20 entries with individual deletion and clear-all
@@ -174,6 +180,16 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.11.0 (2026-08-07)
+
+- **Multi-Theme System Upgrade** — Added 6 themes with one-click switching (Ocean/Fresh/Dark/Light/Warm/Sakura) via floating button; iframe sub-pages auto-sync parent theme
+- **Visual Style Redesign: Vibrant + Textured** — Medium-to-high saturation vibrant palette, glassmorphism cards (translucent + backdrop-blur + top sheen), SVG noise background, triple-layer radial ambient glow, multi-layer depth shadows, hairline gradient borders, gradient title glow
+- **Extension & Main Site Unified** — chrome_extension pages aligned with root pages on 20px radius, container widths, and theme texture; popup upgraded with noise background + layered shadows + themed gradient button
+- **Work Report HTML Export Fix** — AI summary HTML export now converts from raw Markdown (rawText), matching on-screen rendering exactly with headings/lists/bold support
+- **Cross-Environment Consistency** — Markdown preview buttons use "bind when no inline onclick" mechanism, so extension pages behave identically under chrome-extension:// and file://
+- **Restrained Animations** — Removed always-on neon animations (gradientShift/borderGlow), kept subtle fadeUp/orb-float effects
+- **Popup Form Optimization** — Increased default min-height, fully expanded translation area, more generous default popup size
 
 ### v0.10.0 (2026-07-14)
 

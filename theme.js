@@ -128,15 +128,16 @@
   // MV3 CSP 禁止 inline onclick，扩展页面由 theme.js 统一绑定；
   // 网页版继续使用 inline onclick，此处不绑定以避免双重触发。
   function bindMdPreviewButtons() {
-    var isExt = false;
-    try { isExt = !!(global.chrome && global.chrome.runtime && global.chrome.runtime.id); } catch (e) {}
-    if (!isExt) return;
     var fn = global.toggleMdPreview;
     if (typeof fn !== 'function') return;
-    var toggleBtn = document.getElementById('previewToggleBtn');
-    var closeBtn = document.querySelector('.md-preview-close');
-    if (toggleBtn) toggleBtn.addEventListener('click', fn);
-    if (closeBtn) closeBtn.addEventListener('click', fn);
+    // 仅在按钮没有内联 onclick 时绑定：
+    // 扩展页面（CSP 移除内联 onclick）直接打开或在扩展中都能生效；
+    // 根页面保留内联 onclick，此处跳过以避免双重触发。
+    function bindIfNoInline(el) {
+      if (el && !el.getAttribute('onclick')) el.addEventListener('click', fn);
+    }
+    bindIfNoInline(document.getElementById('previewToggleBtn'));
+    bindIfNoInline(document.querySelector('.md-preview-close'));
   }
 
   /* ---------- 星星背景生成（幂等、CSP 安全） ---------- */

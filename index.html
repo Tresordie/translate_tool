@@ -593,6 +593,9 @@
       border: none;
       border-radius: var(--radius);
       background: var(--bg-card);
+      /* border-radius 不裁剪 iframe 内部文档，子页面方形背景角会从圆角伸出；
+         用 clip-path 强制将 iframe 绘制内容裁剪为圆角（与内联 border-radius:16px 一致） */
+      clip-path: inset(0 round 16px);
     }
     .btn-download {
       display: flex; align-items: center; gap: 6px;

@@ -566,8 +566,9 @@ html[data-theme="ocean"], :root {
   content: '';
   position: absolute; inset: 0;
   background:
-    radial-gradient(1200px 800px at 12% -5%, var(--primary-a08) 0%, transparent 60%),
-    radial-gradient(1000px 700px at 88% 105%, var(--cyan-a06) 0%, transparent 60%);
+    radial-gradient(1200px 800px at 12% -5%, var(--primary-a10) 0%, transparent 60%),
+    radial-gradient(1000px 700px at 88% 105%, var(--cyan-a08) 0%, transparent 60%),
+    radial-gradient(800px 600px at 50% 45%, var(--primary-a04) 0%, transparent 65%);
   pointer-events: none;
 }
 
@@ -609,28 +610,47 @@ html[data-theme="ocean"], :root {
 /* --- 通用布局 --- */
 .app-wrapper { position: relative; z-index: 1; min-height: 100vh; }
 
+/* --- 全局排版质感 --- */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* --- 表单控件质感：输入框/下拉框加柔和 inset 内阴影，增强凹陷精致感 --- */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea {
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+}
+
 /* --- Header --- */
 .header h1 {
   background: var(--header-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  letter-spacing: -0.5px;
+  filter: drop-shadow(0 2px 14px var(--primary-a25));
 }
 
 /* --- 玻璃卡片 --- */
 .glass-card, .main-card {
   position: relative;
-  background: var(--bg-card);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  background-color: var(--glass-bg);
+  background-image: linear-gradient(180deg, var(--white-a08) 0%, transparent 32%);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   box-shadow: var(--glass-shadow);
+  /* 裁剪贴边子栏（lang-bar/translate-bar 等）的方形背景角，避免从圆角伸出 */
+  overflow: hidden;
   transition: box-shadow var(--transition), background 0.4s ease, border-color 0.4s ease;
 }
 .glass-card::before, .main-card::after {
-  content: ''; position: absolute; inset: -1px; border-radius: calc(var(--radius) + 1px); padding: 1px;
-  background: linear-gradient(160deg, var(--primary-a25), var(--cyan-a10) 40%, transparent 75%);
+  content: ''; position: absolute; inset: 0; border-radius: var(--radius); padding: 1px;
+  background: linear-gradient(160deg, var(--primary-a25), var(--cyan-a15) 30%, transparent 70%);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
   pointer-events: none; z-index: -1;
