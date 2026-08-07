@@ -2,10 +2,10 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.11.0-blue)
+![Version](https://img.shields.io/badge/version-0.12.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-[English](README_EN.md) | 中文
+**语言 / Language**：中文 | [English](README_EN.md)
 
 ---
 
@@ -30,7 +30,10 @@
 - **工作报告** — 内置工作报告生成器，支持 AI 一键总结、历史记录管理、按日期筛选
 - **任务清单** — 内置任务管理模块，支持添加/完成/删除任务、优先级标记、进度统计、Markdown 批量导入/导出（含 checkbox 语法）、Apple 提醒事项一键导入（URL Scheme 点击即运行 + AppleScript 文件备用）、Google Calendar 同步、.ics 日历下载
 - **英语学习助手** — 内置英语学习模块，支持单词学习、AI 释义、语音发音、学习历史、笔记导出
-- **页面复用架构** — 工作报告、任务清单、英语学习 Tab 通过 iframe 嵌入独立页面，与 Chrome 扩展共用同一套代码
+- **邮件总结** — 新增第 5 个 Tab：粘贴邮件线程或上传本地文件（.txt/.md/.eml/.pdf），AI 按专业规范输出四段式详细总结（主题背景/时间线表格/技术要点/风险注意点）+ 按责任方分解的 To Do List（P0/P1/P2 优先级），支持 30 种语言输出、HTML/Markdown 下载、历史记录查阅与编辑
+  - **PDF 解析** — 内置 pdf.js 本地解析（最大 200MB），超大文件自动处理：读取进度提示、文本预算/页数上限提前终止、逐页内存释放
+  - **超长内容自动截取** — 超过 6 万字符自动保留首尾、省略中间并标注，无需手动拆分
+- **页面复用架构** — 工作报告、任务清单、英语学习、邮件总结 Tab 通过 iframe 嵌入独立页面，与 Chrome 扩展共用同一套代码
 - **零依赖** — 纯 HTML + CSS + JavaScript，无需安装任何环境
 
 ### Chrome 扩展版
@@ -46,6 +49,7 @@
 - **原始格式保留** — 支持 Markdown、HTML 等格式输入，翻译后自动整理
 - **划词翻译开关** — 可在设置中启用/关闭划词翻译功能
 - **语言偏好记忆** — 自动保存源语言和目标语言选择
+- **邮件总结入口** — Popup 头部新增信封图标，新标签页打开邮件总结页（与网页版功能一致，含 PDF 上传与 30 语言输出）
 
 ## 📸 界面预览
 
@@ -109,6 +113,11 @@ translation_tool/
 ├── theme.js                # 主题切换器/iframe 主题同步/星星背景生成
 ├── markdown.js             # Markdown 渲染器
 ├── md-editor.js            # Markdown 编辑器组件
+├── email_summary.html      # 邮件总结页面（独立，与 Chrome 扩展共用）
+├── email_summary.js        # 邮件总结核心逻辑（SKILL 提示词/AI 调用/PDF 解析/历史管理）
+├── pdf.min.js              # pdf.js 3.11.174（PDF 文本提取，本地打包）
+├── pdf.worker.min.js       # pdf.js Worker
+├── email-thread-summarizer/ # 邮件线程总结 SKILL 规范（AI 提示词来源）
 ├── ai_summary_prompt.md    # 工作报告 AI 总结提示词说明
 ├── preview.png             # 网页版截图
 ├── chrome_extension/       # Chrome 浏览器扩展
@@ -127,6 +136,10 @@ translation_tool/
 │   ├── english_learning.js   # 英语学习助手逻辑（外部JS，CSP 兼容）
 │   ├── todolist.html       # 任务清单页面
 │   ├── todolist.js         # 任务清单逻辑
+│   ├── email_summary.html  # 邮件总结页面
+│   ├── email_summary.js    # 邮件总结逻辑
+│   ├── pdf.min.js          # pdf.js（PDF 解析，MV3 CSP 需本地打包）
+│   ├── pdf.worker.min.js   # pdf.js Worker
 │   ├── install_url_scheme.sh     # URL Scheme 桥接器安装脚本
 │   ├── native_host.py      # Chrome Native Messaging 宿主（可选）
 │   ├── native_host_manifest.json  # Native Messaging 注册模板
@@ -179,6 +192,21 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.12.0 (2026-08-07)
+
+- **新增邮件总结模块** — 网页版新增第 5 个 Tab，Chrome 扩展 Popup 新增信封图标入口（新标签页打开）
+  - AI 按 email-thread-summarizer SKILL 规范总结邮件线程：四段式详细总结（主题与背景/时间线表格/技术要点/风险与注意点）+ 按责任方分解的 To Do List（我方/对方/联合验证，P0/P1/P2 优先级）
+  - 输入方式：手动粘贴邮件线程，或上传本地文件（.txt/.md/.eml/.log/.pdf 等）
+  - 总结输出语言可选 30 种全球语言
+  - 结果支持复制、HTML/Markdown 文件下载（完整保留表格/引用/任务列表格式）
+  - 总结历史自动保存（上限 30 条），支持查阅、Markdown 编辑修改、删除
+- **PDF 邮件文件支持** — 内置 pdf.js 3.11.174 本地解析（网页版与扩展版均支持）
+  - 文件大小上限 200MB，读取进度实时提示
+  - 超大文件自动处理：提取文本达 12 万字符预算或 500 页上限自动终止并标注，逐页释放内存
+  - 扫描件/图片型 PDF 自动识别并提示需 OCR
+- **超长内容自动处理** — 内容超过 6 万字符时自动保留首 60% + 尾 40%，中间省略并明确标注，编辑器仍保留全文，无需手动拆分
+- **翻译历史增强** — 智能翻译页历史记录同时展示原文与译文，点击回填时同步恢复译文（网页版 + 扩展全屏页）
 
 ### v0.11.0 (2026-08-07)
 

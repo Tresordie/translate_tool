@@ -2,10 +2,10 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.11.0-blue)
+![Version](https://img.shields.io/badge/version-0.12.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-English | [中文](README.md)
+**Language**: [中文](README.md) | English
 
 ---
 
@@ -30,7 +30,10 @@ English | [中文](README.md)
 - **Work Report** — Built-in work report generator with AI one-click summary, history management, and date filtering
 - **Task List** — Built-in task manager with add/complete/delete, priority levels, progress tracking, Markdown batch import/export (with checkbox syntax), Apple Reminders one-click import (URL Scheme + AppleScript file fallback), Google Calendar sync, and .ics calendar download
 - **English Learning Assistant** — Built-in English learning module with word study, AI definitions, text-to-speech, learning history, and note export
-- **Page Reuse Architecture** — Work Report, Task List, and English Learning tabs embed standalone pages via iframe, sharing the same codebase with Chrome extension
+- **Email Summary** — New 5th tab: paste email threads or upload local files (.txt/.md/.eml/.pdf); AI produces a professional four-section detailed summary (subject & background / timeline table / technical key points / risks & caveats) plus a responsibility-based To Do List (P0/P1/P2 priorities), with 30-language output, HTML/Markdown download, and history review & editing
+  - **PDF Parsing** — Built-in pdf.js local parsing (up to 200MB) with automatic handling of huge files: reading progress indicator, early stop at text budget / page cap, per-page memory release
+  - **Auto-Truncation for Oversized Content** — Over 60,000 characters, automatically keeps head & tail, omits and marks the middle — no manual splitting needed
+- **Page Reuse Architecture** — Work Report, Task List, English Learning, and Email Summary tabs embed standalone pages via iframe, sharing the same codebase with Chrome extension
 - **Zero Dependencies** — Pure HTML + CSS + JavaScript, no installation required
 
 ### Chrome Extension
@@ -46,6 +49,7 @@ English | [中文](README.md)
 - **Original Format Preservation** — Supports Markdown, HTML format input with auto-formatting
 - **Toggle Switch** — Enable/disable text selection translation in settings
 - **Language Preference Memory** — Automatically saves source and target language choices
+- **Email Summary Entry** — New envelope icon in popup header opens the Email Summary page in a new tab (full parity with web version, including PDF upload and 30-language output)
 
 ## 📸 Preview
 
@@ -109,6 +113,11 @@ translation_tool/
 ├── theme.js                # Theme switcher / iframe theme sync / starfield generation
 ├── markdown.js             # Markdown renderer
 ├── md-editor.js            # Markdown editor component
+├── email_summary.html      # Email summary page (standalone, shared with extension)
+├── email_summary.js        # Email summary core logic (SKILL prompt / AI calls / PDF parsing / history)
+├── pdf.min.js              # pdf.js 3.11.174 (PDF text extraction, bundled locally)
+├── pdf.worker.min.js       # pdf.js worker
+├── email-thread-summarizer/ # Email thread summarizer SKILL spec (AI prompt source)
 ├── ai_summary_prompt.md    # Work report AI summary prompt documentation
 ├── preview.png             # Web version screenshot
 ├── chrome_extension/       # Chrome browser extension
@@ -127,6 +136,10 @@ translation_tool/
 │   ├── english_learning.js   # English learning logic (external JS, CSP compliant)
 │   ├── todolist.html       # Task list page
 │   ├── todolist.js         # Task list logic
+│   ├── email_summary.html  # Email summary page
+│   ├── email_summary.js    # Email summary logic
+│   ├── pdf.min.js          # pdf.js (PDF parsing, bundled locally for MV3 CSP)
+│   ├── pdf.worker.min.js   # pdf.js worker
 │   ├── install_url_scheme.sh     # URL Scheme bridge installer
 │   ├── native_host.py      # Chrome Native Messaging host (optional)
 │   ├── native_host_manifest.json  # Native Messaging manifest template
@@ -180,6 +193,21 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.12.0 (2026-08-07)
+
+- **New Email Summary Module** — Added 5th tab to the web version; Chrome extension popup gains an envelope icon entry (opens in a new tab)
+  - AI summarizes email threads following the email-thread-summarizer SKILL spec: four-section detailed summary (subject & background / timeline table / technical key points / risks & caveats) plus a responsibility-based To Do List (our side / counterpart / joint verification, P0/P1/P2 priorities)
+  - Input methods: paste email threads manually, or upload local files (.txt/.md/.eml/.log/.pdf, etc.)
+  - Summary output language selectable from 30 world languages
+  - Results support copy and HTML/Markdown file download (fully preserving tables/quotes/task lists)
+  - Summary history auto-saved (up to 30 entries) with review, Markdown editing, and deletion
+- **PDF Email File Support** — Built-in pdf.js 3.11.174 local parsing (both web and extension)
+  - File size cap 200MB with real-time reading progress
+  - Automatic handling of huge files: early stop at 120k-character text budget or 500-page cap with explicit annotation, per-page memory release
+  - Scanned/image-only PDFs auto-detected with OCR hint
+- **Oversized Content Auto-Handling** — Content over 60,000 characters automatically keeps the first 60% + last 40%, omitting and marking the middle; the editor retains the full text — no manual splitting needed
+- **Translation History Enhancement** — Translation history now displays both source text and translation; clicking a record restores both (web version + extension fullscreen page)
 
 ### v0.11.0 (2026-08-07)
 

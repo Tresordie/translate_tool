@@ -162,6 +162,12 @@ safeBind('openEnglishLearning', 'click', () => {
   chrome.tabs.create({ url: englishUrl });
 });
 
+// Open email summary in new tab
+safeBind('openEmailSummary', 'click', () => {
+  const emailUrl = chrome.runtime.getURL('email_summary.html');
+  chrome.tabs.create({ url: emailUrl });
+});
+
 safeBind('saveSettings', 'click', () => {
   const config = {
     baseUrl: $('baseUrl').value.trim().replace(/\/+$/, ''),

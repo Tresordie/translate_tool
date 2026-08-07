@@ -277,7 +277,9 @@ function renderHistory() {
           <span>${h.tgtFlag} ${h.tgtLang}</span>
           <span class="hi-time">${h.time}</span>
         </div>
+        <div class="hi-label hi-label-src">原文</div>
         <div class="hi-text md-rendered">${renderMarkdown(h.text)}</div>
+        ${h.result ? `<div class="hi-label hi-label-result">译文</div><div class="hi-text md-rendered hi-result">${renderMarkdown(h.result)}</div>` : ''}
       </div>
       <button class="hi-delete" data-index="${i}" title="删除">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -310,6 +312,7 @@ function loadHistory(index) {
   document.getElementById('targetLang').value = h.tgtCode;
   srcEditor.setMarkdown(h.text);
   updateCharCount();
+  if (h.result) renderResult(document.getElementById('outputText'), h.result);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

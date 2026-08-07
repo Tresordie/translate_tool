@@ -478,6 +478,16 @@
     .hi-text.md-rendered p { margin: 0; font-size: inherit; }
     .hi-text.md-rendered strong { color: var(--text); }
     .hi-text.md-rendered code { font-size: 0.85em; padding: 0 3px; }
+    .hi-label {
+      display: inline-block;
+      font-size: 0.66rem; font-weight: 700;
+      color: var(--neon-cyan);
+      letter-spacing: 0.8px;
+      margin: 8px 0 3px;
+    }
+    .hi-label.hi-label-src { margin-top: 0; }
+    .hi-label.hi-label-result { color: var(--accent2); }
+    .hi-text.hi-result { color: var(--text); }
 
     /* ========== Footer ========== */
     .footer {
@@ -857,6 +867,12 @@
         </svg>
         英语学习
       </button>
+      <button class="tab-nav-btn" id="tabBtnEmail" onclick="switchTab('email')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+        </svg>
+        邮件总结
+      </button>
     </div>
 
     <!-- Tab: Translation -->
@@ -1028,6 +1044,11 @@
     <div class="tab-panel" id="tabEnglish">
       <iframe src="english_learning.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="englishIframe" title="英语学习"></iframe>
     </div>
+
+    <!-- Tab: Email Summary -->
+    <div class="tab-panel" id="tabEmail">
+      <iframe src="email_summary.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="emailIframe" title="邮件总结"></iframe>
+    </div>
   </div><!-- /app-wrapper -->
 
   <div style="display:none"></div>
@@ -1099,6 +1120,9 @@
       } else if (tab === 'english') {
         document.getElementById('tabBtnEnglish').classList.add('active');
         document.getElementById('tabEnglish').classList.add('active');
+      } else if (tab === 'email') {
+        document.getElementById('tabBtnEmail').classList.add('active');
+        document.getElementById('tabEmail').classList.add('active');
       }
     }
 
@@ -1325,7 +1349,9 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
               <span>${h.tgtFlag} ${h.tgtLang}</span>
               <span class="hi-time">${h.time}</span>
             </div>
+            <div class="hi-label hi-label-src">原文</div>
             <div class="hi-text md-rendered">${renderMarkdown(h.text)}</div>
+            ${h.result ? `<div class="hi-label hi-label-result">译文</div><div class="hi-text md-rendered hi-result">${renderMarkdown(h.result)}</div>` : ''}
           </div>
           <button class="hi-delete" onclick="event.stopPropagation(); deleteHistoryItem(${i})" title="删除">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1342,6 +1368,7 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
       document.getElementById('targetLang').value = h.tgtCode;
       srcEditor.setMarkdown(h.text);
       updateCharCount();
+      if (h.result) renderResult(document.getElementById('outputText'), h.result);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 

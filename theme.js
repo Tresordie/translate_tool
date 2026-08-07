@@ -16,7 +16,7 @@
     { id: 'sakura', name: '樱花', desc: '樱花粉 · 柔美浪漫' }
   ];
   
-  var DEFAULT_THEME = 'ocean';
+  var DEFAULT_THEME = 'fresh';
   
   function getSavedTheme() {
     try { return localStorage.getItem(STORAGE_KEY) || DEFAULT_THEME; } catch (e) { return DEFAULT_THEME; }
