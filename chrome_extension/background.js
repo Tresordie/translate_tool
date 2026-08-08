@@ -86,11 +86,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
+// ===== Harden：API 错误友好诊断（指明问题 + 给出恢复路径，不透传原始报错） =====
+function describeApiError(err) {
+  const msg = String((err && err.message) || err || '');
+  let st = err && err.status;
+  if (!st) { const m = msg.match(/HTTP\s*(\d{3})/); if (m) st = parseInt(m[1], 10); }
+  if (st === 401 || st === 403) return 'API Key 无效或无权限，请在 API 设置中检查 Key';
+  if (st === 404) return 'API 地址或模型名不存在，请检查 Base URL 与模型名称';
+  if (st === 429) return '请求过于频繁或额度不足，请稍后重试或检查账户余额';
+  if (st >= 500) return 'API 服务暂时不可用（' + st + '），请稍后重试';
+  if (/Failed to fetch|NetworkError|Load failed|timeout/i.test(msg)) {
+    return '无法连接 API：网络异常或 API 服务不可达，请检查 Base URL 与网络';
+  }
+  return msg || '未知错误，请稍后重试';
+}
+
 async function handleTranslation(text, config) {
   if (!config?.baseUrl || !config?.apiKey || !config?.model) {
     throw new Error('请先配置 API');
   }
-
   const srcLang = config.sourceLang || 'zh';
   const tgtLang = config.targetLang || 'en';
 
@@ -152,7 +166,9 @@ Output ONLY the translated and formatted text.`;
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || `HTTP ${response.status}`);
+    const e = new Error(err.error?.message || `HTTP ${response.status}`);
+    e.status = response.status;
+    throw new Error(describeApiError(e));
   }
 
   const data = await response.json();

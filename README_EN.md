@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.12.0-blue)
+![Version](https://img.shields.io/badge/version-0.13.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -19,8 +19,8 @@
 - **Original Format Preservation** — Fully preserves Markdown, HTML, code blocks, and other original formats with auto-formatting after translation
 - **Chrome Extension Fullscreen Mode** — New "fullscreen button" in popup top-right corner, opens full translation page in new tab (no height limit)
 - **Dynamic Popup Height** — Max height set to `screen.availHeight`, can drag to screen bottom
-- **6 Themes with One-Click Switching** — Ocean/Fresh/Dark/Light/Warm/Sakura via floating button, vibrant colors + glassmorphism texture
-- **Refined Textured UI** — SVG noise background, triple-layer ambient glow, glass card top sheen, multi-layer depth shadows, hairline gradient borders, starfield animation — unified visual style across web and extension
+- **6 Themes with One-Click Switching** — Celadon/Ink/Porcelain/Terracotta/Sakura/Deep Sea, each theme an independent color world (hue-tinted neutrals + warm-cool contrast secondary accent) via floating button, glassmorphism texture
+- **Refined Textured UI** — SVG noise background, triple-layer ambient glow, glass card top sheen, hue-tinted multi-layer depth shadows, hairline gradient borders, button press feedback, skeleton loading states — unified visual style across web and extension
 - **Typing Effect** — Translation results appear character by character for a smooth experience
 - **Translation History** — Auto-saves up to 20 recent translations with one-click recall
 - **Quick Actions** — Swap languages, paste from clipboard, clear, and copy results
@@ -117,7 +117,6 @@ translation_tool/
 ├── email_summary.js        # Email summary core logic (SKILL prompt / AI calls / PDF parsing / history)
 ├── pdf.min.js              # pdf.js 3.11.174 (PDF text extraction, bundled locally)
 ├── pdf.worker.min.js       # pdf.js worker
-├── email-thread-summarizer/ # Email thread summarizer SKILL spec (AI prompt source)
 ├── ai_summary_prompt.md    # Work report AI summary prompt documentation
 ├── preview.png             # Web version screenshot
 ├── chrome_extension/       # Chrome browser extension
@@ -193,6 +192,18 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.13.0 (2026-08-08)
+
+- **Six-Theme Palette Rebuild (Color Worlds v2)** — Every theme reconstructed as an independent color world, retiring the homogenized soft pastels
+  - Hue-tinted neutrals: backgrounds/text/shadows all shift with the theme hue — no generic gray
+  - Deepened primaries (pigment feel); secondary accent (accent2) with deliberate hue spacing (e.g. Terracotta × misty slate-blue warm-cool contrast)
+  - Four-stop title gradients: tail blends into the secondary accent hue — each theme's headline glow is unique
+  - Six primaries: Celadon #2e9c8b / Ink #8b87f0 / Porcelain #4f63d8 / Terracotta #cc6742 / Sakura #d4698e / Deep Sea #4799e2; swatch palette updated in sync
+- **Production Hardening** — Friendly error diagnostics on every AI surface (translation/work report/email summary/extension fullscreen/popup): 401/403 (invalid key), 404 (wrong URL/model), 429 (rate limit/balance), 5xx, CORS/offline all report the problem and a recovery path instead of raw errors
+- **Destructive-Action Guards** — History clear-all gains a confirmation dialog; model placeholder corrected to the real `deepseek-chat`
+- **Polish Pass** — Translation waiting state replaced with shimmer skeletons (no more blank clear); empty states de-italicized with lifted contrast; popup micro-text 9/10px raised to 11px; hardcoded error color switched to semantic `var(--red)`
+- **Accessibility & Motion Restraint** — Button :focus-visible rings, prefers-reduced-motion disables loop animations, unified :active press feedback site-wide
 
 ### v0.12.0 (2026-08-07)
 

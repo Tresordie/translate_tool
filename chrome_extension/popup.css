@@ -152,7 +152,7 @@ body::after {
   gap: 1px;
 }
 .header-tag {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -984,7 +984,7 @@ body.resizing * {
 }
 .md-preview-badge {
   display: flex; align-items: center; gap: 5px;
-  font-size: 9px; font-weight: 600; color: var(--neon-cyan);
+  font-size: 11px; font-weight: 600; color: var(--neon-cyan);
   text-transform: uppercase; letter-spacing: 0.6px;
 }
 .md-preview-close {

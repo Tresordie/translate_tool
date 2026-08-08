@@ -514,7 +514,9 @@
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error?.message || 'HTTP ' + response.status);
+        const e = new Error(errData.error?.message || 'HTTP ' + response.status);
+        e.status = response.status;
+        throw e;
       }
 
       const data = await response.json();
@@ -535,9 +537,9 @@
       showToast('总结生成完成', 'success');
     } catch (err) {
       loadingBar.classList.remove('active');
-      resultEl.innerHTML = '<span style="color:#ef4444;">生成失败: ' + escapeHtml(err.message) + '</span>';
+      resultEl.innerHTML = '<span style="color:var(--red);">生成失败: ' + escapeHtml(describeApiError(err)) + '</span>';
       resultEl.classList.add('visible');
-      showToast('总结生成失败: ' + err.message, 'error');
+      showToast('总结生成失败: ' + describeApiError(err), 'error');
     } finally {
       btn.disabled = false;
       btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> 生成总结';
@@ -558,6 +560,21 @@
   }
 
   // ===== Download Summary =====
+  // ===== Harden：API 错误友好诊断（指明问题 + 给出恢复路径，不透传原始报错） =====
+  function describeApiError(err) {
+    var msg = String((err && err.message) || err || '');
+    var st = err && err.status;
+    if (!st) { var m = msg.match(/HTTP\s*(\d{3})/); if (m) st = parseInt(m[1], 10); }
+    if (st === 401 || st === 403) return 'API Key 无效或无权限，请在 API 设置中检查 Key';
+    if (st === 404) return 'API 地址或模型名不存在，请检查 Base URL 与模型名称';
+    if (st === 429) return '请求过于频繁或额度不足，请稍后重试或检查账户余额';
+    if (st >= 500) return 'API 服务暂时不可用（' + st + '），请稍后重试';
+    if (/Failed to fetch|NetworkError|Load failed|timeout/i.test(msg)) {
+      return '无法连接 API：网络异常，或浏览器拦截了跨域请求（CORS）。可改用 Chrome 扩展版（无跨域限制），或换用支持跨域的 API 服务';
+    }
+    return msg || '未知错误，请稍后重试';
+  }
+
   function downloadSummary(format) {
     const text = $('summaryResult').textContent;
     if (!text || text.includes('选择日期范围')) {

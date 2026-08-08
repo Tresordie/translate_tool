@@ -13,6 +13,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Design/agent tool artifacts
+.impeccable/
+.qoder/
+
 # Dev artifacts (keep for reference, uncomment to ignore)
 # fix_regex.py
 # request_prompt.txt

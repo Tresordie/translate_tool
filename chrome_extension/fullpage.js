@@ -220,7 +220,9 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+      const e = new Error(errData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+      e.status = response.status;
+      throw e;
     }
 
     const data = await response.json();
@@ -239,12 +241,27 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
     saveDraft();
   } catch (err) {
     loadingBar.classList.remove('active');
-    output.innerHTML = `<span class="output-placeholder" style="color:#ef4444;">翻译失败: ${escapeHtml(err.message)}</span>`;
+    output.innerHTML = `<span class="output-placeholder" style="color:var(--red);">翻译失败: ${escapeHtml(describeApiError(err))}</span>`;
     status.textContent = '翻译失败';
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> 开始翻译';
   }
+}
+
+// ===== Harden：API 错误友好诊断（指明问题 + 给出恢复路径，不透传原始报错） =====
+function describeApiError(err) {
+  const msg = String((err && err.message) || err || '');
+  let st = err && err.status;
+  if (!st) { const m = msg.match(/HTTP\s*(\d{3})/); if (m) st = parseInt(m[1], 10); }
+  if (st === 401 || st === 403) return 'API Key 无效或无权限，请在 API 设置中检查 Key';
+  if (st === 404) return 'API 地址或模型名不存在，请检查 Base URL 与模型名称';
+  if (st === 429) return '请求过于频繁或额度不足，请稍后重试或检查账户余额';
+  if (st >= 500) return 'API 服务暂时不可用（' + st + '），请稍后重试';
+  if (/Failed to fetch|NetworkError|Load failed|timeout/i.test(msg)) {
+    return '无法连接 API：网络异常或 API 服务不可达，请检查 Base URL 与网络';
+  }
+  return msg || '未知错误，请稍后重试';
 }
 
 // ===== History =====

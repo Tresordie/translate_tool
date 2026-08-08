@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Common Tools · 效率优化常用工具集</title>
+  <title>simon.yuan tool list · 效率优化常用工具集</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="theme.css">
@@ -231,7 +231,7 @@
       margin: 0 18px;
       flex-shrink: 0;
       transition: var(--transition);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 8px var(--primary-a15);
     }
     .swap-btn:hover {
       border-color: var(--neon-cyan);
@@ -266,8 +266,20 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 1.5px;
-      color: var(--neon-cyan);
-      opacity: 0.6;
+      color: var(--text-secondary);
+    }
+
+    /* --- 翻译等待骨架屏（shimmer，替代清空成空白的焦虑等待） --- */
+    .output-skeleton { display: flex; flex-direction: column; gap: 12px; padding: 6px 0; }
+    .output-skeleton span {
+      display: block; height: 0.9em; border-radius: 6px;
+      background: linear-gradient(90deg, var(--primary-a06), var(--primary-a12), var(--primary-a06));
+      background-size: 200% 100%;
+      animation: skeletonShimmer 1.4s ease infinite;
+    }
+    @keyframes skeletonShimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
     }
 
     .translate-pane textarea {
@@ -298,8 +310,8 @@
       word-break: break-word;
     }
     .output-placeholder {
-      color: var(--text-dim);
-      font-style: italic;
+      color: var(--text-secondary);
+      font-style: normal;
     }
 
     /* Typing cursor */
@@ -457,7 +469,7 @@
       flex-shrink: 0;
       opacity: 0;
       transition: var(--transition);
-      color: #9ca3af;
+      color: var(--text-dim);
     }
     .hi-delete:hover { background: var(--red-a10); color: var(--red); }
     .hi-delete svg { width: 14px; height: 14px; }
@@ -548,7 +560,7 @@
     .tab-nav-btn svg { width: 18px; height: 18px; }
 
     .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
+    .tab-panel.active { display: block; animation: mdFadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
 
     /* --- Tab Panel Header (TodoList / WorkReport) --- */
     .tab-header {
@@ -698,7 +710,7 @@
     .side-card h3{font-size:0.78rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
     .stat-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:0.85rem}
     .stat-val{font-weight:600;font-size:1.2rem}
-    .stat-val.green{color:var(--neon-green)}.stat-val.orange{color:#f59e0b}.stat-val.purple{color:var(--neon-purple)}
+    .stat-val.green{color:var(--neon-green)}.stat-val.orange{color:var(--orange)}.stat-val.purple{color:var(--neon-purple)}
     .progress-ring{width:80px;height:80px;margin:0 auto 10px}
     .progress-ring svg{width:100%;height:100%}
     .progress-ring circle{fill:none;stroke-width:6}
@@ -714,19 +726,19 @@
     .guide-section{border-top:1px solid var(--primary-a10);padding-top:8px;margin-top:6px}
     .guide-section h4{font-size:0.7rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
     .guide-step{font-size:0.72rem;color:var(--text-dim);line-height:1.55;margin:3px 0;display:flex;gap:5px}
-    .guide-step .num{color:#f59e0b;font-weight:600;flex-shrink:0;min-width:14px}
+    .guide-step .num{color:var(--orange);font-weight:600;flex-shrink:0;min-width:14px}
     .guide-step code{background:var(--primary-a12);padding:1px 4px;border-radius:3px;font-size:0.7rem;color:var(--neon-cyan)}
     .input-bar{display:flex;align-items:center;gap:8px;padding:14px 20px;border-bottom:1px solid var(--primary-a10)}
     .input-bar input{flex:1;padding:10px 14px;border:2px solid var(--primary-a12);border-radius:12px;font-size:0.9rem;font-family:inherit;background:var(--bg-dark);color:var(--text);outline:none;transition:var(--transition)}
-    .input-bar input:focus{border-color:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,0.08)}
+    .input-bar input:focus{border-color:var(--orange);box-shadow:0 0 0 4px color-mix(in srgb, var(--orange) 10%, transparent)}
     .input-bar .date-pick,.input-bar .time-pick{width:110px;padding:10px 8px;border:2px solid var(--primary-a12);border-radius:12px;font-size:0.82rem;font-family:inherit;background:var(--bg-dark);color:var(--text);outline:none;cursor:pointer;transition:var(--transition)}
     .input-bar select{width:100px;padding:10px 8px;border:2px solid var(--primary-a12);border-radius:12px;font-size:0.82rem;font-family:inherit;background:var(--bg-dark);color:var(--text);outline:none;cursor:pointer}
-    .btn-add{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#1a1a2e;border:none;padding:10px 20px;border-radius:12px;cursor:pointer;font-size:0.88rem;font-weight:600;font-family:inherit;transition:var(--transition);white-space:nowrap}
-    .btn-add:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(245,158,11,0.3)}
+    .btn-add{background:var(--orange);color:#20242e;border:none;padding:10px 20px;border-radius:12px;cursor:pointer;font-size:0.88rem;font-weight:600;font-family:inherit;transition:var(--transition);white-space:nowrap}
+    .btn-add:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 4px 16px color-mix(in srgb, var(--orange) 30%, transparent)}
     .btn-add.editing{background:linear-gradient(135deg,var(--neon-green),var(--neon-cyan))}
     .toolbar{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--primary-a06);flex-wrap:wrap}
     .pill{background:var(--primary-a08);border:1px solid var(--primary-a15);color:var(--text-secondary);padding:5px 14px;border-radius:20px;cursor:pointer;font-size:0.8rem;font-family:inherit;transition:var(--transition)}
-    .pill.active{background:rgba(245,158,11,0.15);border-color:#f59e0b;color:#f59e0b}
+    .pill.active{background:color-mix(in srgb, var(--orange) 15%, transparent);border-color:var(--orange);color:var(--orange)}
     .pill:hover{border-color:var(--neon-purple)}
     .sync-btns{margin-left:auto;display:flex;gap:6px}
     .btn-sync{display:flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;cursor:pointer;font-size:0.76rem;font-family:inherit;transition:var(--transition);border:1px solid}
@@ -834,7 +846,7 @@
         <span class="dot"></span>
         <span>Powered by LLM</span>
       </div>
-      <h1>Common Tools</h1>
+      <h1>simon.yuan tool list</h1>
       <p>效率优化常用工具集</p>
     </div>
 
@@ -917,7 +929,7 @@
             </div>
             <div class="form-group">
               <label>模型名称</label>
-              <input id="modelName" type="text" placeholder="deepseek-v4-pro" />
+              <input id="modelName" type="text" placeholder="deepseek-chat" />
             </div>
           </div>
           <div class="settings-actions">
@@ -1026,7 +1038,7 @@
     </div>
 
     <div class="footer">
-      Common Tools &mdash; Efficiency Optimization Toolkit
+      simon.yuan tool list &mdash; Efficiency Toolkit
     </div>
     </div><!-- /tabTranslate -->
 
@@ -1223,7 +1235,8 @@
       btn.disabled = true;
       btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83"/></svg> 翻译中...';
       status.textContent = `${sourceLang.flag} ${sourceLang.name}  →  ${targetLang.flag} ${targetLang.name}`;
-      output.innerHTML = '';
+      // 等待态：渲染 shimmer 骨架而非清空成空白，避免焦虑等待
+      output.innerHTML = '<div class="output-skeleton" aria-hidden="true"><span style="width:92%"></span><span style="width:76%"></span><span style="width:85%"></span><span style="width:38%"></span></div>';
       delete output.dataset.text;
       loadingBar.classList.add('active');
 
@@ -1292,7 +1305,9 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
 
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+          const e = new Error(errData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+          e.status = response.status;
+          throw e;
         }
 
         const data = await response.json();
@@ -1311,7 +1326,7 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
         saveDraft();
       } catch (err) {
         loadingBar.classList.remove('active');
-        output.innerHTML = `<span class="output-placeholder" style="color:#ef4444;">翻译失败: ${escapeHtml(err.message)}</span>`;
+        output.innerHTML = `<span class="output-placeholder" style="color:var(--red);">翻译失败: ${escapeHtml(describeApiError(err))}</span>`;
         status.textContent = '翻译失败';
       } finally {
         btn.disabled = false;
@@ -1373,9 +1388,26 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
     }
 
     function clearHistory() {
+      if (history.length === 0) return;
+      if (!confirm('确定清空全部 ' + history.length + ' 条翻译历史？此操作不可恢复。')) return;
       history = [];
       localStorage.removeItem('translate_history');
       renderHistory();
+    }
+
+    // ===== Harden：API 错误友好诊断（指明问题 + 给出恢复路径，不透传原始报错） =====
+    function describeApiError(err) {
+      const msg = String((err && err.message) || err || '');
+      let st = err && err.status;
+      if (!st) { const m = msg.match(/HTTP\s*(\d{3})/); if (m) st = parseInt(m[1], 10); }
+      if (st === 401 || st === 403) return 'API Key 无效或无权限，请在 API 设置中检查 Key';
+      if (st === 404) return 'API 地址或模型名不存在，请检查 Base URL 与模型名称';
+      if (st === 429) return '请求过于频繁或额度不足，请稍后重试或检查账户余额';
+      if (st >= 500) return 'API 服务暂时不可用（' + st + '），请稍后重试';
+      if (/Failed to fetch|NetworkError|Load failed|timeout/i.test(msg)) {
+        return '无法连接 API：网络异常，或浏览器拦截了跨域请求（CORS）。可改用 Chrome 扩展版（无跨域限制），或换用支持跨域的 API 服务';
+      }
+      return msg || '未知错误，请稍后重试';
     }
 
     function deleteHistoryItem(index) {

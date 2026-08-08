@@ -397,7 +397,9 @@
 
       if (!response.ok) {
         const errText = await response.text();
-        throw new Error('API 请求失败 (' + response.status + ')：' + errText.slice(0, 200));
+        const e = new Error(errText.slice(0, 200) || ('HTTP ' + response.status));
+        e.status = response.status;
+        throw e;
       }
 
       const data = await response.json();
@@ -412,10 +414,25 @@
       $('summaryMeta').textContent = '生成于 ' + formatTime(Date.now()) + ' · 耗时 ' + secs + 's' + (loadedFileName ? ' · 来源 ' + loadedFileName : '') + (trunc.truncated ? ' · 超长已自动截取' : '');
       showToast('总结生成完成，已保存到历史', 'success');
     } catch (err) {
-      showToast(err.message || '总结失败，请检查配置与网络', 'error');
+      showToast(describeApiError(err), 'error');
     } finally {
       setLoading(false);
     }
+  }
+
+  // ===== Harden：API 错误友好诊断（指明问题 + 给出恢复路径，不透传原始报错） =====
+  function describeApiError(err) {
+    const msg = String((err && err.message) || err || '');
+    let st = err && err.status;
+    if (!st) { const m = msg.match(/HTTP\s*(\d{3})/); if (m) st = parseInt(m[1], 10); }
+    if (st === 401 || st === 403) return 'API Key 无效或无权限，请在 API 设置中检查 Key';
+    if (st === 404) return 'API 地址或模型名不存在，请检查 Base URL 与模型名称';
+    if (st === 429) return '请求过于频繁或额度不足，请稍后重试或检查账户余额';
+    if (st >= 500) return 'API 服务暂时不可用（' + st + '），请稍后重试';
+    if (/Failed to fetch|NetworkError|Load failed|timeout/i.test(msg)) {
+      return '无法连接 API：网络异常，或浏览器拦截了跨域请求（CORS）。可改用 Chrome 扩展版（无跨域限制），或换用支持跨域的 API 服务';
+    }
+    return msg || '未知错误，请稍后重试';
   }
 
   function setLoading(on) {
