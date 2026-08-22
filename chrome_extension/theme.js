@@ -1,23 +1,56 @@
 /**
- * theme.js — LinguaFlow 主题切换系统
- * 功能: 主题切换UI、localStorage持久化、iframe跨页面同步
+ * theme.js — LinguaFlow Catppuccin 主题切换系统
+ * 功能: 主题切换UI（Latte/Frappé/Macchiato/Mocha 四组）、localStorage持久化、iframe跨页面同步
  * 用法: 在页面底部引入 <script src="theme.js"></script> 即可自动注入切换器
  */
 (function (global) {
   'use strict';
 
   var STORAGE_KEY = 'linguaflow_theme';
-  var THEMES = [
-    { id: 'ocean', name: '海洋', desc: '深海蓝 · 宁静深邃' },
-    { id: 'fresh', name: '清新', desc: '自然绿 · 清爽明亮' },
-    { id: 'dark', name: '暗黑', desc: '纯净深色 · 极简专注' },
-    { id: 'light', name: '浅色', desc: '明亮简洁 · 护眼舒适' },
-    { id: 'warm', name: '暖橙', desc: '暖阳橙黄 · 温馨活力' },
-    { id: 'sakura', name: '樱花', desc: '樱花粉 · 柔美浪漫' }
+  var DEFAULT_THEME = 'cat-mocha';
+
+  /* 主题分组：Catppuccin 四风味，每款 3 种最佳强调色变体 */
+  var THEME_GROUPS = [
+    {
+      label: 'Latte 拿铁',
+      themes: [
+        { id: 'cat-latte', name: '拿铁 · 蓝', desc: '浅色 · 奶油底×经典蓝' },
+        { id: 'cat-latte-mauve', name: '拿铁 · 紫', desc: '浅色 · 香芋紫×海松青' },
+        { id: 'cat-latte-pink', name: '拿铁 · 粉', desc: '浅色 · 蜜桃粉×晴空蓝' }
+      ]
+    },
+    {
+      label: 'Frappé 冰沙',
+      themes: [
+        { id: 'cat-frappe', name: '冰沙 · 蓝', desc: '深灰 · 雾霭蓝×丁香紫' },
+        { id: 'cat-frappe-mauve', name: '冰沙 · 紫', desc: '深灰 · 丁香紫×碧波青' },
+        { id: 'cat-frappe-green', name: '冰沙 · 绿', desc: '深灰 · 抹茶绿×蜜桃橙' }
+      ]
+    },
+    {
+      label: 'Macchiato 玛奇朵',
+      themes: [
+        { id: 'cat-macchiato', name: '玛奇朵 · 蓝', desc: '深蓝 · 静谧蓝×薰衣草' },
+        { id: 'cat-macchiato-mauve', name: '玛奇朵 · 紫', desc: '深蓝 · 薰衣草×海松青' },
+        { id: 'cat-macchiato-teal', name: '玛奇朵 · 青', desc: '深蓝 · 海松青×樱花粉' }
+      ]
+    },
+    {
+      label: 'Mocha 摩卡',
+      themes: [
+        { id: 'cat-mocha', name: '摩卡 · 蓝', desc: '暗夜 · 经典蓝×梦幻紫' },
+        { id: 'cat-mocha-mauve', name: '摩卡 · 紫', desc: '暗夜 · 梦幻紫×翡翠青' },
+        { id: 'cat-mocha-green', name: '摩卡 · 绿', desc: '暗夜 · 荧光绿×蜜桃橙' }
+      ]
+    }
   ];
-  
-  var DEFAULT_THEME = 'fresh';
-  
+
+  /* 扁平主题列表（兼容 LinguaFlowTheme.themes 对外接口） */
+  var THEMES = [];
+  for (var g = 0; g < THEME_GROUPS.length; g++) {
+    THEMES = THEMES.concat(THEME_GROUPS[g].themes);
+  }
+
   function getSavedTheme() {
     try { return localStorage.getItem(STORAGE_KEY) || DEFAULT_THEME; } catch (e) { return DEFAULT_THEME; }
   }
@@ -58,14 +91,18 @@
     // 面板
     panelEl = document.createElement('div');
     panelEl.className = 'theme-panel';
-    var html = '<div class="theme-panel-title">选择主题</div>';
-    for (var i = 0; i < THEMES.length; i++) {
-      var t = THEMES[i];
-      html += '<button class="theme-option" data-theme-id="' + t.id + '">' +
-        '<span class="theme-swatch swatch-' + t.id + '"></span>' +
-        '<span>' + t.name + '<br><small style="font-size:0.7rem;color:var(--text-dim);font-weight:400;">' + t.desc + '</small></span>' +
-        '<span class="check">✓</span>' +
-        '</button>';
+    var html = '<div class="theme-panel-title">Catppuccin 主题</div>';
+    for (var g = 0; g < THEME_GROUPS.length; g++) {
+      var group = THEME_GROUPS[g];
+      html += '<div class="theme-group-title">' + group.label + '</div>';
+      for (var i = 0; i < group.themes.length; i++) {
+        var t = group.themes[i];
+        html += '<button class="theme-option" data-theme-id="' + t.id + '">' +
+          '<span class="theme-swatch swatch-' + t.id + '"></span>' +
+          '<span>' + t.name + '<br><small style="font-size:0.7rem;color:var(--text-dim);font-weight:400;">' + t.desc + '</small></span>' +
+          '<span class="check">✓</span>' +
+          '</button>';
+      }
     }
     panelEl.innerHTML = html;
 
@@ -168,7 +205,7 @@
     setupSync();
     bindMdPreviewButtons();
 
-    //  iframe 子页面不注入独立切换器（跟随父页面主题，保持界面一致）
+    // iframe 子页面不注入独立切换器（跟随父页面主题，保持界面一致）
     var inIframe = (global.self !== global.top);
     if (inIframe) {
       // 标记嵌入模式：配合 theme.css 隐藏页面独立标题，与宿主页面保持一致

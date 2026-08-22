@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.13.0-blue)
+![Version](https://img.shields.io/badge/version-0.14.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -19,8 +19,7 @@
 - **Original Format Preservation** — Fully preserves Markdown, HTML, code blocks, and other original formats with auto-formatting after translation
 - **Chrome Extension Fullscreen Mode** — New "fullscreen button" in popup top-right corner, opens full translation page in new tab (no height limit)
 - **Dynamic Popup Height** — Max height set to `screen.availHeight`, can drag to screen bottom
-- **6 Themes with One-Click Switching** — Celadon/Ink/Porcelain/Terracotta/Sakura/Deep Sea, each theme an independent color world (hue-tinted neutrals + warm-cool contrast secondary accent) via floating button, glassmorphism texture
-- **Refined Textured UI** — SVG noise background, triple-layer ambient glow, glass card top sheen, hue-tinted multi-layer depth shadows, hairline gradient borders, button press feedback, skeleton loading states — unified visual style across web and extension
+- **12 Catppuccin Themes with One-Click Switching** — Latte / Frappé / Macchiato / Mocha flavors × Blue/Mauve/Pink/Green/Teal accent variants, each theme an independent color world (base/mantle/crust layered backgrounds, subtext/overlay text ladder, warm-cool contrast secondary accents) via floating grouped panel, glassmorphism texture, default Mocha Blue
 - **Typing Effect** — Translation results appear character by character for a smooth experience
 - **Translation History** — Auto-saves up to 20 recent translations with one-click recall
 - **Quick Actions** — Swap languages, paste from clipboard, clear, and copy results
@@ -41,7 +40,7 @@
 - **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
 - **Popup Translation Panel** — Click the toolbar icon for quick text translation
 - **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
-- **6-Theme Switching** — Shares the theme.css system with the web version, vibrant colors + glassmorphism texture
+- **12 Catppuccin Theme Switching** — Shares the theme.css system with the web version, vibrant colors + glassmorphism texture
 - **Deep Context-Aware Translation** — AI performs 5-step context analysis (domain/text type/tone/audience/intent) for precise translations
 - **Resizable Popup** — Drag any edge or corner to freely resize the popup (320–800px wide, 300–780px tall), size auto-saved
 - **Uninterrupted Translation** — Translation continues in background Service Worker even if popup closes; results auto-restored on reopen
@@ -109,8 +108,8 @@ translation_tool/
 ├── todolist.html            # Task list page (standalone, with Markdown/AppleScript features)
 ├── todolist.js              # Task list core logic (IIFE encapsulated)
 ├── install_url_scheme.sh     # Apple Reminders URL Scheme bridge installer
-├── theme.css               # Shared theme system (6 theme variables + glass cards/noise/ambient glow styles)
-├── theme.js                # Theme switcher / iframe theme sync / starfield generation
+├── theme.css               # Shared theme system (12 Catppuccin theme variables + glass cards/noise/ambient glow styles)
+├── theme.js                # Theme switcher / iframe theme sync / starfield / MD preview binding
 ├── markdown.js             # Markdown renderer
 ├── md-editor.js            # Markdown editor component
 ├── email_summary.html      # Email summary page (standalone, shared with extension)
@@ -159,7 +158,7 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - **Popup Translation Panel** — Click the toolbar icon for quick text translation
 - **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
 - **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
-- **6-Theme Textured UI** — Shares the theme system with the web version: vibrant colors, glassmorphism cards, noise background and depth shadows
+- **12 Catppuccin Themes + Textured UI** — Shares the theme system with the web version: vibrant colors, glassmorphism cards, noise background and depth shadows
 - **Resizable Popup** — Drag any edge or corner to resize (320–800px wide, 300–780px tall), auto-saved
 - **Uninterrupted Translation** — Background Service Worker continues translating even after popup closes; results auto-restored
 - **Translation History** — Auto-saves up to 20 entries with individual deletion and clear-all
@@ -192,6 +191,18 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.14.0 (2026-08-22)
+
+- **Theme system rebuilt as Catppuccin-only (v2)** — Classic 6 themes removed, fully replaced by 12 official Catppuccin themes, default Mocha Blue
+  - **Latte (light)**: Blue #1e66f5 / Mauve #8839ef / Pink #ea76cb
+  - **Frappé (muted dark)**: Blue #8caaee / Mauve #ca9ee6 / Green #a6d189
+  - **Macchiato (dark)**: Blue #8aadf4 / Mauve #c6a0f6 / Teal #8bd5ca
+  - **Mocha (darkest)**: Blue #89b4fa / Mauve #cba6f7 / Green #a6e3a1
+  - Each theme an independent color world: base/mantle/crust layered backgrounds, subtext/overlay text ladder, sky/mauve/teal/peach warm-cool contrast accents; glass/shadows/gradients/alpha layers derived from the official palette; star/orb/noise intensity auto-adapted per flavor lightness
+- **Texture polish v2** — All 12 themes upgraded: gradient canvas depth (replacing flat background), hue-tinted card shadows (replacing pure black), 5-layer multi-hue ambient washes (with secondary accents), tricolor starfield, hairline border accent segment, button hover gradient flow + glow, header dual glow, themed text selection, glowing focus ring, subtle scanline texture
+- **Four-group theme panel** — Latte/Frappé/Macchiato/Mocha sections with scrollable adaptive-height panel; 12 swatches
+- **Theme system synced** — theme.css/theme.js updated in both web version and Chrome extension; iframe sub-pages and Popup follow automatically
 
 ### v0.13.0 (2026-08-08)
 
