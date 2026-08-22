@@ -1590,3 +1590,146 @@ html.theme-transitioning *::after {
   transition: background-color 0.35s ease, border-color 0.35s ease,
               color 0.35s ease, box-shadow 0.35s ease, opacity 0.35s ease !important;
 }
+
+/* ============================================================
+   8. PREMIUM REFACTOR — 全站视觉质感升级（共享层）
+   纯视觉层：完全保留各页面结构/内容/业务逻辑
+   ============================================================ */
+:root {
+  /* 修复原代码缺失的 --transition，统一 300ms ease-out 平滑微交互 */
+  --transition: 300ms ease-out;
+  --font-display: 'Syne', 'Plus Jakarta Sans', 'Noto Sans SC', -apple-system, sans-serif;
+  --font-ui: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* --- 深色主题（含默认 mocha）：深邃分层暗黑背景 --- */
+html:not([data-theme^="cat-latte"]) {
+  --bg-body: #0a090d;
+  --bg-gradient: linear-gradient(165deg, #0a090d 0%, #0c0b12 34%, #100e19 62%, #161323 100%);
+  --bg-dark: rgba(16, 14, 24, 0.92);
+  --bg-card: rgba(20, 18, 30, 0.72);
+  --bg-card2: rgba(255, 255, 255, 0.035);
+  --bg-elevated: rgba(255, 255, 255, 0.05);
+
+  /* 玻璃拟态：半透明底色 + 1px 高光边框 + 高斯模糊 */
+  --glass-bg: rgba(255, 255, 255, 0.035);
+  --glass-border: rgba(255, 255, 255, 0.10);
+
+  /* 多层叠加的柔和弥散阴影（Soft Ambient Shadows） */
+  --glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 2px 4px rgba(0, 0, 0, 0.20),
+    0 10px 28px rgba(0, 0, 0, 0.26),
+    0 28px 72px rgba(0, 0, 0, 0.32);
+
+  /* 环境光影：提升光晕强度（Glow Mesh）与噪点质感 */
+  --glow-opacity: 0.55;
+  --orb-opacity: 0.30;
+  --noise-opacity: 0.06;
+}
+
+/* --- 玻璃卡片质感强化（顶缘高光反射 + 更深高斯模糊） --- */
+html:not([data-theme^="cat-latte"]) .glass-card,
+html:not([data-theme^="cat-latte"]) .main-card,
+html:not([data-theme^="cat-latte"]) .history-card {
+  backdrop-filter: blur(30px) saturate(1.6);
+  -webkit-backdrop-filter: blur(30px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.012) 40%, transparent 100%),
+    radial-gradient(120% 60% at 50% -10%, rgba(255, 255, 255, 0.06), transparent 60%);
+  transition: transform 300ms ease-out, box-shadow 300ms ease-out,
+              border-color 300ms ease-out, background-color 300ms ease-out;
+}
+
+/* --- 卡片 Hover：轻微上浮 -3px + 边缘发光 + 外阴影加深 --- */
+html:not([data-theme^="cat-latte"]) .glass-card:hover,
+html:not([data-theme^="cat-latte"]) .main-card:hover,
+html:not([data-theme^="cat-latte"]) .history-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 8px 24px rgba(0, 0, 0, 0.30),
+    0 28px 72px rgba(0, 0, 0, 0.36),
+    0 0 40px var(--primary-a12);
+}
+
+/* --- 浅色 latte 主题：优雅轻玻璃，避免透明卡片在浅底上失读 --- */
+html[data-theme^="cat-latte"] {
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 2px 6px rgba(30, 41, 59, 0.05),
+    0 14px 40px rgba(30, 41, 59, 0.08);
+}
+html[data-theme^="cat-latte"] .glass-card:hover,
+html[data-theme^="cat-latte"] .main-card:hover,
+html[data-theme^="cat-latte"] .history-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 10px 30px rgba(30, 41, 59, 0.12),
+    0 24px 64px rgba(30, 41, 59, 0.10);
+}
+
+/* --- 字体与排版重塑：标题用展示字体，正文 Inter --- */
+body {
+  font-family: var(--font-ui);
+  letter-spacing: 0.01em;
+}
+h1, h2, h3, h4,
+.pane-label, .header-badge, .tab-header-badge,
+.theme-panel-title, .theme-group-title, .stat-val {
+  font-family: var(--font-display);
+}
+h1, h2 { letter-spacing: -0.02em; }
+
+/* --- 动效与交互质感：统一 300ms ease-out 微交互 --- */
+button,
+input:not([type]),
+input[type="text"], input[type="password"], input[type="number"],
+input[type="date"], input[type="time"], input[type="search"],
+select, textarea {
+  transition: transform 300ms ease-out, box-shadow 300ms ease-out,
+              border-color 300ms ease-out, background-color 300ms ease-out,
+              color 300ms ease-out, opacity 300ms ease-out, filter 300ms ease-out;
+}
+
+/* ============================================================
+   9. 暗色主题去眩光（De-glare）：按键/卡片减少刺眼反光
+   ============================================================ */
+
+/* 主按钮暗纱覆盖：压低泛白渐变亮度，保留色相层次 */
+html:not([data-theme^="cat-latte"]) .btn-summarize {
+  background-image:
+    linear-gradient(180deg, rgba(10, 9, 13, 0.32) 0%, rgba(10, 9, 13, 0.16) 100%),
+    var(--btn-gradient);
+  /* 去掉白色顶部高光反光，改用柔和环境光阴影 */
+  box-shadow: 0 4px 18px var(--primary-a20), 0 0 24px var(--cyan-a10);
+}
+
+/* 悬停不再增亮（去掉 brightness），仅轻微提升饱和度 */
+html:not([data-theme^="cat-latte"]) .translate-btn:hover,
+html:not([data-theme^="cat-latte"]) .btn-summarize:hover,
+html:not([data-theme^="cat-latte"]) .btn-save:hover,
+html:not([data-theme^="cat-latte"]) .btn-edit-save:hover,
+html:not([data-theme^="cat-latte"]) .btn-tool:hover {
+  filter: saturate(1.06);
+}
+
+/* 玻璃工具按钮：降低白色底反光 */
+html:not([data-theme^="cat-latte"]) .btn-tool {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+/* 卡片顶缘高光收敛，减少面板反光感 */
+html:not([data-theme^="cat-latte"]) .glass-card,
+html:not([data-theme^="cat-latte"]) .main-card,
+html:not([data-theme^="cat-latte"]) .history-card {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 40%, transparent 100%),
+    radial-gradient(120% 60% at 50% -10%, rgba(255, 255, 255, 0.035), transparent 60%);
+}

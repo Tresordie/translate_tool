@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.14.0-blue)
+![Version](https://img.shields.io/badge/version-0.15.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -190,6 +190,17 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.15.0 (2026-08-22)
+
+- **全站视觉重构（Premium UI Refactor）** — 在完全保留网页结构、内容与业务逻辑的前提下，对全部 5 个页面（智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结）进行高端视觉升级
+  - **深邃分层暗黑背景** — 近黑分层渐变 `#0A090D → #161323`，摆脱纯黑或平庸纯色；核心视觉区叠加 Glow Mesh 渐变光晕 + 微弱噪点纹理
+  - **玻璃拟态升级** — 卡片改为半透明底 `rgba(255,255,255,0.03~0.04)` + 1px 高光边框 + `backdrop-blur(30px) saturate(1.6)`，顶缘柔和高光反射
+  - **字体与排版重塑** — 引入 Google Fonts：标题用 Syne / Plus Jakarta Sans，正文用 Inter；标题渐变文字、增大标题/正文字号对比、微调字距与行高增加呼吸感
+  - **动效与交互质感** — 修复 `--transition` 缺失问题，全站统一 300ms `ease-out` 微交互；按钮/卡片悬停轻上浮（-2~-4px）+ 边缘发光 + 外阴影加深
+  - **细节去“廉价感”** — 多层叠加柔和弥散阴影（Soft Ambient Shadows）、统一图标风格与间距对齐
+  - **响应式保留** — 移动端 Tab 导航自适应换行折叠；浅色 latte 主题单独优雅轻玻璃处理，无失读
+- **暗色主题去眩光（De-glare）** — 针对用户反馈，降低暗色主题下按键/卡片过亮反光：主按钮叠加暗纱压低泛白渐变、去除白色顶部高光、悬停移除 brightness 增亮仅保留轻微饱和度、光泽扫过带减淡、卡片顶缘高光收敛
 
 ### v0.14.0 (2026-08-22)
 

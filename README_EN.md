@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.14.0-blue)
+![Version](https://img.shields.io/badge/version-0.15.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -191,6 +191,17 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.15.0 (2026-08-22)
+
+- **Full-site Visual Refactor (Premium UI)** — High-end visual upgrade across all 5 pages (Translate / Work Report / Task List / English Learning / Email Summary) while fully preserving page structure, content, and business logic
+  - **Deep layered dark background** — Near-black layered gradient `#0A090D → #161323`, breaking away from flat black or plain solid colors; Glow Mesh ambient washes + subtle noise texture over core visual areas
+  - **Glassmorphism upgrade** — Cards use semi-transparent base `rgba(255,255,255,0.03~0.04)` + 1px highlight border + `backdrop-blur(30px) saturate(1.6)`, with a soft top-edge light reflection
+  - **Typography reshaping** — Google Fonts: Syne / Plus Jakarta Sans for headings, Inter for body; gradient title text, larger heading/body contrast, refined tracking & line-height for breathing room
+  - **Motion & interaction quality** — Fixed the missing `--transition` variable; unified 300ms `ease-out` micro-interactions site-wide; buttons/cards lift slightly (-2~-4px) on hover with edge glow + deepened outer shadow
+  - **De-finessed details** — Layered soft ambient shadows, unified icon style with consistent spacing & alignment
+  - **Responsive preserved** — Mobile tab-nav wraps/folds adaptively; latte light themes get a graceful light-glass treatment with no readability loss
+- **Dark-theme de-glare** — Per user feedback, reduced overly bright/reflective buttons & cards in dark themes: dark-veil over the washed-out gradient on primary buttons, removed white top highlights, removed hover `brightness` boost (kept slight saturation only), softened the gloss sweep band, and toned down the card top-edge highlight
 
 ### v0.14.0 (2026-08-22)
 
