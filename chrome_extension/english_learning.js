@@ -187,6 +187,37 @@
             }
         }
 
+        // ===== 插件配置同步（LinguaFlow 扩展广播）：config{baseUrl,apiKey,model} → apiConfig{apiUrl,apiKey,modelName} =====
+        function applySyncedApiConfig(cfg) {
+            if (!cfg || !cfg.baseUrl) return;
+            const apiUrlEl = document.getElementById('apiUrl');
+            const apiKeyEl = document.getElementById('apiKey');
+            const modelEl = document.getElementById('modelName');
+            if (cfg.baseUrl && apiUrlEl) apiUrlEl.value = cfg.baseUrl;
+            if (cfg.apiKey && apiKeyEl) apiKeyEl.value = cfg.apiKey;
+            if (cfg.model && modelEl) modelEl.value = cfg.model;
+            try {
+                localStorage.setItem('apiConfig', JSON.stringify({ apiUrl: cfg.baseUrl, apiKey: cfg.apiKey, modelName: cfg.model, savedAt: new Date().toISOString() }));
+            } catch (e) {}
+            if (typeof showTestResult === 'function') showTestResult('success', `✅ 已同步插件配置（Base URL / API Key / Model）`);
+        }
+        // 网页环境：content script 通过 postMessage 广播
+        window.addEventListener('message', (e) => {
+            const d = e.data;
+            if (d && d.source === 'linguaflow-extension' && d.config) applySyncedApiConfig(d.config);
+        });
+        // 扩展环境：直接监听 chrome.storage，并读取已有配置兑底
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+            chrome.storage.onChanged.addListener((changes, area) => {
+                if (area === 'local' && changes.config && changes.config.newValue) {
+                    applySyncedApiConfig(changes.config.newValue);
+                }
+            });
+            chrome.storage.local.get(['config'], ({ config: xcfg }) => {
+                if (xcfg && xcfg.baseUrl) applySyncedApiConfig(xcfg);
+            });
+        }
+
         function toggleSection(sectionId) {
             const content = document.getElementById(`${sectionId}-content`);
             const icon = document.getElementById(`${sectionId}-icon`);

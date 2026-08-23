@@ -67,6 +67,21 @@ async function init() {
     if (config.targetLang) targetLang.value = config.targetLang;
   }
 
+  // 实时监听插件配置变化（popup 保存后立即生效，无需刷新）
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.config || !changes.config.newValue) return;
+    const c = changes.config.newValue;
+    if (!c.baseUrl) return;
+    config = c;
+    if (c.baseUrl) document.getElementById('baseUrl').value = c.baseUrl;
+    if (c.apiKey) document.getElementById('apiKey').value = c.apiKey;
+    if (c.model) document.getElementById('modelName').value = c.model;
+    if (c.sourceLang) sourceLang.value = c.sourceLang;
+    if (c.targetLang) targetLang.value = c.targetLang;
+    document.getElementById('settingsPanel').classList.remove('open');
+    showToast('已同步插件配置（Base URL / API Key / Model）', 'success');
+  });
+
   if (!config.apiKey) {
     document.getElementById('settingsPanel').classList.add('open');
   }

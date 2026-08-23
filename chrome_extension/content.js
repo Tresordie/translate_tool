@@ -11,18 +11,41 @@
   // ===== Load config =====
   chrome.storage.local.get(['config'], ({ config: c }) => {
     config = c || {};
+    syncConfigToPage(c);
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.config) {
       config = changes.config.newValue;
+      syncConfigToPage(config);
     }
   });
 
-  // Listen for messages from popup
+  // 同步配置到网页：写入 localStorage('translate_config') 供页面 JS 读取，
+  // 并通过 postMessage 实时通知已打开的页面（无需刷新）。
+  function syncConfigToPage(cfg) {
+    if (!cfg || !cfg.baseUrl) return;
+    try {
+      localStorage.setItem('translate_config', JSON.stringify({
+        baseUrl: cfg.baseUrl,
+        apiKey: cfg.apiKey,
+        model: cfg.model,
+      }));
+    } catch (e) { /* ignore */ }
+    try {
+      window.postMessage({ source: 'linguaflow-extension', config: cfg }, '*');
+    } catch (e) { /* ignore */ }
+  }
+
+  // Listen for messages from popup / background
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'updateConfig') {
       config = msg.config;
+      syncConfigToPage(msg.config);
+    }
+    if (msg.action === 'linguaflow:syncConfig') {
+      config = msg.config;
+      syncConfigToPage(msg.config);
     }
   });
 

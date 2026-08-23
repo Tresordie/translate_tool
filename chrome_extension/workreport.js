@@ -953,6 +953,37 @@
   window.toggleMdPreview = toggleMdPreview;
   window.updateMdPreview = updateMdPreview;
 
+  // ===== 插件配置同步（LinguaFlow 扩展广播） =====
+  function applySyncedConfig(cfg) {
+    if (!cfg || !cfg.baseUrl) return;
+    config = {
+      baseUrl: cfg.baseUrl,
+      apiKey: cfg.apiKey,
+      model: cfg.model,
+      inputLang: 'zh',
+      outputLang: 'zh',
+    };
+    if (cfg.baseUrl) $('baseUrl').value = cfg.baseUrl;
+    if (cfg.apiKey) $('apiKey').value = cfg.apiKey;
+    if (cfg.model) $('modelName').value = cfg.model;
+    const panel = $('settingsPanel');
+    if (panel) panel.classList.remove('open');
+    showToast('已同步插件配置（Base URL / API Key / Model）', 'success');
+  }
+  // 网页环境：content script 通过 postMessage 广播
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (d && d.source === 'linguaflow-extension' && d.config) applySyncedConfig(d.config);
+  });
+  // 扩展环境：直接监听 chrome.storage 变化
+  if (isExtension) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.config && changes.config.newValue) {
+        applySyncedConfig(changes.config.newValue);
+      }
+    });
+  }
+
   // ===== Init =====
   async function init() {
     const data = await storage.get(['work_config', 'work_records', 'work_draft', 'work_summary_config']);
@@ -970,6 +1001,15 @@
           inputLang: 'zh',
           outputLang: 'zh',
         };
+      }
+      // 网页环境：插件 content script 会把配置同步到 localStorage('translate_config')
+      if ((!savedConfig || !savedConfig.baseUrl) && !isExtension) {
+        try {
+          const tc = JSON.parse(localStorage.getItem('translate_config') || 'null');
+          if (tc && tc.baseUrl) {
+            savedConfig = { baseUrl: tc.baseUrl, apiKey: tc.apiKey, model: tc.model, inputLang: 'zh', outputLang: 'zh' };
+          }
+        } catch (e) { /* ignore */ }
       }
     }
 

@@ -19,6 +19,21 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
+// ===== 配置同步：任何扩展页面保存 config 后，广播给所有已打开的网页 =====
+// 网页无法直接访问 chrome.storage，由各页面注入的 content script 接收
+// 本消息，写入 localStorage('translate_config') 并通知页面 JS。
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes.config) return;
+  const config = changes.config.newValue;
+  if (!config || !config.baseUrl) return;
+  chrome.tabs.query({}, (tabs) => {
+    for (const tab of tabs) {
+      if (tab.id == null) continue;
+      chrome.tabs.sendMessage(tab.id, { action: 'linguaflow:syncConfig', config }).catch(() => {});
+    }
+  });
+});
+
 // Handle messages from content script or popup
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'translate') {

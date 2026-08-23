@@ -136,6 +136,33 @@
   if (config.model) $('modelName').value = config.model;
   if (!config.apiKey) $('settingsPanel').classList.add('open');
 
+  /* ==================== 插件配置同步（LinguaFlow 扩展广播） ==================== */
+  function applySyncedConfig(cfg) {
+    if (!cfg || !cfg.baseUrl) return;
+    config = { baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model };
+    if (cfg.baseUrl) $('baseUrl').value = cfg.baseUrl;
+    if (cfg.apiKey) $('apiKey').value = cfg.apiKey;
+    if (cfg.model) $('modelName').value = cfg.model;
+    $('settingsPanel').classList.remove('open');
+    showToast('已同步插件配置（Base URL / API Key / Model）', 'success');
+  }
+  // 网页环境：content script 通过 postMessage 广播
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (d && d.source === 'linguaflow-extension' && d.config) applySyncedConfig(d.config);
+  });
+  // 扩展环境：直接监听 chrome.storage，并读取已有配置兑底
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.config && changes.config.newValue) {
+        applySyncedConfig(changes.config.newValue);
+      }
+    });
+    chrome.storage.local.get(['config'], ({ config: xcfg }) => {
+      if (xcfg && xcfg.baseUrl) applySyncedConfig(xcfg);
+    });
+  }
+
   $('toggleSettings').addEventListener('click', () => $('settingsPanel').classList.toggle('open'));
 
   $('saveSettingsBtn').addEventListener('click', () => {

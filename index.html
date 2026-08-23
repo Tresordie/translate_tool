@@ -1358,6 +1358,36 @@
     let config = JSON.parse(localStorage.getItem('translate_config') || '{}');
     let history = JSON.parse(localStorage.getItem('translate_history') || '[]');
 
+    // ===== 插件配置同步：接收 LinguaFlow 扩展广播的 Base URL / API Key / Model =====
+    function applySyncedConfig(cfg) {
+      if (!cfg || !cfg.baseUrl) return;
+      config = { baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model };
+      document.getElementById('baseUrl').value = cfg.baseUrl;
+      document.getElementById('apiKey').value = cfg.apiKey || '';
+      document.getElementById('modelName').value = cfg.model || '';
+      const panel = document.getElementById('settingsPanel');
+      if (panel) panel.classList.remove('open');
+      showToast('已同步插件配置（Base URL / API Key / Model）', 'success');
+    }
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (d && d.source === 'linguaflow-extension' && d.config) {
+        applySyncedConfig(d.config);
+        // 转发给同源 iframe 子页面（工作报告/任务清单），无需刷新即可生效
+        document.querySelectorAll('iframe').forEach((f) => {
+          try { f.contentWindow.postMessage(d, '*'); } catch (err) { /* ignore */ }
+        });
+      }
+    });
+    // 扩展环境（作为扩展页面加载时）直接监听 chrome.storage
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && changes.config && changes.config.newValue) {
+          applySyncedConfig(changes.config.newValue);
+        }
+      });
+    }
+
     // ===== Markdown Editor (source input) =====
     const srcEditor = MdEditor.create(document.getElementById('sourceEditor'), {
       placeholder: '请输入要翻译的文本...',
