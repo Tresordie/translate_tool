@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.19.0-blue)
+![Version](https://img.shields.io/badge/version-0.19.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -230,6 +230,10 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.19.1 (2026-08-28)
+- **英语学习发音面板恢复语种选择**：新增「选择语种」下拉菜单（English US/UK、中文、日本語、한국어、Français、Deutsch、Español），语音列表按所选语种自动过滤
+- 发音语言跟随用户选择，不再硬编码为中英文自动判断
 
 ### v0.19.0 (2026-08-28)
 - **英语学习页面 UI 全面重构**：深海蓝 (#0F172A) + 琥珀金 (#F59E0B) 专业配色，Inter + Noto Sans SC 字体

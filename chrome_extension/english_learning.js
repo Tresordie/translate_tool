@@ -256,18 +256,36 @@
             } catch(e) {}
         });
 
+        function getSelectedLang() {
+            const langSelect = document.getElementById('langSelect');
+            return langSelect ? langSelect.value : 'en-US';
+        }
+
         function initVoices() {
             const voiceSelect = document.getElementById('voiceSelect');
+            const langSelect = document.getElementById('langSelect');
+            if (!voiceSelect) return;
             const voices = speechSynthesis.getVoices();
+            const currentLang = langSelect ? langSelect.value : 'en-US';
             voiceSelect.innerHTML = '';
-            
-            voices.forEach(voice => {
+
+            // Filter voices by selected language (match prefix, e.g. 'en' matches 'en-US', 'en-GB')
+            const langPrefix = currentLang.split('-')[0];
+            const filtered = voices.filter(v => v.lang.startsWith(langPrefix));
+            const list = filtered.length > 0 ? filtered : voices;
+
+            list.forEach(voice => {
                 const option = document.createElement('option');
                 option.value = voice.name;
                 option.textContent = `${voice.name} (${voice.lang})`;
-                if (voice.lang.startsWith('en')) option.selected = true;
+                if (voice.lang === currentLang) option.selected = true;
                 voiceSelect.appendChild(option);
             });
+
+            // If no voice matched the exact lang, select first one
+            if (!voiceSelect.value && voiceSelect.options.length > 0) {
+                voiceSelect.selectedIndex = 0;
+            }
         }
 
         function speakWord() {
@@ -278,10 +296,14 @@
             const utterance = new SpeechSynthesisUtterance(word);
             const voices = speechSynthesis.getVoices();
             const selectedVoice = voices.find(v => v.name === document.getElementById('voiceSelect').value);
-            if (selectedVoice) utterance.voice = selectedVoice;
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
+                utterance.lang = selectedVoice.lang;
+            } else {
+                utterance.lang = getSelectedLang();
+            }
             
             utterance.rate = parseFloat(document.getElementById('rateSlider').value);
-            utterance.lang = /^[\u4e00-\u9fa5]+$/.test(word) ? 'zh-CN' : 'en-US';
             try { speechSynthesis.speak(utterance); } catch(e) { console.warn("[EL] speak:", e.message); }
         }
 
@@ -297,16 +319,28 @@
             const utterance = new SpeechSynthesisUtterance(word);
             const voices = speechSynthesis.getVoices();
             const selectedVoice = voices.find(v => v.name === document.getElementById('voiceSelect').value);
-            if (selectedVoice) utterance.voice = selectedVoice;
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
+                utterance.lang = selectedVoice.lang;
+            } else {
+                utterance.lang = getSelectedLang();
+            }
             
             utterance.rate = 0.6;
-            utterance.lang = /^[\u4e00-\u9fa5]+$/.test(word) ? 'zh-CN' : 'en-US';
             try { speechSynthesis.speak(utterance); } catch(e) { console.warn("[EL] speak:", e.message); }
         }
 
         document.getElementById('rateSlider').addEventListener('input', function() {
             document.getElementById('rateValue').textContent = parseFloat(this.value).toFixed(1) + 'x';
         });
+
+        // Re-filter voices when language changes
+        var langSelectEl = document.getElementById('langSelect');
+        if (langSelectEl) {
+            langSelectEl.addEventListener('change', function() {
+                initVoices();
+            });
+        }
 
         function saveToStorage() {
             const data = {
