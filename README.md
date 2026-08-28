@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.16.1-blue)
+![Version](https://img.shields.io/badge/version-0.18.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -32,7 +32,9 @@
 - **邮件总结** — 新增第 5 个 Tab：粘贴邮件线程或上传本地文件（.txt/.md/.eml/.pdf），AI 按专业规范输出四段式详细总结（主题背景/时间线表格/技术要点/风险注意点）+ 按责任方分解的 To Do List（P0/P1/P2 优先级），支持 30 种语言输出、HTML/Markdown 下载、历史记录查阅与编辑
   - **PDF 解析** — 内置 pdf.js 本地解析（最大 200MB），超大文件自动处理：读取进度提示、文本预算/页数上限提前终止、逐页内存释放
   - **超长内容自动截取** — 超过 6 万字符自动保留首尾、省略中间并标注，无需手动拆分
-- **页面复用架构** — 工作报告、任务清单、英语学习、邮件总结 Tab 通过 iframe 嵌入独立页面，与 Chrome 扩展共用同一套代码
+- **AI 解析** — 新增第 6 个 Tab：经典模式（粘贴笔记/需求 → AI 抽取任务清单，可勾选后批量创建到待办，含优先级/标签/子步骤）+ 分析模式（填写需求说明或上传附件 → AI 生成结构化分析总结，支持 .eml 邮件线程自动识别），结果可复制 / 下载 Markdown / HTML
+- **AI 提示词** — 新增第 7 个 Tab：输入粗略需求 → 生成专家级结构化提示词（含「📋 提示词」「⚠ 假设」「💡 使用建议」），支持单独复制提示词正文或全量复制、下载
+- **页面复用架构** — 工作报告、任务清单、英语学习、邮件总结、AI 解析、AI 提示词 Tab 通过 iframe 嵌入独立页面，与 Chrome 扩展共用同一套代码
 - **零依赖** — 纯 HTML + CSS + JavaScript，无需安装任何环境
 
 ### Chrome 扩展版
@@ -49,7 +51,8 @@
 - **划词翻译开关** — 可在设置中启用/关闭划词翻译功能
 - **语言偏好记忆** — 自动保存源语言和目标语言选择
 - **邮件总结入口** — Popup 头部新增信封图标，新标签页打开邮件总结页（与网页版功能一致，含 PDF 上传与 30 语言输出）
-- **Side Panel 侧边栏** — Chrome 114+ 专属侧边栏，内置智能翻译/工作报告/任务清单/英语学习/邮件总结全部 5 个模块，Tab 一键切换，模块懒加载不卡顿；可通过 Popup 侧边栏按钮、快捷键 `Alt+Shift+L` 或右键菜单「在侧边栏打开 LinguaFlow」随时打开
+- **Side Panel 侧边栏** — Chrome 114+ 专属侧边栏，内置智能翻译/工作报告/任务清单/英语学习/邮件总结/AI 解析/AI 提示词全部 7 个模块，Tab 一键切换，模块懒加载不卡顿；可通过 Popup 侧边栏按钮、快捷键 `Alt+Shift+L` 或右键菜单「在侧边栏打开 LinguaFlow」随时打开
+- **AI 解析 / AI 提示词** — 侧边栏新增「解析」「提示词」两个 Tab（懒加载）；Popup 新增两个入口按钮，点击在新标签页打开独立页面
 
 ## 📸 界面预览
 
@@ -76,7 +79,7 @@
 
 ### 插件配置一键同步到所有页面
 
-在 Chrome 扩展（LinguaFlow 插件）的弹窗设置中填入 **Base URL / API Key / Model** 并保存后，配置会自动同步到所有已打开的工具页面（翻译、工作报告、邮件总结、英语学习等），无需逐页重复填写：
+在 Chrome 扩展（LinguaFlow 插件）的弹窗设置中填入 **Base URL / API Key / Model** 并保存后，配置会自动同步到所有已打开的工具页面（翻译、工作报告、邮件总结、英语学习、AI 解析、AI 提示词），无需逐页重复填写：
 
 - **已打开的网页**：实时生效（无需刷新），设置面板自动回填并收起
 - **未打开的页面**：下次打开时自动读取插件配置
@@ -113,12 +116,18 @@
 
 ```
 translation_tool/
-├── index.html              # 网页版应用（翻译主页面）
+├── index.html              # 网页版应用（翻译主页面，含 7 个 Tab：翻译/报告/清单/英语/邮件/AI 解析/AI 提示词）
 ├── workreport.html         # 工作报告页面（独立，与 Chrome 扩展共用）
 ├── workreport.js           # 工作报告核心逻辑（IIFE 封装）
 ├── english_learning.html    # 英语学习助手页面（独立，与 Chrome 扩展共用）
+├── english_learning.js      # 英语学习助手逻辑
 ├── todolist.html            # 任务清单页面（独立，含 Markdown/AppleScript 功能）
-├── todolist.js              # 任务清单核心逻辑（IIFE 封装）
+├── todolist.js              # 任务清单核心逻辑（IIFE 封装，含跨页面 AI 解析任务同步）
+├── ai-service.js           # AI Parse / AI Prompts 共享服务（配置读写/OpenAI 兼容 chat 调用/任务抽取/提示词工程）
+├── ai_parse.html           # AI 解析页面（经典模式任务抽取 + 分析模式结构化总结）
+├── ai_parse.js             # AI 解析页面逻辑
+├── ai_prompts.html         # AI 提示词页面（输入需求 → 生成结构化提示词）
+├── ai_prompts.js           # AI 提示词页面逻辑
 ├── install_url_scheme.sh     # Apple 提醒事项 URL Scheme 桥接器安装脚本
 ├── theme.css               # 共享主题系统（12 款 Catppuccin 主题变量 + 玻璃卡片/噪点/环境光等公共样式）
 ├── theme.js                # 主题切换器/iframe 主题同步/星星背景/Markdown 预览绑定
@@ -135,9 +144,14 @@ translation_tool/
 │   ├── popup.html          # 弹窗界面
 │   ├── popup.css           # 弹窗样式
 │   ├── popup.js            # 弹窗逻辑
-│   ├── sidepanel.html      # 侧边栏入口页面（Chrome 114+）
-│   ├── sidepanel.css       # 侧边栏样式
+│   ├── sidepanel.html      # 侧边栏入口页面（Chrome 114+，7 个 Tab）
+│   ├── sidepanel.css       # 侧边栏样式（现代极简有质感设计）
 │   ├── sidepanel.js        # 侧边栏逻辑（Tab 切换/懒加载/配置同步）
+│   ├── ai-service.js       # AI Parse / AI Prompts 共享服务（与网页版共用）
+│   ├── ai_parse.html       # AI 解析页面（Chrome 扩展版）
+│   ├── ai_parse.js         # AI 解析页面逻辑
+│   ├── ai_prompts.html     # AI 提示词页面（Chrome 扩展版）
+│   ├── ai_prompts.js       # AI 提示词页面逻辑
 │   ├── fullpage.html       # 全屏翻译页面
 │   ├── fullpage.js         # 全屏页面逻辑
 │   ├── content.js          # 划词翻译脚本
@@ -203,7 +217,7 @@ translation_tool/
    - 点击 Popup 弹窗右上角的「侧边栏」按钮
    - 按快捷键 `Alt+Shift+L`
    - 在任意页面右键 → 「在侧边栏打开 LinguaFlow」
-2. 侧边栏顶部 Tab 栏可切换 5 个模块：智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结
+2. 侧边栏顶部 Tab 栏可切换 7 个模块：智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结 / AI 解析 / AI 提示词
 3. 模块按需懒加载：首次打开的模块才加载对应页面，日常打开侧边栏不卡顿
 4. 侧边栏顶部「API 设置」保存后与弹窗、全屏页、各工具页实时同步配置与主题
 5. 侧边栏右下角圆形主题按钮可随时切换 12 款 Catppuccin 主题，实时同步到各模块
