@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.16.0-blue)
+![Version](https://img.shields.io/badge/version-0.16.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -206,6 +206,7 @@ translation_tool/
 2. 侧边栏顶部 Tab 栏可切换 5 个模块：智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结
 3. 模块按需懒加载：首次打开的模块才加载对应页面，日常打开侧边栏不卡顿
 4. 侧边栏顶部「API 设置」保存后与弹窗、全屏页、各工具页实时同步配置与主题
+5. 侧边栏右下角圆形主题按钮可随时切换 12 款 Catppuccin 主题，实时同步到各模块
 
 ## 📋 浏览器兼容性
 
@@ -215,6 +216,10 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.16.1 (2026-08-28)
+
+- **修复侧边栏无法设置主题** — 侧边栏右下角新增圆形主题切换按钮，可直接在侧边栏内切换 12 款 Catppuccin 主题，并实时同步到各模块与弹窗/全屏页
 
 ### v0.16.0 (2026-08-28)
 

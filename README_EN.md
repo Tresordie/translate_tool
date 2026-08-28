@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.16.0-blue)
+![Version](https://img.shields.io/badge/version-0.16.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -193,7 +193,7 @@ In addition to the web version, this project includes a **Chrome browser extensi
 2. The side panel opens on the right edge of the window with 5 tabs: **Smart Translation / Work Report / Task List / English Learning / Email Summary**
 3. Click any tab to switch modules instantly — each module is lazily loaded on first open to keep startup fast
 4. Configure your API in the popup's **Settings** panel (gear icon) — all modules sync the config in real time
-5. The side panel theme follows the shared Catppuccin theme system automatically
+5. Click the circular theme button in the bottom-right corner to switch between 12 Catppuccin themes directly inside the side panel — changes sync to every module in real time
 
 ## 📋 Browser Compatibility
 
@@ -203,6 +203,10 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.16.1 (2026-08-28)
+
+- **Fix: theme could not be set in the Side Panel** — added the circular theme switcher button (bottom-right FAB) to the side panel, so all 12 Catppuccin themes can be switched directly inside the side panel and sync to the popup / full-page / every module in real time
 
 ### v0.16.0 (2026-08-28)
 
