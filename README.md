@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.19.5-blue)
+![Version](https://img.shields.io/badge/version-0.19.7-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -230,6 +230,10 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.19.7 (2026-08-29)
+- 修复英语学习页面学习内容输入区拉长后右侧边界线消失的问题（移除 `.el-input-area` 的 `overflow: hidden`，增加 1px padding 防止滚动条裁切边框）
+- 输入区新增 `resize: vertical` 支持垂直拖拽调整高度
 
 ### v0.19.5 (2026-08-29)
 - **修复**：英语学习页面内部宽度统一与 AI Parse 页面一致（内容容器固定 24px 水平内边距，不再随视口变化）
