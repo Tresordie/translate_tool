@@ -1095,10 +1095,10 @@
             }
         }
 
-        /* Side Panel 模式：去除四周留白，内容充满整个面板 */
+        /* Side Panel 模式：内容宽度与 AI Parse 页面一致（水平内边距 24px） */
         @media (max-width: 480px) {
             .el-wrapper { padding: 0; }
-            .el-container { max-width: 100%; }
+            .el-container { max-width: 100%; padding: 0 24px; }
             .el-header { border-radius: 0; margin-bottom: var(--el-space-lg); padding: var(--el-space-lg) var(--el-space-md); }
             .el-header-title { font-size: 24px; }
             .el-section { border-radius: 0; border-left: none; border-right: none; margin-bottom: var(--el-space-lg); padding: var(--el-space-md); }
@@ -1155,6 +1155,7 @@
             background: var(--el-bg) !important;
             padding: 0 !important;
             margin: 0 !important;
+            overflow-x: hidden !important;
         }
         body:has(.el-wrapper) {
             background: var(--el-bg) !important;
@@ -1164,6 +1165,12 @@
         body:has(.el-wrapper) .bg-canvas {
             display: none !important;
         }
+
+        /* 滚动条颜色跟随主题，避免暗色模式下出现白色滚动条 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--el-bg); }
+        ::-webkit-scrollbar-thumb { background: var(--el-border-strong); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--el-text-faint); }
 
         /* Select styling */
         .el-form-select {
