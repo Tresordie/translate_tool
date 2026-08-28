@@ -377,9 +377,29 @@
             .el-phonetic-grid { grid-template-columns: 1fr; }
         }
 
-        @media (max-width: 375px) {
-            .el-wrapper { padding: 12px; }
+        /* Side Panel 模式：去除四周留白，内容充满整个面板 */
+        @media (max-width: 480px) {
+            .el-wrapper { padding: 0; }
+            .el-container { max-width: 100%; }
+            .el-header { border-radius: 0; margin-bottom: var(--el-space-lg); padding: var(--el-space-lg) var(--el-space-md); }
             .el-header-title { font-size: 24px; }
+            .el-section { border-radius: 0; border-left: none; border-right: none; margin-bottom: var(--el-space-lg); padding: var(--el-space-md); }
+            .el-section-title { font-size: 18px; }
+            .el-button-group { flex-direction: column; }
+            .el-btn { width: 100%; }
+            .el-preset-grid { grid-template-columns: repeat(2, 1fr); }
+            .el-history-item { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .el-phonetic-grid { grid-template-columns: 1fr; }
+            .el-pronunciation-panel { border-radius: 0; margin-left: 0; margin-right: 0; }
+            .el-result-card { border-radius: 0; }
+            .el-md-editor { border-radius: var(--el-radius-sm); }
+            .el-form-input { border-radius: var(--el-radius-sm); }
+            .el-form-select { border-radius: var(--el-radius-sm); }
+        }
+
+        @media (max-width: 375px) {
+            .el-wrapper { padding: 0; }
+            .el-header-title { font-size: 22px; }
             .el-preset-grid { grid-template-columns: 1fr; }
         }
 
