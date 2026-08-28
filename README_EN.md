@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.15.0-blue)
+![Version](https://img.shields.io/badge/version-0.16.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -49,6 +49,7 @@
 - **Toggle Switch** — Enable/disable text selection translation in settings
 - **Language Preference Memory** — Automatically saves source and target language choices
 - **Email Summary Entry** — New envelope icon in popup header opens the Email Summary page in a new tab (full parity with web version, including PDF upload and 30-language output)
+- **Side Panel** — Chrome 114+ dedicated side panel bundling all 5 modules (Smart Translation / Work Report / Task List / English Learning / Email Summary) with one-click tab switching and lazy-loaded iframes; open it via the popup's Side Panel button, the `Alt+Shift+L` shortcut, or the "Open LinguaFlow in Side Panel" context-menu item
 
 ## 📸 Preview
 
@@ -123,6 +124,9 @@ translation_tool/
 │   ├── popup.html          # Popup UI
 │   ├── popup.css           # Popup styles
 │   ├── popup.js            # Popup logic
+│   ├── sidepanel.html      # Side Panel UI (Chrome 114+)
+│   ├── sidepanel.css       # Side Panel styles
+│   ├── sidepanel.js        # Side Panel logic (tab switching / config sync)
 │   ├── fullpage.html       # Fullscreen translation page
 │   ├── fullpage.js         # Fullscreen page logic
 │   ├── content.js          # Text selection translation
@@ -183,6 +187,14 @@ In addition to the web version, this project includes a **Chrome browser extensi
 3. Click the icon to see the translation in a floating tooltip
 4. Copy the result with one click
 
+### How to Use the Side Panel (Chrome 114+)
+
+1. Click the LinguaFlow toolbar icon, then click the **Side Panel** button in the popup header (or press `Alt+Shift+L`, or right-click → "Open LinguaFlow in Side Panel")
+2. The side panel opens on the right edge of the window with 5 tabs: **Smart Translation / Work Report / Task List / English Learning / Email Summary**
+3. Click any tab to switch modules instantly — each module is lazily loaded on first open to keep startup fast
+4. Configure your API in the popup's **Settings** panel (gear icon) — all modules sync the config in real time
+5. The side panel theme follows the shared Catppuccin theme system automatically
+
 ## 📋 Browser Compatibility
 
 - Chrome 90+
@@ -191,6 +203,15 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.16.0 (2026-08-28)
+
+- **Chrome Side Panel** — A dedicated Chrome 114+ side panel bundling all 5 modules (Smart Translation / Work Report / Task List / English Learning / Email Summary) in one view with one-click tab switching and lazy-loaded iframes
+  - **Open via popup button** — New Side Panel button in the popup header
+  - **Keyboard shortcut** — `Alt+Shift+L` opens the side panel from any tab
+  - **Context menu** — Right-click → "Open LinguaFlow in Side Panel" works on any page
+  - **Shared architecture** — Reuses the existing sub-pages as iframes, inherits the Catppuccin theme system, and syncs API config (Base URL / API Key / Model) in real time with the popup
+  - **Requirements** — Chrome 114+ (`minimum_chrome_version`)
 
 ### v0.15.0 (2026-08-22)
 

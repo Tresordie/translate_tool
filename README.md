@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.15.0-blue)
+![Version](https://img.shields.io/badge/version-0.16.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -49,6 +49,7 @@
 - **划词翻译开关** — 可在设置中启用/关闭划词翻译功能
 - **语言偏好记忆** — 自动保存源语言和目标语言选择
 - **邮件总结入口** — Popup 头部新增信封图标，新标签页打开邮件总结页（与网页版功能一致，含 PDF 上传与 30 语言输出）
+- **Side Panel 侧边栏** — Chrome 114+ 专属侧边栏，内置智能翻译/工作报告/任务清单/英语学习/邮件总结全部 5 个模块，Tab 一键切换，模块懒加载不卡顿；可通过 Popup 侧边栏按钮、快捷键 `Alt+Shift+L` 或右键菜单「在侧边栏打开 LinguaFlow」随时打开
 
 ## 📸 界面预览
 
@@ -134,6 +135,9 @@ translation_tool/
 │   ├── popup.html          # 弹窗界面
 │   ├── popup.css           # 弹窗样式
 │   ├── popup.js            # 弹窗逻辑
+│   ├── sidepanel.html      # 侧边栏入口页面（Chrome 114+）
+│   ├── sidepanel.css       # 侧边栏样式
+│   ├── sidepanel.js        # 侧边栏逻辑（Tab 切换/懒加载/配置同步）
 │   ├── fullpage.html       # 全屏翻译页面
 │   ├── fullpage.js         # 全屏页面逻辑
 │   ├── content.js          # 划词翻译脚本
@@ -193,6 +197,16 @@ translation_tool/
 3. 点击图标，弹出翻译浮窗显示翻译结果
 4. 可一键复制翻译结果
 
+### Side Panel 侧边栏使用方法（Chrome 114+）
+
+1. 打开侧边栏（任选其一）：
+   - 点击 Popup 弹窗右上角的「侧边栏」按钮
+   - 按快捷键 `Alt+Shift+L`
+   - 在任意页面右键 → 「在侧边栏打开 LinguaFlow」
+2. 侧边栏顶部 Tab 栏可切换 5 个模块：智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结
+3. 模块按需懒加载：首次打开的模块才加载对应页面，日常打开侧边栏不卡顿
+4. 侧边栏顶部「API 设置」保存后与弹窗、全屏页、各工具页实时同步配置与主题
+
 ## 📋 浏览器兼容性
 
 - Chrome 90+
@@ -201,6 +215,14 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.16.0 (2026-08-28)
+
+- **新增 Chrome Side Panel 侧边栏** — 基于 Chrome 114+ Side Panel API，将全部 5 个模块（智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结）收纳进浏览器侧边栏
+  - 顶部 Tab 一键切换，模块按需懒加载，打开侧边栏无需加载全部页面
+  - 三种打开方式：Popup 新增「侧边栏」按钮、快捷键 `Alt+Shift+L`、右键菜单「在侧边栏打开 LinguaFlow」
+  - 侧边栏自带 API 设置面板，与弹窗/全屏页实时同步配置与主题（子页面复用 fullpage/workreport/todolist/english_learning/email_summary）
+  - manifest 新增 `side_panel` 配置、`sidePanel` 权限与快捷键命令，声明 `minimum_chrome_version: 114`
 
 ### v0.15.0 (2026-08-22)
 

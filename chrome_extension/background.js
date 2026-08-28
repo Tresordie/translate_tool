@@ -7,14 +7,40 @@ chrome.runtime.onInstalled.addListener(() => {
     title: 'LinguaFlow 翻译 "%s"',
     contexts: ['selection'],
   });
+  // 侧边栏入口（Chrome 114+ Side Panel API）
+  if (chrome.sidePanel) {
+    chrome.contextMenus.create({
+      id: 'linguaflow-open-side-panel',
+      title: '在侧边栏打开 LinguaFlow',
+      contexts: ['all'],
+    });
+  }
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'linguaflow-open-side-panel') {
+    // 用户手势：可直接打开侧边栏
+    if (chrome.sidePanel && tab && tab.windowId != null) {
+      chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
+    }
+    return;
+  }
   if (info.menuItemId === 'linguaflow-translate' && info.selectionText) {
     // Store selected text and open popup-like behavior
     chrome.storage.local.set({ selectedText: info.selectionText }, () => {
       // Open popup to show translation
       chrome.action.openPopup();
+    });
+  }
+});
+
+// ===== 键盘快捷键：打开侧边栏（Alt+Shift+L） =====
+chrome.commands.onCommand.addListener((command) => {
+  if (command === 'open-side-panel' && chrome.sidePanel) {
+    chrome.windows.getCurrent({}, (win) => {
+      if (win && win.id != null) {
+        chrome.sidePanel.open({ windowId: win.id }).catch(() => {});
+      }
     });
   }
 });

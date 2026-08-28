@@ -1,0 +1,201 @@
+/* ================================================================
+   LinguaFlow — Side Panel 样式（依赖 theme.css 的 CSS 变量）
+   布局：头部(固定) → 设置面板(可折叠) → Tab 栏(固定) → 内容区(弹性)
+   ================================================================ */
+:root {
+  --transition: 300ms ease-out;
+  --font-display: 'Syne', 'Plus Jakarta Sans', 'Noto Sans SC', -apple-system, sans-serif;
+  --font-ui: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  background: var(--bg-body);
+  display: flex;
+  flex-direction: column;
+  transition: background 0.4s ease;
+}
+
+/* ===== Header ===== */
+.sp-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--primary-a10);
+  background: var(--primary-a04);
+  backdrop-filter: blur(12px);
+}
+.sp-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sp-logo-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+.sp-logo-icon { color: var(--primary); filter: drop-shadow(0 0 6px var(--primary-a25)); }
+.sp-ai-pulse {
+  position: absolute; inset: -2px;
+  border-radius: 50%;
+  border: 1px solid var(--neon-cyan);
+  opacity: 0.5;
+  animation: spPulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes spPulse {
+  0%, 100% { transform: scale(0.85); opacity: 0.35; }
+  50% { transform: scale(1.15); opacity: 0.1; }
+}
+.sp-header-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.sp-logo-text {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  background: var(--header-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.sp-header-tag { font-size: 0.62rem; color: var(--text-dim); letter-spacing: 0.8px; text-transform: uppercase; }
+
+.sp-icon-btn {
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--primary-a15);
+  background: var(--bg-card2);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+.sp-icon-btn:hover {
+  border-color: var(--neon-cyan);
+  background: var(--cyan-a08);
+  color: var(--text);
+  transform: translateY(-1px);
+  box-shadow: 0 0 12px var(--cyan-a10);
+}
+.sp-icon-btn.active { border-color: var(--neon-cyan); color: var(--neon-cyan); background: var(--cyan-a08); }
+
+/* ===== Settings Panel ===== */
+.sp-settings {
+  flex-shrink: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease, padding 0.3s ease;
+  padding: 0 14px;
+  border-bottom: 1px solid transparent;
+}
+.sp-settings.open {
+  max-height: 280px;
+  padding: 12px 14px;
+  border-bottom-color: var(--primary-a10);
+}
+.sp-form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
+.sp-form-group label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.sp-form-group input {
+  padding: 8px 12px;
+  border: 1.5px solid var(--primary-a15);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  background: var(--bg-dark);
+  color: var(--text);
+  outline: none;
+  transition: var(--transition);
+}
+.sp-form-group input:focus {
+  border-color: var(--neon-cyan);
+  box-shadow: var(--focus-ring);
+}
+.sp-save-btn {
+  width: 100%;
+  padding: 9px 0;
+  border: none;
+  border-radius: 10px;
+  background: var(--btn-gradient, linear-gradient(135deg, var(--primary), var(--neon-cyan)));
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 4px 16px var(--primary-a25);
+}
+.sp-save-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 22px var(--primary-a25), 0 0 16px var(--cyan-a15); }
+
+/* ===== Tab Bar ===== */
+.sp-tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--primary-a08);
+  background: var(--primary-a03);
+  overflow-x: auto;
+}
+.sp-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 2px 5px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.64rem;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+.sp-tab svg { width: 15px; height: 15px; flex-shrink: 0; }
+.sp-tab:hover {
+  background: var(--white-a05);
+  border-color: var(--white-a08);
+  color: var(--text);
+}
+.sp-tab.active {
+  background: linear-gradient(135deg, var(--primary-a18), var(--cyan-a10));
+  border-color: var(--neon-purple);
+  color: var(--text-strong);
+  box-shadow: 0 0 14px var(--primary-a18), 0 0 6px var(--cyan-a08);
+}
+
+/* ===== Panels ===== */
+.sp-main { flex: 1 1 auto; min-height: 0; position: relative; }
+.sp-panel { display: none; width: 100%; height: 100%; }
+.sp-panel.active { display: block; animation: spFadeIn 0.25s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes spFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.sp-frame { width: 100%; height: 100%; border: none; display: block; }
+
+/* ===== Toast（窄面板内改为底部居中，避免遮挡头部） ===== */
+.toast {
+  top: auto;
+  bottom: 18px;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%) translateY(140%);
+  padding: 10px 18px;
+  font-size: 0.8rem;
+  max-width: 88%;
+  text-align: center;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }

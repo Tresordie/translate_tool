@@ -213,9 +213,9 @@
       return;
     }
 
-    // 扩展 popup 空间有限且为快捷工具，不注入切换器（主题自动跟随保存的设置）
+    // 扩展 popup / side panel 空间有限且为快捷工具，不注入切换器（主题自动跟随保存的设置）
     try {
-      if (/popup\.html/.test(global.location.pathname)) return;
+      if (/popup\.html|sidepanel\.html/.test(global.location.pathname)) return;
     } catch (e) {}
 
     if (document.readyState === 'loading') {

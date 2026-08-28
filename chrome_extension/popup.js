@@ -138,6 +138,17 @@ safeBind('toggleSettings', 'click', () => {
   $('toggleSettings').classList.toggle('active');
 });
 
+// Open side panel (Chrome 114+)
+safeBind('openSidePanel', 'click', () => {
+  if (chrome.sidePanel) {
+    chrome.windows.getCurrent({}, (win) => {
+      if (win && win.id != null) chrome.sidePanel.open({ windowId: win.id });
+    });
+  } else {
+    showToast('当前浏览器不支持 Side Panel（需 Chrome 114+）', 'error');
+  }
+});
+
 // Open full screen in new tab
 safeBind('openFullscreen', 'click', () => {
   const fullPageUrl = chrome.runtime.getURL('fullpage.html');
