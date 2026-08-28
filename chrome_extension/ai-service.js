@@ -39,20 +39,37 @@
    * onConfig 回调仅在拿到有效配置时触发。
    */
   function initConfigSync(onConfig) {
+    /**
+     * 收到新配置时：
+     * 1. 同步写入 localStorage('translate_config')，使 chat() → getConfig() 能读到最新值
+     * 2. 回调 onConfig 通知业务层更新 UI
+     */
+    function applyConfig(cfg) {
+      if (!cfg || !cfg.baseUrl) return;
+      try {
+        localStorage.setItem('translate_config', JSON.stringify({
+          baseUrl: cfg.baseUrl,
+          apiKey: cfg.apiKey,
+          model: cfg.model,
+        }));
+      } catch (e) {}
+      onConfig(cfg);
+    }
+
     global.addEventListener('message', function (e) {
       var d = e.data;
-      if (d && d.source === 'linguaflow-extension' && d.config && d.config.baseUrl) onConfig(d.config);
+      if (d && d.source === 'linguaflow-extension' && d.config && d.config.baseUrl) applyConfig(d.config);
     });
     if (isExtension()) {
       try {
         chrome.storage.onChanged.addListener(function (changes, area) {
           if (area === 'local' && changes.config && changes.config.newValue && changes.config.newValue.baseUrl) {
-            onConfig(changes.config.newValue);
+            applyConfig(changes.config.newValue);
           }
         });
         chrome.storage.local.get(['config'], function (res) {
           var c = res && res.config;
-          if (c && c.baseUrl) onConfig(c);
+          if (c && c.baseUrl) applyConfig(c);
         });
       } catch (e) {}
     }
