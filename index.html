@@ -1134,6 +1134,18 @@
         </svg>
         邮件总结
       </button>
+      <button class="tab-nav-btn" id="tabBtnAiParse" onclick="switchTab('aiparse')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        AI 解析
+      </button>
+      <button class="tab-nav-btn" id="tabBtnAiPrompts" onclick="switchTab('aiprompts')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/>
+        </svg>
+        AI 提示词
+      </button>
     </div>
 
     <!-- Tab: Translation -->
@@ -1310,6 +1322,16 @@
     <div class="tab-panel" id="tabEmail">
       <iframe src="email_summary.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="emailIframe" title="邮件总结"></iframe>
     </div>
+
+    <!-- Tab: AI Parse -->
+    <div class="tab-panel" id="tabAiParse">
+      <iframe src="ai_parse.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="aiParseIframe" title="AI 解析"></iframe>
+    </div>
+
+    <!-- Tab: AI Prompts -->
+    <div class="tab-panel" id="tabAiPrompts">
+      <iframe src="ai_prompts.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="aiPromptsIframe" title="AI 提示词"></iframe>
+    </div>
   </div><!-- /app-wrapper -->
 
   <div style="display:none"></div>
@@ -1414,6 +1436,12 @@
       } else if (tab === 'email') {
         document.getElementById('tabBtnEmail').classList.add('active');
         document.getElementById('tabEmail').classList.add('active');
+      } else if (tab === 'aiparse') {
+        document.getElementById('tabBtnAiParse').classList.add('active');
+        document.getElementById('tabAiParse').classList.add('active');
+      } else if (tab === 'aiprompts') {
+        document.getElementById('tabBtnAiPrompts').classList.add('active');
+        document.getElementById('tabAiPrompts').classList.add('active');
       }
     }
 

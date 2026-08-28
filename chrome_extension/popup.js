@@ -179,6 +179,18 @@ safeBind('openEmailSummary', 'click', () => {
   chrome.tabs.create({ url: emailUrl });
 });
 
+// Open AI Parse in new tab
+safeBind('openAiParse', 'click', () => {
+  const parseUrl = chrome.runtime.getURL('ai_parse.html');
+  chrome.tabs.create({ url: parseUrl });
+});
+
+// Open AI Prompts in new tab
+safeBind('openAiPrompts', 'click', () => {
+  const promptsUrl = chrome.runtime.getURL('ai_prompts.html');
+  chrome.tabs.create({ url: promptsUrl });
+});
+
 safeBind('saveSettings', 'click', () => {
   const config = {
     baseUrl: $('baseUrl').value.trim().replace(/\/+$/, ''),

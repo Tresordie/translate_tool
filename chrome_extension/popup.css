@@ -327,6 +327,52 @@ body::after {
   box-shadow: 0 0 12px rgba(var(--accent2-rgb),0.2);
 }
 
+.aiparse-btn {
+  background: rgba(var(--cyan-rgb),0.1);
+  border: 1px solid rgba(var(--cyan-rgb),0.2);
+  color: var(--text-secondary);
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(8px);
+  margin-left: 6px;
+}
+.aiparse-btn:hover {
+  background: rgba(var(--cyan-rgb),0.2);
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 12px rgba(var(--cyan-rgb),0.2);
+}
+
+.aiprompts-btn {
+  background: rgba(var(--accent2-rgb),0.1);
+  border: 1px solid rgba(var(--accent2-rgb),0.2);
+  color: var(--text-secondary);
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(8px);
+  margin-left: 6px;
+}
+.aiprompts-btn:hover {
+  background: rgba(var(--accent2-rgb),0.2);
+  border-color: var(--neon-purple);
+  color: var(--neon-purple);
+  box-shadow: 0 0 12px rgba(var(--accent2-rgb),0.2);
+}
+
 /* ========== Settings ========== */
 .settings-panel {
   max-height: 0;
