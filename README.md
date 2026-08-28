@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.19.2-blue)
+![Version](https://img.shields.io/badge/version-0.19.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -230,6 +230,16 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.19.3 (2026-08-28)
+
+- 英语学习页面优化：
+  - 发音语种选择扩展至 30 种语言（与翻译页面一致）
+  - 内容容器宽度从 960px 改为 100%，与工作报告页面内容宽度一致
+  - 输入区尺寸与 GUI 界面排版同宽
+  - 字体增加 Noto Sans 系列（JP/KR/Arabic/Hebrew/Thai/Devanagari/Bengali），兼容全球所有语言
+  - 修复暗色主题下页面周边白色边框问题（body 背景色跟随主题）
+  - 网页版与 Chrome 插件版同步更新
 
 ### v0.19.2 (2026-08-28)
 - 修复：Side Panel 英语学习页面四周留白问题（`@media max-width: 480px` 去除 padding，header/section 圆角归零，内容充满整个面板）
