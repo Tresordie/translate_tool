@@ -48,10 +48,16 @@
   --sp-space-6: 24px;
 }
 
-/* ===== 暗色模式适配（跟随 Catppuccin 暗色主题） ===== */
+/* ===== 暗色模式适配（跟随所有 Catppuccin 暗色主题） ===== */
 html[data-theme="cat-frappe"] body,
+html[data-theme="cat-frappe-mauve"] body,
+html[data-theme="cat-frappe-green"] body,
 html[data-theme="cat-macchiato"] body,
-html[data-theme="cat-mocha"] body {
+html[data-theme="cat-macchiato-mauve"] body,
+html[data-theme="cat-macchiato-teal"] body,
+html[data-theme="cat-mocha"] body,
+html[data-theme="cat-mocha-mauve"] body,
+html[data-theme="cat-mocha-green"] body {
   --sp-bg: #121212;
   --sp-surface: #1E1E1E;
   --sp-text: #E4E4E7;
@@ -88,25 +94,19 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ===== Header（毛玻璃背景） ===== */
+/* ===== Header（毛玻璃背景，跟随主题色） ===== */
 .sp-header {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--sp-space-3) var(--sp-space-4);
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--glass-bg, rgba(255, 255, 255, 0.82));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--sp-divider);
   position: relative;
   z-index: 10;
-}
-
-html[data-theme="cat-frappe"] .sp-header,
-html[data-theme="cat-macchiato"] .sp-header,
-html[data-theme="cat-mocha"] .sp-header {
-  background: rgba(30, 30, 30, 0.82);
 }
 
 .sp-header-left { display: flex; align-items: center; gap: var(--sp-space-2); min-width: 0; }
@@ -341,15 +341,27 @@ html[data-theme="cat-mocha"] .sp-header {
 }
 
 html[data-theme="cat-frappe"] .toast.success,
+html[data-theme="cat-frappe-mauve"] .toast.success,
+html[data-theme="cat-frappe-green"] .toast.success,
 html[data-theme="cat-macchiato"] .toast.success,
-html[data-theme="cat-mocha"] .toast.success {
+html[data-theme="cat-macchiato-mauve"] .toast.success,
+html[data-theme="cat-macchiato-teal"] .toast.success,
+html[data-theme="cat-mocha"] .toast.success,
+html[data-theme="cat-mocha-mauve"] .toast.success,
+html[data-theme="cat-mocha-green"] .toast.success {
   background: rgba(16, 185, 129, 0.15);
   color: #6EE7B7;
   border-color: rgba(16, 185, 129, 0.2);
 }
 html[data-theme="cat-frappe"] .toast.error,
+html[data-theme="cat-frappe-mauve"] .toast.error,
+html[data-theme="cat-frappe-green"] .toast.error,
 html[data-theme="cat-macchiato"] .toast.error,
-html[data-theme="cat-mocha"] .toast.error {
+html[data-theme="cat-macchiato-mauve"] .toast.error,
+html[data-theme="cat-macchiato-teal"] .toast.error,
+html[data-theme="cat-mocha"] .toast.error,
+html[data-theme="cat-mocha-mauve"] .toast.error,
+html[data-theme="cat-mocha-green"] .toast.error {
   background: rgba(239, 68, 68, 0.15);
   color: #FCA5A5;
   border-color: rgba(239, 68, 68, 0.2);

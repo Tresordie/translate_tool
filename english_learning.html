@@ -77,11 +77,17 @@
             --el-transition-slow: 0.3s ease;
         }
 
-        /* --- Dark Mode Overrides (Catppuccin Frappé/Macchiato/Mocha) --- */
+        /* --- Dark Mode Overrides (All Catppuccin Dark Themes) --- */
         /* 暗色主题：在 html 层级覆盖变量，确保 html/body 背景色也跟随暗色 */
         html[data-theme="cat-frappe"],
+        html[data-theme="cat-frappe-mauve"],
+        html[data-theme="cat-frappe-green"],
         html[data-theme="cat-macchiato"],
-        html[data-theme="cat-mocha"] {
+        html[data-theme="cat-macchiato-mauve"],
+        html[data-theme="cat-macchiato-teal"],
+        html[data-theme="cat-mocha"],
+        html[data-theme="cat-mocha-mauve"],
+        html[data-theme="cat-mocha-green"] {
             --el-bg: #1E1E2E;
             --el-bg-subtle: #181825;
             --el-surface: #302D41;
@@ -599,14 +605,26 @@
         }
 
         html[data-theme="cat-frappe"] .el-test-result.success,
+        html[data-theme="cat-frappe-mauve"] .el-test-result.success,
+        html[data-theme="cat-frappe-green"] .el-test-result.success,
         html[data-theme="cat-macchiato"] .el-test-result.success,
-        html[data-theme="cat-mocha"] .el-test-result.success {
+        html[data-theme="cat-macchiato-mauve"] .el-test-result.success,
+        html[data-theme="cat-macchiato-teal"] .el-test-result.success,
+        html[data-theme="cat-mocha"] .el-test-result.success,
+        html[data-theme="cat-mocha-mauve"] .el-test-result.success,
+        html[data-theme="cat-mocha-green"] .el-test-result.success {
             color: #A6E3A1;
         }
 
         html[data-theme="cat-frappe"] .el-test-result.error,
+        html[data-theme="cat-frappe-mauve"] .el-test-result.error,
+        html[data-theme="cat-frappe-green"] .el-test-result.error,
         html[data-theme="cat-macchiato"] .el-test-result.error,
-        html[data-theme="cat-mocha"] .el-test-result.error {
+        html[data-theme="cat-macchiato-mauve"] .el-test-result.error,
+        html[data-theme="cat-macchiato-teal"] .el-test-result.error,
+        html[data-theme="cat-mocha"] .el-test-result.error,
+        html[data-theme="cat-mocha-mauve"] .el-test-result.error,
+        html[data-theme="cat-mocha-green"] .el-test-result.error {
             color: #F38BA8;
         }
 
