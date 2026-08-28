@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LinguaFlow · AI 工具箱</title>
+  <link rel="stylesheet" href="theme.css" />
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="sp-header">
+    <div class="sp-header-left">
+      <div class="sp-logo-wrap">
+        <svg class="sp-logo-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+      </div>
+      <div class="sp-header-text">
+        <span class="sp-logo-text">LinguaFlow</span>
+        <span class="sp-header-tag">AI 工具箱</span>
+      </div>
+    </div>
+    <button class="sp-icon-btn" id="spToggleSettings" title="API 设置">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- Settings Panel -->
+  <div class="sp-settings" id="spSettingsPanel">
+    <div class="sp-form-group">
+      <label>Base URL</label>
+      <input id="spBaseUrl" type="text" placeholder="https://api.deepseek.com" />
+    </div>
+    <div class="sp-form-group">
+      <label>API Key</label>
+      <input id="spApiKey" type="password" placeholder="sk-xxxxxxxxxxxxxxxx" />
+    </div>
+    <div class="sp-form-group">
+      <label>模型 / Model</label>
+      <input id="spModelName" type="text" placeholder="deepseek-v4-pro" />
+    </div>
+    <button class="sp-save-btn" id="spSaveSettings">保存配置</button>
+  </div>
+
+  <!-- Tab Bar -->
+  <nav class="sp-tabs" id="spTabs">
+    <button class="sp-tab active" data-tab="translate" title="智能翻译">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <span>翻译</span>
+    </button>
+    <button class="sp-tab" data-tab="workreport" title="工作报告">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <span>报告</span>
+    </button>
+    <button class="sp-tab" data-tab="todolist" title="任务清单">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span>清单</span>
+    </button>
+    <button class="sp-tab" data-tab="english" title="英语学习">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <span>英语</span>
+    </button>
+    <button class="sp-tab" data-tab="email" title="邮件总结">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      <span>邮件</span>
+    </button>
+    <button class="sp-tab" data-tab="aiparse" title="AI 解析">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      <span>解析</span>
+    </button>
+    <button class="sp-tab" data-tab="aiprompts" title="AI 提示词">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/></svg>
+      <span>提示词</span>
+    </button>
+  </nav>
+
+  <!-- Panels (lazy-loaded iframes) -->
+  <main class="sp-main">
+    <section class="sp-panel active" data-panel="translate">
+      <iframe class="sp-frame" data-src="fullpage.html" title="智能翻译"></iframe>
+    </section>
+    <section class="sp-panel" data-panel="workreport">
+      <iframe class="sp-frame" data-src="workreport.html" title="工作报告"></iframe>
+    </section>
+    <section class="sp-panel" data-panel="todolist">
+      <iframe class="sp-frame" data-src="todolist.html" title="任务清单"></iframe>
+    </section>
+    <section class="sp-panel" data-panel="english">
+      <iframe class="sp-frame" data-src="english_learning.html" title="英语学习"></iframe>
+    </section>
+    <section class="sp-panel" data-panel="email">
+      <iframe class="sp-frame" data-src="email_summary.html" title="邮件总结"></iframe>
+    </section>
+    <section class="sp-panel" data-panel="aiparse">
+      <iframe class="sp-frame" data-src="ai_parse.html" title="AI 解析"></iframe>
+    </section>
+    <section class="sp-panel" data-panel="aiprompts">
+      <iframe class="sp-frame" data-src="ai_prompts.html" title="AI 提示词"></iframe>
+    </section>
+  </main>
+
+  <!-- Toast -->
+  <div class="toast" id="spToast"></div>
+
+  <script src="sidepanel.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

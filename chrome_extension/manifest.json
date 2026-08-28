@@ -1,14 +1,16 @@
 {
   "manifest_version": 3,
   "name": "LinguaFlow - AI 智能翻译",
-  "version": "0.15.0",
-  "description": "基于大模型 API 的浏览器翻译插件，支持划词翻译和 30+ 语言互译",
+  "version": "0.18.0",
+  "description": "基于大模型 API 的浏览器翻译插件，支持划词翻译、Side Panel 侧边栏和 30+ 语言互译",
   "default_locale": "zh_CN",
+  "minimum_chrome_version": "114",
   "permissions": [
     "storage",
     "activeTab",
     "contextMenus",
-    "nativeMessaging"
+    "nativeMessaging",
+    "sidePanel"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -19,6 +21,17 @@
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "commands": {
+    "open-side-panel": {
+      "suggested_key": {
+        "default": "Alt+Shift+L"
+      },
+      "description": "打开 LinguaFlow 侧边栏"
     }
   },
   "icons": {

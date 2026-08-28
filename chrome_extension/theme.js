@@ -213,7 +213,8 @@
       return;
     }
 
-    // 扩展 popup 空间有限且为快捷工具，不注入切换器（主题自动跟随保存的设置）
+    // 扩展 popup 空间有限且为快捷工具，不注入切换器（主题自动跟随保存的设置）；
+    // side panel 宽度足够，注入切换器以支持直接在侧边栏内设置主题
     try {
       if (/popup\.html/.test(global.location.pathname)) return;
     } catch (e) {}

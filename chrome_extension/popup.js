@@ -138,6 +138,17 @@ safeBind('toggleSettings', 'click', () => {
   $('toggleSettings').classList.toggle('active');
 });
 
+// Open side panel (Chrome 114+)
+safeBind('openSidePanel', 'click', () => {
+  if (chrome.sidePanel) {
+    chrome.windows.getCurrent({}, (win) => {
+      if (win && win.id != null) chrome.sidePanel.open({ windowId: win.id });
+    });
+  } else {
+    showToast('当前浏览器不支持 Side Panel（需 Chrome 114+）', 'error');
+  }
+});
+
 // Open full screen in new tab
 safeBind('openFullscreen', 'click', () => {
   const fullPageUrl = chrome.runtime.getURL('fullpage.html');
@@ -166,6 +177,18 @@ safeBind('openEnglishLearning', 'click', () => {
 safeBind('openEmailSummary', 'click', () => {
   const emailUrl = chrome.runtime.getURL('email_summary.html');
   chrome.tabs.create({ url: emailUrl });
+});
+
+// Open AI Parse in new tab
+safeBind('openAiParse', 'click', () => {
+  const parseUrl = chrome.runtime.getURL('ai_parse.html');
+  chrome.tabs.create({ url: parseUrl });
+});
+
+// Open AI Prompts in new tab
+safeBind('openAiPrompts', 'click', () => {
+  const promptsUrl = chrome.runtime.getURL('ai_prompts.html');
+  chrome.tabs.create({ url: promptsUrl });
 });
 
 safeBind('saveSettings', 'click', () => {

@@ -84,8 +84,10 @@ body::after {
 /* ========== Header ========== */
 .header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  row-gap: 6px;
   padding: 16px 18px;
   background: linear-gradient(135deg, rgba(var(--primary-rgb),0.12) 0%, rgba(var(--cyan-rgb),0.06) 100%);
   border-bottom: 1px solid var(--border);
@@ -210,6 +212,29 @@ body::after {
   box-shadow: 0 0 12px rgba(var(--cyan-rgb),0.2);
 }
 
+.sidepanel-btn {
+  background: rgba(var(--purple-rgb),0.1);
+  border: 1px solid rgba(var(--purple-rgb),0.2);
+  color: var(--text-secondary);
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(8px);
+  margin-left: 6px;
+}
+.sidepanel-btn:hover {
+  background: rgba(var(--purple-rgb),0.2);
+  border-color: var(--neon-purple);
+  color: var(--neon-purple);
+  box-shadow: 0 0 12px rgba(var(--purple-rgb),0.2);
+}
+
 .todolist-btn {
   background: rgba(245,158,11,0.1);
   border: 1px solid rgba(245,158,11,0.2);
@@ -299,6 +324,52 @@ body::after {
   background: rgba(var(--accent2-rgb),0.2);
   border-color: var(--accent2);
   color: var(--accent2);
+  box-shadow: 0 0 12px rgba(var(--accent2-rgb),0.2);
+}
+
+.aiparse-btn {
+  background: rgba(var(--cyan-rgb),0.1);
+  border: 1px solid rgba(var(--cyan-rgb),0.2);
+  color: var(--text-secondary);
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(8px);
+  margin-left: 6px;
+}
+.aiparse-btn:hover {
+  background: rgba(var(--cyan-rgb),0.2);
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 12px rgba(var(--cyan-rgb),0.2);
+}
+
+.aiprompts-btn {
+  background: rgba(var(--accent2-rgb),0.1);
+  border: 1px solid rgba(var(--accent2-rgb),0.2);
+  color: var(--text-secondary);
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(8px);
+  margin-left: 6px;
+}
+.aiprompts-btn:hover {
+  background: rgba(var(--accent2-rgb),0.2);
+  border-color: var(--neon-purple);
+  color: var(--neon-purple);
   box-shadow: 0 0 12px rgba(var(--accent2-rgb),0.2);
 }
 

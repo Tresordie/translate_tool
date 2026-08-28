@@ -120,6 +120,15 @@ function renderTodos() {
   });
 }
 
+// ===== 跨页面同步（AI Parse 创建任务后自动刷新） =====
+function refreshTodos() {
+  if (editingTodoId) return; // 编辑中不打断
+  storage.get(['todo_items']).then(function(data) {
+    todos = data.todo_items || [];
+    renderTodos();
+  });
+}
+
 // ===== CRUD =====
 function addTodo() {
   var titleEl = $('todoTitle');
@@ -695,6 +704,17 @@ function toggleGuide(collapseId, contentId) {
   document.querySelectorAll('.pill').forEach(function(b) {
     b.addEventListener('click', function() { setFilter(b.dataset.filter); });
   });
+
+  // 跨页面同步：AI Parse 等页面创建任务后自动刷新列表
+  if (isExtension) {
+    chrome.storage.onChanged.addListener(function(changes, area) {
+      if (area === 'local' && changes.todo_items) refreshTodos();
+    });
+  } else {
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'td_todo_items') refreshTodos();
+    });
+  }
 })();
 
 init().catch(function(e) {
