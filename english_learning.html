@@ -3,774 +3,1379 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-replace">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>英语学习助手 v4.0 ✨</title>
+    <title>英语学习助手 v5.0</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="theme.css">
     <style>
-        * {
+        /* ============================================================
+           Design Tokens — Professional English Learning Theme
+           深海蓝 + 琥珀金 · 专业沉稳 · 沉浸学习
+           ============================================================ */
+        :root {
+            /* --- Primary Palette --- */
+            --el-primary: #0F172A;
+            --el-primary-light: #1E293B;
+            --el-primary-lighter: #334155;
+            --el-accent: #F59E0B;
+            --el-accent-hover: #D97706;
+            --el-accent-soft: rgba(245, 158, 11, 0.1);
+            --el-accent-border: rgba(245, 158, 11, 0.25);
+
+            /* --- Surface & Background --- */
+            --el-bg: #F8FAFC;
+            --el-bg-subtle: #F1F5F9;
+            --el-surface: #FFFFFF;
+            --el-surface-hover: #F8FAFC;
+            --el-surface-active: #F1F5F9;
+
+            /* --- Text --- */
+            --el-text: #1E293B;
+            --el-text-secondary: #475569;
+            --el-text-muted: #64748B;
+            --el-text-faint: #94A3B8;
+
+            /* --- Borders --- */
+            --el-border: rgba(15, 23, 42, 0.08);
+            --el-border-strong: rgba(15, 23, 42, 0.15);
+            --el-border-accent: rgba(245, 158, 11, 0.3);
+
+            /* --- Shadows (multi-layer for depth) --- */
+            --el-shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+            --el-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            --el-shadow-lg: 0 4px 16px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.03);
+            --el-shadow-xl: 0 10px 30px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+            --el-shadow-hover: 0 8px 24px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+
+            /* --- Gradients --- */
+            --el-gradient-header: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
+            --el-gradient-accent: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+            --el-gradient-surface: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+            --el-gradient-card: linear-gradient(135deg, #FFFFFF 0%, #FAFBFC 100%);
+
+            /* --- Spacing (8px grid) --- */
+            --el-space-xs: 4px;
+            --el-space-sm: 8px;
+            --el-space-md: 16px;
+            --el-space-lg: 24px;
+            --el-space-xl: 32px;
+            --el-space-2xl: 48px;
+            --el-space-3xl: 64px;
+
+            /* --- Radii --- */
+            --el-radius-sm: 6px;
+            --el-radius-md: 10px;
+            --el-radius-lg: 14px;
+            --el-radius-xl: 20px;
+
+            /* --- Transitions --- */
+            --el-transition: 0.2s ease;
+            --el-transition-slow: 0.3s ease;
+        }
+
+        /* --- Dark Mode Overrides (Catppuccin Frappé/Macchiato/Mocha) --- */
+        html[data-theme="cat-frappe"] .el-wrapper,
+        html[data-theme="cat-macchiato"] .el-wrapper,
+        html[data-theme="cat-mocha"] .el-wrapper {
+            --el-bg: #1E1E2E;
+            --el-bg-subtle: #181825;
+            --el-surface: #302D41;
+            --el-surface-hover: #3B3852;
+            --el-surface-active: #45425A;
+            --el-text: #CDD6F4;
+            --el-text-secondary: #BAC2DE;
+            --el-text-muted: #A6ADC8;
+            --el-text-faint: #7F849C;
+            --el-border: rgba(205, 214, 244, 0.08);
+            --el-border-strong: rgba(205, 214, 244, 0.15);
+            --el-shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+            --el-shadow-md: 0 4px 6px rgba(0,0,0,0.2);
+            --el-shadow-lg: 0 4px 16px rgba(0,0,0,0.25);
+            --el-shadow-xl: 0 10px 30px rgba(0,0,0,0.3);
+            --el-shadow-hover: 0 8px 24px rgba(0,0,0,0.3);
+            --el-gradient-header: linear-gradient(135deg, #11111B 0%, #1E1E2E 50%, #302D41 100%);
+            --el-gradient-surface: linear-gradient(180deg, #1E1E2E 0%, #181825 100%);
+            --el-gradient-card: linear-gradient(135deg, #302D41 0%, #2A273A 100%);
+        }
+
+        /* ============================================================
+           Base Reset & Typography
+           ============================================================ */
+        .el-wrapper * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
-        /* 变量由 theme.css 统一提供，此处仅保留页面特有补充 */
-        :root {
-            --radius: 20px;
-            --border: var(--primary-a15);
-            --hover-shadow: 0 12px 40px rgba(0,0,0,0.5);
-        }
-
-        body {
-            font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 17px;
-            background: var(--bg-body);
-            transition: background 0.4s ease;
+        .el-wrapper {
+            font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--el-text);
+            background: var(--el-bg);
             min-height: 100vh;
-            padding: 20px;
-            position: relative;
-            overflow-x: hidden;
-            color: var(--text);
+            padding: var(--el-space-lg);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        /* 背景特效（orb / 网格 / 扫描线）由 theme.css 统一提供 */
-
-        .container {
-            max-width: 1400px;
+        /* ============================================================
+           Layout Container
+           ============================================================ */
+        .el-container {
+            max-width: 960px;
             margin: 0 auto;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius);
-            box-shadow: var(--glass-shadow);
-            padding: 50px;
-            position: relative;
-            z-index: 1;
-            backdrop-filter: blur(20px);
         }
 
-        .header {
+        /* ============================================================
+           Header
+           ============================================================ */
+        .el-header {
+            background: var(--el-gradient-header);
+            border-radius: var(--el-radius-xl);
+            padding: var(--el-space-2xl) var(--el-space-xl);
             text-align: center;
-            margin-bottom: 50px;
+            margin-bottom: var(--el-space-3xl);
+            box-shadow: var(--el-shadow-xl);
             position: relative;
-            background: linear-gradient(135deg, var(--primary-a12), var(--cyan-a06));
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 30px;
-            border-radius: var(--radius);
+            overflow: hidden;
         }
 
-        .header h1 {
-            background: var(--header-gradient);
-            background-size: 200% 200%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-size: 3em;
-            margin-bottom: 10px;
+        .el-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at 30% 20%, rgba(245, 158, 11, 0.08) 0%, transparent 60%),
+                        radial-gradient(ellipse at 70% 80%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .el-header-title {
+            font-size: 36px;
             font-weight: 700;
-            animation: gradientShift 4s ease infinite;
-        }
-
-        .header-subtitle {
-            color: var(--text-secondary);
-            font-size: 1.1em;
-        }
-
-        .section {
-            margin-bottom: 40px;
-            padding: 30px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: 0 2px 12px rgba(0,0,0,0.2);
-            transition: all var(--transition);
-        }
-
-        .section:hover {
-            box-shadow: var(--hover-shadow);
-            transform: translateY(-2px);
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .section-title {
-            font-size: 1.8em;
-            background: linear-gradient(135deg, var(--neon-cyan), var(--primary-light));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 600;
-        }
-
-        .toggle-icon {
-            font-size: 28px;
-            color: var(--neon-cyan);
-            transition: transform 0.3s;
-            background: var(--bg-card2);
-            width: 40px;
-            height: 40px;
+            color: #FFFFFF;
+            letter-spacing: -0.02em;
+            margin-bottom: var(--el-space-sm);
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 50%;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            gap: 12px;
         }
 
-        .toggle-icon.collapsed {
+        .el-header-title svg {
+            width: 32px;
+            height: 32px;
+            stroke: var(--el-accent);
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        .el-header-subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.65);
+            font-weight: 400;
+            letter-spacing: 0.02em;
+            position: relative;
+        }
+
+        /* ============================================================
+           Section Cards
+           ============================================================ */
+        .el-section {
+            background: var(--el-gradient-card);
+            border: 1px solid var(--el-border);
+            border-radius: var(--el-radius-lg);
+            padding: var(--el-space-lg);
+            margin-bottom: var(--el-space-3xl);
+            box-shadow: var(--el-shadow-lg);
+            transition: box-shadow var(--el-transition), transform var(--el-transition);
+        }
+
+        .el-section:hover {
+            box-shadow: var(--el-shadow-hover);
+        }
+
+        .el-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--el-space-lg);
+            padding-bottom: var(--el-space-md);
+            border-bottom: 1px solid var(--el-border);
+        }
+
+        .el-section-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--el-text);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.01em;
+        }
+
+        .el-section-title svg {
+            width: 24px;
+            height: 24px;
+            stroke: var(--el-accent);
+            stroke-width: 1.5;
+            fill: none;
+            flex-shrink: 0;
+        }
+
+        .el-toggle-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--el-radius-sm);
+            border: 1px solid var(--el-border);
+            background: var(--el-surface);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--el-transition);
+            color: var(--el-text-muted);
+        }
+
+        .el-toggle-btn:hover {
+            background: var(--el-surface-hover);
+            border-color: var(--el-border-strong);
+        }
+
+        .el-toggle-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+            transition: transform var(--el-transition);
+        }
+
+        .el-toggle-btn.collapsed svg {
             transform: rotate(-90deg);
         }
 
-        .section-content {
+        .el-section-content {
             max-height: 2000px;
             overflow: visible;
-            transition: all 0.4s ease-out;
+            transition: max-height 0.4s ease-out, opacity 0.3s ease;
             opacity: 1;
         }
 
-        .section-content.collapsed {
+        .el-section-content.collapsed {
             max-height: 0;
             opacity: 0;
             overflow: hidden;
-            margin-top: 0;
-            margin-bottom: 0;
         }
 
-        .preset-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
+        /* ============================================================
+           Info Banner
+           ============================================================ */
+        .el-info-banner {
+            background: var(--el-accent-soft);
+            border: 1px solid var(--el-accent-border);
+            border-radius: var(--el-radius-md);
+            padding: var(--el-space-md) var(--el-space-lg);
+            margin-bottom: var(--el-space-lg);
         }
 
-        .preset-card {
-            padding: 20px;
-            background: var(--bg-card2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            cursor: pointer;
-            transition: all var(--transition);
-            text-align: center;
-        }
-
-        .preset-card:hover {
-            border-color: var(--neon-cyan);
-            background: var(--bg-elevated);
-            transform: translateY(-5px);
-            box-shadow: 0 0 15px var(--cyan-a15);
-        }
-
-        .preset-card.active {
-            border-color: var(--neon-cyan);
-            background: var(--btn-gradient);
-            background-size: 200% 200%;
-            animation: gradientShift 4s ease infinite;
-            color: white;
-            box-shadow: 0 4px 20px var(--primary-a25);
-        }
-
-        .preset-card.active .preset-name,
-        .preset-card.active .preset-desc {
-            color: white;
-        }
-
-        .preset-icon {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-
-        .preset-name {
+        .el-info-banner-title {
+            font-size: 14px;
             font-weight: 600;
-            font-size: 1.1em;
-            margin-bottom: 5px;
-            color: var(--text);
-        }
-
-        .preset-desc {
-            font-size: 0.9em;
-            color: var(--text-secondary);
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--text-secondary);
-            font-weight: 600;
-            font-size: 0.95em;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 14px 18px;
-            border: 1.5px solid var(--border);
-            border-radius: 12px;
-            font-size: 16px;
-            transition: all var(--transition);
-            background: var(--bg-dark);
-            color: var(--text);
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--neon-cyan);
-            box-shadow: var(--focus-ring);
-        }
-
-        .button-group {
+            color: var(--el-accent-hover);
+            margin-bottom: 6px;
             display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            margin-top: 25px;
+            align-items: center;
+            gap: 6px;
         }
 
-        .btn {
-            padding: 14px 32px;
-            border: none;
-            border-radius: 12px;
-            font-size: 17px;
-            font-weight: 600;
+        .el-info-banner-title svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--el-accent-hover);
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        .el-info-banner-step {
+            font-size: 14px;
+            color: var(--el-text-secondary);
+            line-height: 1.8;
+            padding-left: 22px;
+        }
+
+        /* ============================================================
+           Preset Grid (API Providers)
+           ============================================================ */
+        .el-preset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: var(--el-space-lg);
+        }
+
+        .el-preset-card {
+            padding: var(--el-space-md);
+            background: var(--el-surface);
+            border: 1px solid var(--el-border);
+            border-radius: var(--el-radius-md);
             cursor: pointer;
-            transition: all var(--transition);
+            transition: all var(--el-transition);
+            text-align: center;
+            box-shadow: var(--el-shadow-sm);
+        }
+
+        .el-preset-card:hover {
+            border-color: var(--el-border-strong);
+            box-shadow: var(--el-shadow-md);
+            transform: translateY(-1px);
+        }
+
+        .el-preset-card.active {
+            border-color: var(--el-accent);
+            background: var(--el-accent-soft);
+            box-shadow: 0 0 0 1px var(--el-accent-border), var(--el-shadow-md);
+        }
+
+        .el-preset-icon {
+            width: 24px;
+            height: 24px;
+            stroke: var(--el-text-muted);
+            stroke-width: 1.5;
+            fill: none;
+            margin: 0 auto 8px;
+            display: block;
+        }
+
+        .el-preset-card.active .el-preset-icon {
+            stroke: var(--el-accent);
+        }
+
+        .el-preset-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--el-text);
+            margin-bottom: 2px;
+        }
+
+        .el-preset-desc {
+            font-size: 12px;
+            color: var(--el-text-faint);
+        }
+
+        .el-preset-card.active .el-preset-name {
+            color: var(--el-accent-hover);
+        }
+
+        /* ============================================================
+           Form Elements
+           ============================================================ */
+        .el-form-group {
+            margin-bottom: var(--el-space-md);
+        }
+
+        .el-form-label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--el-text-secondary);
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .el-form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--el-border-strong);
+            border-radius: var(--el-radius-md);
+            font-size: 15px;
+            font-family: inherit;
+            transition: all var(--el-transition);
+            background: var(--el-surface);
+            color: var(--el-text);
+            box-shadow: var(--el-shadow-sm);
+        }
+
+        .el-form-input:focus {
+            outline: none;
+            border-color: var(--el-accent);
+            box-shadow: 0 0 0 3px var(--el-accent-soft), var(--el-shadow-sm);
+        }
+
+        .el-form-input::placeholder {
+            color: var(--el-text-faint);
+        }
+
+        /* ============================================================
+           Buttons
+           ============================================================ */
+        .el-button-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: var(--el-space-lg);
+        }
+
+        .el-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--el-radius-md);
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--el-transition);
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
             flex: 1;
-            min-width: 150px;
-            background: var(--btn-gradient);
-            background-size: 200% 200%;
-            animation: gradientShift 4s ease infinite;
-            box-shadow: 0 4px 20px var(--primary-a25);
-            color: white;
+            min-width: 140px;
         }
 
-        .btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px var(--primary-a25), 0 0 40px var(--cyan-a15);
+        .el-btn:active {
+            transform: scale(0.98);
         }
 
-        .btn-primary {
-            background: var(--btn-gradient);
-            background-size: 200% 200%;
-            animation: gradientShift 4s ease infinite;
-            color: white;
-            box-shadow: 0 4px 20px var(--primary-a25);
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px var(--primary-a25), 0 0 40px var(--cyan-a15);
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            box-shadow: 0 4px 15px rgba(16,185,129,0.3);
-        }
-
-        .btn-success:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(16,185,129,0.4);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            color: white;
-            box-shadow: 0 4px 15px rgba(239,68,68,0.3);
-        }
-
-        .btn-danger:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(239,68,68,0.4);
-        }
-
-        .btn-warning {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
-            box-shadow: 0 4px 15px rgba(245,158,11,0.3);
-        }
-
-        .btn-warning:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(245,158,11,0.4);
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
+        .el-btn:disabled {
+            opacity: 0.5;
             cursor: not-allowed;
             transform: none !important;
         }
 
-        .test-result {
-            margin-top: 20px;
-            padding: 20px;
-            border-radius: 12px;
+        .el-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        /* Primary (Amber Gold CTA) */
+        .el-btn-primary {
+            background: var(--el-gradient-accent);
+            color: #FFFFFF;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+        }
+
+        .el-btn-primary:hover:not(:disabled) {
+            box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+            transform: translateY(-1px);
+        }
+
+        /* Success */
+        .el-btn-success {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: #FFFFFF;
+            box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2);
+        }
+
+        .el-btn-success:hover:not(:disabled) {
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* Danger */
+        .el-btn-danger {
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+            color: #FFFFFF;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+        }
+
+        .el-btn-danger:hover:not(:disabled) {
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* Warning */
+        .el-btn-warning {
+            background: linear-gradient(135deg, #EA580C 0%, #C2410C 100%);
+            color: #FFFFFF;
+            box-shadow: 0 2px 8px rgba(234, 88, 12, 0.2);
+        }
+
+        .el-btn-warning:hover:not(:disabled) {
+            box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* Ghost / Secondary */
+        .el-btn-ghost {
+            background: var(--el-surface);
+            color: var(--el-text-secondary);
+            border: 1px solid var(--el-border-strong);
+            box-shadow: var(--el-shadow-sm);
+        }
+
+        .el-btn-ghost:hover:not(:disabled) {
+            background: var(--el-surface-hover);
+            border-color: var(--el-border-strong);
+        }
+
+        /* Small button */
+        .el-btn-sm {
+            padding: 8px 14px;
+            font-size: 13px;
+            min-width: auto;
+            flex: none;
+        }
+
+        /* Icon button */
+        .el-icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--el-radius-sm);
+            border: 1px solid var(--el-border);
+            background: var(--el-surface);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--el-text-muted);
+            transition: all var(--el-transition);
+            flex: none;
+        }
+
+        .el-icon-btn:hover {
+            color: var(--el-accent);
+            border-color: var(--el-accent-border);
+            background: var(--el-accent-soft);
+        }
+
+        .el-icon-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        /* ============================================================
+           Test Result / Status Messages
+           ============================================================ */
+        .el-test-result {
+            margin-top: var(--el-space-md);
+            padding: var(--el-space-md);
+            border-radius: var(--el-radius-md);
             display: none;
-            animation: slideDown 0.3s ease-out;
+            font-size: 14px;
+            line-height: 1.6;
+            animation: elSlideIn 0.2s ease;
         }
 
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        @keyframes elSlideIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* @keyframes gradientShift 由 theme.css 提供 */
-
-        .test-result.success {
-            background: rgba(16,185,129,0.12);
-            border: 1px solid rgba(16,185,129,0.3);
-            color: #10b981;
+        .el-test-result.success {
+            background: rgba(5, 150, 105, 0.08);
+            border: 1px solid rgba(5, 150, 105, 0.2);
+            color: #047857;
             display: block;
         }
 
-        .test-result.error {
-            background: rgba(239,68,68,0.12);
-            border: 1px solid rgba(239,68,68,0.3);
-            color: #ef4444;
+        .el-test-result.error {
+            background: rgba(220, 38, 38, 0.08);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            color: #B91C1C;
             display: block;
         }
 
-        .test-result.info {
-            background: rgba(59,130,246,0.12);
-            border: 1px solid rgba(59,130,246,0.3);
-            color: #3b82f6;
+        .el-test-result.info {
+            background: var(--el-accent-soft);
+            border: 1px solid var(--el-accent-border);
+            color: var(--el-accent-hover);
             display: block;
         }
 
-        .input-area {
+        html[data-theme="cat-frappe"] .el-test-result.success,
+        html[data-theme="cat-macchiato"] .el-test-result.success,
+        html[data-theme="cat-mocha"] .el-test-result.success {
+            color: #A6E3A1;
+        }
+
+        html[data-theme="cat-frappe"] .el-test-result.error,
+        html[data-theme="cat-macchiato"] .el-test-result.error,
+        html[data-theme="cat-mocha"] .el-test-result.error {
+            color: #F38BA8;
+        }
+
+        /* ============================================================
+           Markdown Editor Area
+           ============================================================ */
+        .el-input-area {
             position: relative;
         }
 
-        .form-textarea {
-            width: 100%;
-            padding: 18px;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius);
-            font-size: 18px;
-            resize: vertical;
+        .el-md-editor {
+            padding: 14px 16px;
+            font-size: 15px;
+            line-height: 1.6;
             min-height: 120px;
-            font-family: inherit;
-            transition: all var(--transition);
-            background: var(--bg-dark);
-            color: var(--text);
-        }
-
-        .form-textarea:focus {
+            max-height: 320px;
+            overflow-y: auto;
             outline: none;
-            border-color: var(--neon-cyan);
-            box-shadow: var(--focus-ring);
+            color: var(--el-text);
+            cursor: text;
+            background: var(--el-surface);
+            border: 1px solid var(--el-border-strong);
+            border-radius: var(--el-radius-md);
+            transition: all var(--el-transition);
+            box-shadow: var(--el-shadow-sm);
         }
 
-        .pronunciation-panel {
-            background: var(--bg-card);
-            padding: 25px;
-            border-radius: var(--radius);
-            margin-top: 20px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+        .el-md-editor:focus-within {
+            border-color: var(--el-accent);
+            box-shadow: 0 0 0 3px var(--el-accent-soft), var(--el-shadow-sm);
+        }
+
+        /* ============================================================
+           Markdown Preview Panel
+           ============================================================ */
+        .el-md-preview-panel {
+            background: var(--el-surface);
+            border: 1px solid var(--el-border);
+            border-radius: var(--el-radius-md);
+            margin-top: 12px;
+            overflow: hidden;
+        }
+
+        .el-md-preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 14px;
+            background: var(--el-bg-subtle);
+            border-bottom: 1px solid var(--el-border);
+        }
+
+        .el-md-preview-badge {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--el-text-muted);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .el-md-preview-badge svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--el-text-muted);
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        .el-md-preview-close {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--el-text-muted);
+            transition: all var(--el-transition);
+        }
+
+        .el-md-preview-close:hover {
+            background: var(--el-surface-hover);
+            color: var(--el-text);
+        }
+
+        .el-md-preview-close svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .el-md-preview-content {
+            padding: 16px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        /* ============================================================
+           Pronunciation Panel
+           ============================================================ */
+        .el-pronunciation-panel {
+            background: var(--el-bg-subtle);
+            border: 1px solid var(--el-border);
+            border-radius: var(--el-radius-md);
+            padding: var(--el-space-lg);
+            margin-top: var(--el-space-md);
             display: none;
-            border: 1px solid var(--border);
         }
 
-        .loading {
+        .el-pronunciation-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--el-text);
+            margin-bottom: var(--el-space-md);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .el-pronunciation-title svg {
+            width: 20px;
+            height: 20px;
+            stroke: var(--el-accent);
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        /* ============================================================
+           Loading
+           ============================================================ */
+        .el-loading {
             text-align: center;
-            padding: 50px;
-            color: var(--text-secondary);
+            padding: var(--el-space-2xl);
+            color: var(--el-text-muted);
         }
 
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 2px solid var(--border);
-            border-top: 3px solid var(--neon-cyan);
+        .el-spinner {
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--el-border);
+            border-top: 3px solid var(--el-accent);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            animation: elSpin 0.8s linear infinite;
+            margin: 0 auto 16px;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        @keyframes elSpin {
+            to { transform: rotate(360deg); }
         }
 
-        .result-card {
-            background: var(--bg-card2);
-            padding: 25px;
-            border-radius: var(--radius);
-            margin-bottom: 20px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.2);
-            border: 1px solid var(--border);
-            border-left: 3px solid var(--neon-cyan);
-            transition: all var(--transition);
+        .el-loading-text {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--el-text-secondary);
         }
 
-        .result-card:hover {
-            transform: translateX(5px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            border-color: var(--neon-cyan);
+        /* ============================================================
+           Result Cards
+           ============================================================ */
+        .el-result-card {
+            background: var(--el-gradient-card);
+            padding: var(--el-space-lg);
+            border-radius: var(--el-radius-md);
+            margin-bottom: var(--el-space-md);
+            box-shadow: var(--el-shadow-md);
+            border: 1px solid var(--el-border);
+            transition: all var(--el-transition);
         }
 
-        .result-card h3 {
-            color: var(--neon-cyan);
-            margin-bottom: 15px;
-            font-size: 1.4em;
+        .el-result-card:hover {
+            box-shadow: var(--el-shadow-hover);
+            transform: translateY(-1px);
         }
 
-        .result-card p {
-            color: var(--text-secondary);
+        .el-result-card-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--el-text);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--el-border);
+        }
+
+        .el-result-card-title svg {
+            width: 20px;
+            height: 20px;
+            stroke: var(--el-accent);
+            stroke-width: 1.5;
+            fill: none;
+            flex-shrink: 0;
+        }
+
+        .el-result-card p {
+            color: var(--el-text-secondary);
             line-height: 1.8;
-            margin-bottom: 10px;
-            font-size: 1.06em;
+            margin-bottom: 8px;
+            font-size: 15px;
         }
 
-        .history-list {
+        .el-result-card p:last-child {
+            margin-bottom: 0;
+        }
+
+        .el-result-card strong {
+            color: var(--el-text);
+            font-weight: 600;
+        }
+
+        /* Word header card (first card with word/phonetic) */
+        .el-result-word-header {
+            background: var(--el-gradient-header);
+            color: #FFFFFF;
+            border: none;
+        }
+
+        .el-result-word-header .el-result-card-title {
+            color: #FFFFFF;
+            border-bottom-color: rgba(255,255,255,0.15);
+        }
+
+        .el-result-word-header .el-result-card-title svg {
+            stroke: var(--el-accent);
+        }
+
+        .el-result-word-header p {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .el-result-word-header strong {
+            color: #FFFFFF;
+        }
+
+        .el-phonetic-grid {
             display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 12px;
+            margin-top: 8px;
         }
 
-        .history-item {
-            background: var(--bg-card);
-            padding: 18px;
-            border-radius: 12px;
+        .el-phonetic-item {
+            background: rgba(255,255,255,0.08);
+            border-radius: var(--el-radius-sm);
+            padding: 10px 14px;
+        }
+
+        .el-phonetic-label {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+
+        .el-phonetic-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #FFFFFF;
+        }
+
+        /* ============================================================
+           History List
+           ============================================================ */
+        .el-history-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .el-history-item {
+            background: var(--el-surface);
+            padding: 16px var(--el-space-lg);
+            border-radius: var(--el-radius-md);
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
-            transition: all var(--transition);
-            border: 1px solid var(--border);
-            border-left: 3px solid var(--neon-cyan);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            transition: all var(--el-transition);
+            border: 1px solid var(--el-border);
+            box-shadow: var(--el-shadow-sm);
         }
 
-        .history-item:hover {
-            transform: translateX(8px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-            border-left-color: var(--neon-purple);
+        .el-history-item:hover {
+            box-shadow: var(--el-shadow-md);
+            border-color: var(--el-border-strong);
+            transform: translateX(4px);
         }
 
-        .history-word {
+        .el-history-word {
             font-weight: 600;
-            font-size: 1.1em;
-            color: var(--text);
+            font-size: 15px;
+            color: var(--el-text);
+            margin-bottom: 2px;
         }
 
-        .history-time {
-            color: var(--text-dim);
-            font-size: 0.9em;
+        .el-history-time {
+            color: var(--el-text-faint);
+            font-size: 13px;
         }
 
-        .history-actions {
+        .el-history-actions {
             display: flex;
-            gap: 10px;
+            gap: 8px;
+            flex-shrink: 0;
         }
 
-        .btn-small {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all var(--transition);
-            background: var(--primary-a10);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-        }
-
-        .btn-delete {
-            background: rgba(239,68,68,0.2);
-            color: #ef4444;
-            border: 1px solid rgba(239,68,68,0.3);
-            border-radius: 8px;
-        }
-
-        .btn-delete:hover {
-            background: rgba(239,68,68,0.3);
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(239,68,68,0.3);
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: var(--text-dim);
-        }
-
-        .empty-state-icon {
-            font-size: 4em;
-            margin-bottom: 15px;
-        }
-
-        .error-message {
-            background: rgba(239,68,68,0.12);
-            color: #ef4444;
-            padding: 18px;
-            border-radius: 12px;
-            margin-top: 15px;
-            display: none;
-            border: 1px solid rgba(239,68,68,0.3);
-        }
-
-        .error-message.active {
-            display: block;
-            animation: slideDown 0.3s ease-out;
-        }
-
-        .badge {
-            display: inline-block;
+        .el-btn-delete-sm {
             padding: 6px 12px;
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            border-radius: var(--el-radius-sm);
+            background: rgba(220, 38, 38, 0.06);
+            color: #DC2626;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--el-transition);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .el-btn-delete-sm:hover {
+            background: rgba(220, 38, 38, 0.12);
+            border-color: rgba(220, 38, 38, 0.3);
+        }
+
+        .el-btn-delete-sm svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        /* ============================================================
+           Empty State
+           ============================================================ */
+        .el-empty-state {
+            text-align: center;
+            padding: var(--el-space-2xl);
+            color: var(--el-text-faint);
+        }
+
+        .el-empty-state svg {
+            width: 48px;
+            height: 48px;
+            stroke: var(--el-text-faint);
+            stroke-width: 1;
+            fill: none;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .el-empty-state-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--el-text-muted);
+            margin-bottom: 4px;
+        }
+
+        .el-empty-state-desc {
+            font-size: 14px;
+            color: var(--el-text-faint);
+        }
+
+        /* ============================================================
+           Error / Success Messages
+           ============================================================ */
+        .el-error-message {
+            background: rgba(220, 38, 38, 0.06);
+            color: #DC2626;
+            padding: 14px 18px;
+            border-radius: var(--el-radius-md);
+            margin-top: 12px;
+            display: none;
+            border: 1px solid rgba(220, 38, 38, 0.15);
+            font-size: 14px;
+        }
+
+        .el-error-message.active {
+            display: block;
+            animation: elSlideIn 0.2s ease;
+        }
+
+        /* ============================================================
+           Badge
+           ============================================================ */
+        .el-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
             border-radius: 20px;
-            font-size: 0.85em;
+            font-size: 13px;
             font-weight: 600;
-            margin: 5px;
         }
 
-        .badge-primary {
-            background: var(--btn-gradient);
-            background-size: 200% 200%;
-            animation: gradientShift 4s ease infinite;
-            color: white;
+        .el-badge-accent {
+            background: var(--el-accent-soft);
+            color: var(--el-accent-hover);
+            border: 1px solid var(--el-accent-border);
         }
 
-        .badge-success {
-            background: rgba(16,185,129,0.2);
-            color: #10b981;
+        /* ============================================================
+           Range Slider
+           ============================================================ */
+        .el-range-input {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--el-border-strong);
+            border-radius: 3px;
+            outline: none;
+            margin: 8px 0;
         }
 
+        .el-range-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--el-accent);
+            cursor: pointer;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+            transition: transform var(--el-transition);
+        }
+
+        .el-range-input::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        /* ============================================================
+           Responsive
+           ============================================================ */
         @media (max-width: 768px) {
-            .container {
-                padding: 25px;
+            .el-wrapper {
+                padding: var(--el-space-md);
             }
 
-            .header h1 {
-                font-size: 2em;
+            .el-header {
+                padding: var(--el-space-xl) var(--el-space-lg);
+                margin-bottom: var(--el-space-2xl);
             }
 
-            .section {
-                padding: 20px;
+            .el-header-title {
+                font-size: 28px;
             }
 
-            .button-group {
+            .el-section {
+                padding: var(--el-space-lg) var(--el-space-md);
+                margin-bottom: var(--el-space-2xl);
+            }
+
+            .el-section-title {
+                font-size: 19px;
+            }
+
+            .el-button-group {
                 flex-direction: column;
             }
 
-            .btn {
+            .el-btn {
                 width: 100%;
             }
 
-            .preset-grid {
-                grid-template-columns: 1fr;
+            .el-preset-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
 
-            .history-item {
+            .el-history-item {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 10px;
             }
+
+            .el-phonetic-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
-        /* ===== 背景特效（orb / 网格 / 星星）由 theme.css 统一提供 ===== */
+        @media (max-width: 375px) {
+            .el-wrapper {
+                padding: 12px;
+            }
 
-        /* .md-rendered 排版由 theme.css 统一提供 */
+            .el-header-title {
+                font-size: 24px;
+            }
 
-        /* .md-preview-panel / .preview-btn.active 由 theme.css 统一提供 */
-        .icon-btn {
-          width: 36px; height: 36px; border-radius: 10px;
-          border: 1px solid var(--primary-a15);
-          background: transparent; cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          color: var(--text-dim); transition: var(--transition);
-        }
-        .icon-btn:hover { color: var(--neon-cyan); border-color: var(--neon-cyan); background: var(--cyan-a08); }
-
-        /* ===== Sidebar section (dark) ===== */
-        .sidebar-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
+            .el-preset-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
-        /* ===== Markdown 编辑器页面布局（.md-block / .md-rendered 排版由 theme.css 提供） ===== */
-        .md-editor {
-            padding: 14px 16px; font-size: 0.95rem; line-height: 1.6;
-            min-height: 120px; max-height: 320px; overflow-y: auto;
-            outline: none; color: var(--text); cursor: text;
-            background: var(--bg-dark); border: 2px solid var(--primary-a15);
-            border-radius: 12px; transition: var(--transition);
+        /* ============================================================
+           Markdown Rendered Content (within result cards)
+           ============================================================ */
+        .el-result-card .md-rendered {
+            font-size: 15px;
+            line-height: 1.7;
+            color: var(--el-text-secondary);
         }
-        .md-editor:focus-within { border-color: var(--neon-cyan); box-shadow: 0 0 0 4px var(--cyan-a06); }
+
+        .el-result-card .md-rendered strong {
+            color: var(--el-text);
+        }
+
+        /* ============================================================
+           Hide theme.css bg effects on this page
+           ============================================================ */
+        .el-wrapper ~ .bg-canvas,
+        .el-wrapper .bg-canvas {
+            display: none !important;
+        }
+
+        /* Override body when this page is loaded standalone */
+        body:has(.el-wrapper) {
+            background: var(--el-bg) !important;
+            padding: 0 !important;
+        }
+
+        body:has(.el-wrapper) .bg-canvas {
+            display: none !important;
+        }
+
+        /* Select styling */
+        .el-form-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--el-border-strong);
+            border-radius: var(--el-radius-md);
+            font-size: 15px;
+            font-family: inherit;
+            background: var(--el-surface);
+            color: var(--el-text);
+            box-shadow: var(--el-shadow-sm);
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 40px;
+        }
+
+        .el-form-select:focus {
+            outline: none;
+            border-color: var(--el-accent);
+            box-shadow: 0 0 0 3px var(--el-accent-soft), var(--el-shadow-sm);
+        }
     </style>
 </head>
 <body>
-    <div class="bg-canvas">
-        <div class="scanline-overlay"></div>
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="orb orb-3"></div>
-        <div class="stars" id="stars"></div>
-    </div>
-    <div class="container">
-        <div class="header">
-            <h1>📚 英语学习助手</h1>
-            <p class="header-subtitle">智能学习 · 高效记忆 · 轻松掌握</p>
-        </div>
-
-        <!-- API配置区域 -->
-        <div class="section">
-            <div class="section-header" id="apiConfigHeader">
-                <h2 class="section-title">⚙️ API 配置</h2>
-                <span class="toggle-icon" id="apiConfig-icon">▼</span>
+    <div class="el-wrapper">
+        <div class="el-container">
+            <!-- Header -->
+            <div class="el-header">
+                <h1 class="el-header-title">
+                    <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                    英语学习助手
+                </h1>
+                <p class="el-header-subtitle">智能学习 · 高效记忆 · 专业备考</p>
             </div>
-            <div class="section-content" id="apiConfig-content">
-                <div style="background: rgba(59,130,246,0.1); padding: 20px; border-radius: 12px; margin-bottom: 20px; border-left: 3px solid rgba(59,130,246,0.4);">
-                    <p style="color: #60a5fa; margin: 5px 0;"><strong>📋 使用流程:</strong></p>
-                    <p style="color: #93c5fd; margin: 5px 0;">1️⃣ 选择预设配置或手动填写</p>
-                    <p style="color: #93c5fd; margin: 5px 0;">2️⃣ 填写 API Key 并测试连接</p>
-                    <p style="color: #93c5fd; margin: 5px 0;">3️⃣ 保存配置后开始学习</p>
-                </div>
 
-                <div class="preset-grid">
-                    <div class="preset-card" data-preset="deepseek">
-                        <div class="preset-icon">🐋</div>
-                        <div class="preset-name">DeepSeek</div>
-                        <div class="preset-desc">api.deepseek.com</div>
+            <!-- API Configuration Section -->
+            <div class="el-section">
+                <div class="el-section-header" id="apiConfigHeader">
+                    <h2 class="el-section-title">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68 1.65 1.65 0 0 0 10 3.17V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        API 配置
+                    </h2>
+                    <button class="el-toggle-btn" id="apiConfig-icon" type="button">
+                        <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                </div>
+                <div class="el-section-content" id="apiConfig-content">
+                    <!-- Info Banner -->
+                    <div class="el-info-banner">
+                        <div class="el-info-banner-title">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                            使用流程
+                        </div>
+                        <div class="el-info-banner-step">
+                            1. 选择预设配置或手动填写<br>
+                            2. 填写 API Key 并测试连接<br>
+                            3. 保存配置后开始学习
+                        </div>
                     </div>
-                    <div class="preset-card" data-preset="openai">
-                        <div class="preset-icon">🤖</div>
-                        <div class="preset-name">OpenAI</div>
-                        <div class="preset-desc">api.openai.com</div>
+
+                    <!-- Preset Providers -->
+                    <div class="el-preset-grid">
+                        <div class="el-preset-card" data-preset="deepseek">
+                            <svg class="el-preset-icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                            <div class="el-preset-name">DeepSeek</div>
+                            <div class="el-preset-desc">api.deepseek.com</div>
+                        </div>
+                        <div class="el-preset-card" data-preset="openai">
+                            <svg class="el-preset-icon" viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10A10 10 0 0 1 2 12 10 10 0 0 1 12 2z"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+                            <div class="el-preset-name">OpenAI</div>
+                            <div class="el-preset-desc">api.openai.com</div>
+                        </div>
+                        <div class="el-preset-card" data-preset="ollama">
+                            <svg class="el-preset-icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            <div class="el-preset-name">Ollama</div>
+                            <div class="el-preset-desc">本地部署</div>
+                        </div>
+                        <div class="el-preset-card" data-preset="siliconflow">
+                            <svg class="el-preset-icon" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                            <div class="el-preset-name">硅基流动</div>
+                            <div class="el-preset-desc">api.siliconflow.cn</div>
+                        </div>
+                        <div class="el-preset-card" data-preset="custom">
+                            <svg class="el-preset-icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            <div class="el-preset-name">自定义</div>
+                            <div class="el-preset-desc">手动配置</div>
+                        </div>
                     </div>
-                    <div class="preset-card" data-preset="ollama">
-                        <div class="preset-icon">🏠</div>
-                        <div class="preset-name">Ollama</div>
-                        <div class="preset-desc">本地部署</div>
+
+                    <!-- Form Fields -->
+                    <div class="el-form-group">
+                        <label class="el-form-label" for="apiUrl">API Base URL</label>
+                        <input type="text" id="apiUrl" class="el-form-input" placeholder="https://api.deepseek.com">
                     </div>
-                    <div class="preset-card" data-preset="siliconflow">
-                        <div class="preset-icon">🇨🇳</div>
-                        <div class="preset-name">硅基流动</div>
-                        <div class="preset-desc">api.siliconflow.cn</div>
+                    <div class="el-form-group">
+                        <label class="el-form-label" for="apiKey">API Key</label>
+                        <input type="password" id="apiKey" class="el-form-input" placeholder="输入你的 API Key">
                     </div>
-                    <div class="preset-card" data-preset="custom">
-                        <div class="preset-icon">⚡</div>
-                        <div class="preset-name">自定义</div>
-                        <div class="preset-desc">手动配置</div>
+                    <div class="el-form-group">
+                        <label class="el-form-label" for="modelName">Model Name</label>
+                        <input type="text" id="modelName" class="el-form-input" placeholder="deepseek-v4-pro">
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="el-button-group">
+                        <button class="el-btn el-btn-primary" id="testBtn">
+                            <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            测试连接
+                        </button>
+                        <button class="el-btn el-btn-success" id="saveApiBtn">
+                            <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            保存配置
+                        </button>
+                        <button class="el-btn el-btn-danger" id="clearApiBtn">
+                            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            清除
+                        </button>
+                    </div>
+
+                    <div id="testResult" class="el-test-result"></div>
+                </div>
+            </div>
+
+            <!-- Learning Input Section -->
+            <div class="el-section">
+                <div class="el-section-header">
+                    <h2 class="el-section-title">
+                        <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        学习内容
+                    </h2>
+                </div>
+
+                <div class="el-input-area">
+                    <div id="wordInput" class="el-md-editor"></div>
+                </div>
+
+                <!-- Markdown Preview -->
+                <div class="el-md-preview-panel" id="mdPreviewPanel" style="display:none;">
+                    <div class="el-md-preview-header">
+                        <div class="el-md-preview-badge">
+                            <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            实时预览
+                        </div>
+                        <button class="el-md-preview-close" onclick="toggleMdPreview()" title="关闭预览">
+                            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <div class="el-md-preview-content md-rendered" id="mdPreviewContent"></div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="el-button-group">
+                    <button class="el-icon-btn" id="previewToggleBtn" onclick="toggleMdPreview()" title="Markdown 预览">
+                        <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <button class="el-btn el-btn-primary" id="learnWordBtn">
+                        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        学习单词
+                    </button>
+                    <button class="el-btn el-btn-success" id="saveContentBtn">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        保存今天内容
+                    </button>
+                    <button class="el-btn el-btn-warning" id="clearAllBtn">
+                        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        清空所有
+                    </button>
+                </div>
+
+                <div class="el-error-message" id="errorMessage"></div>
+
+                <!-- Pronunciation Panel -->
+                <div class="el-pronunciation-panel" id="pronunciationPanel">
+                    <div class="el-pronunciation-title">
+                        <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                        语音发音
+                    </div>
+                    <div class="el-form-group">
+                        <label class="el-form-label">选择语音</label>
+                        <select id="voiceSelect" class="el-form-select"></select>
+                    </div>
+                    <div class="el-form-group">
+                        <label class="el-form-label">语速: <span id="rateValue" class="el-badge el-badge-accent">1.0x</span></label>
+                        <input type="range" id="rateSlider" min="0.5" max="2" step="0.1" value="1" class="el-range-input">
+                    </div>
+                    <div class="el-button-group">
+                        <button class="el-btn el-btn-primary" id="speakWordBtn">
+                            <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                            朗读
+                        </button>
+                        <button class="el-btn el-btn-danger" id="stopSpeakingBtn">
+                            <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                            停止
+                        </button>
+                        <button class="el-btn el-btn-success" id="speakSlowlyBtn">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 8 14"/></svg>
+                            慢速
+                        </button>
                     </div>
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="apiUrl">API Base URL:</label>
-                    <input type="text" id="apiUrl" class="form-input" placeholder="https://api.deepseek.com">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="apiKey">API Key:</label>
-                    <input type="password" id="apiKey" class="form-input" placeholder="输入你的 API Key">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="modelName">Model Name:</label>
-                    <input type="text" id="modelName" class="form-input" placeholder="deepseek-v4-pro">
-                </div>
-                
-                <div class="button-group">
-                    <button class="btn btn-primary" id="testBtn">🔌 测试连接</button>
-                    <button class="btn btn-success" id="saveApiBtn">💾 保存配置</button>
-                    <button class="btn btn-danger" id="clearApiBtn">🗑️ 清除</button>
-                </div>
-
-                <div id="testResult" class="test-result"></div>
-            </div>
-        </div>
-
-        <!-- 学习输入区域 -->
-        <div class="section">
-            <div class="section-header">
-                <h2 class="section-title">✏️ 学习内容</h2>
-            </div>
-            
-            <div class="input-area">
-                <div id="wordInput" class="md-editor"></div>
             </div>
 
-            <div class="md-preview-panel" id="mdPreviewPanel" style="display:none;">
-              <div class="md-preview-header">
-                <div class="md-preview-badge">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  实时预览
+            <!-- Loading -->
+            <div class="el-loading" id="loading" style="display: none;">
+                <div class="el-spinner"></div>
+                <p class="el-loading-text">正在获取学习内容...</p>
+            </div>
+
+            <!-- Learning Results -->
+            <div class="el-section" id="resultSection" style="display: none;">
+                <div class="el-section-header">
+                    <h2 class="el-section-title">
+                        <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                        学习结果
+                    </h2>
                 </div>
-                <button class="md-preview-close" onclick="toggleMdPreview()" title="关闭预览">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </div>
-              <div class="md-preview-content md-rendered" id="mdPreviewContent"></div>
+                <div id="resultContent"></div>
             </div>
 
-            <div class="button-group">
-                <button class="icon-btn preview-btn" id="previewToggleBtn" onclick="toggleMdPreview()" title="Markdown 预览">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </button>
-                <button class="btn btn-primary" id="learnWordBtn">🔍 学习单词</button>
-                <button class="btn btn-success" id="saveContentBtn">💾 保存今天内容</button>
-                <button class="btn btn-warning" id="clearAllBtn">🗑️ 清空所有</button>
-            </div>
-
-            <div class="error-message" id="errorMessage"></div>
-
-            <!-- 语音发音面板 -->
-            <div class="pronunciation-panel" id="pronunciationPanel">
-                <h3 style="color: var(--neon-cyan); margin-bottom: 20px;">🔊 语音发音</h3>
-                <div class="form-group">
-                    <label class="form-label">选择语音:</label>
-                    <select id="voiceSelect" class="form-input"></select>
+            <!-- Learning History -->
+            <div class="el-section">
+                <div class="el-section-header">
+                    <h2 class="el-section-title">
+                        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        学习历史
+                    </h2>
+                    <button class="el-btn el-btn-sm el-btn-danger" id="clearAllHistoryBtn">
+                        <svg viewBox="0 0 24 24" style="width:14px;height:14px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        清空全部
+                    </button>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">语速: <span id="rateValue" class="badge badge-primary">1.0x</span></label>
-                    <input type="range" id="rateSlider" min="0.5" max="2" step="0.1" value="1" class="form-input" style="padding: 10px;">
-                </div>
-                <div class="button-group">
-                    <button class="btn btn-primary" id="speakWordBtn">🔊 朗读</button>
-                    <button class="btn btn-danger" id="stopSpeakingBtn">⏹️ 停止</button>
-                    <button class="btn btn-success" id="speakSlowlyBtn">🐢 慢速</button>
-                </div>
+                <div id="historyList" class="el-history-list"></div>
             </div>
-        </div>
-
-        <!-- 加载动画 -->
-        <div class="loading" id="loading" style="display: none;">
-            <div class="spinner"></div>
-            <p style="color: var(--neon-cyan); font-size: 1.2em; font-weight: 600;">正在获取学习内容...</p>
-        </div>
-
-        <!-- 学习结果 -->
-        <div class="section" id="resultSection" style="display: none;">
-            <div class="section-header">
-                <h2 class="section-title">📖 学习结果</h2>
-            </div>
-            <div id="resultContent"></div>
-        </div>
-
-        <!-- 学习历史 -->
-        <div class="section">
-            <div class="section-header">
-                <h2 class="section-title">📝 学习历史</h2>
-                <button class="btn-small btn-delete" id="clearAllHistoryBtn" style="padding: 10px 20px; font-size: 14px;">🗑️ 清空全部</button>
-            </div>
-            <div id="historyList" class="history-list"></div>
         </div>
     </div>
 
@@ -779,18 +1384,12 @@
     <script src="theme.js"></script>
     <script>
         // ===== Chrome Extension Storage Adapter =====
-        // Safely bridge localStorage <-> chrome.storage.local
-        // If anything fails, fall back to native localStorage (page still works)
         (function() {
           try {
             if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
-
-            // Test that chrome.storage.local actually works
             chrome.storage.local.get('__test__', function() {
               if (chrome.runtime.lastError) return;
             });
-
-            // Copy existing localStorage data into chrome.storage for sync
             try {
               var keys = ['apiConfig', 'englishLearningData', 'learningHistory'];
               keys.forEach(function(k) {
@@ -802,8 +1401,6 @@
                 }
               });
             } catch(e) {}
-
-            // Listen for changes from other extension pages
             chrome.storage.onChanged.addListener(function(changes) {
               Object.keys(changes).forEach(function(k) {
                 if (changes[k].newValue !== undefined) {
@@ -812,12 +1409,11 @@
               });
             });
           } catch(e) {
-            // Any error -> use native localStorage, page still functional
             console.warn('[EnglishLearning] Storage adapter skipped:', e.message);
           }
         })();
 
-        console.log('%c✨ 英语学习助手 v4.0 已加载', 'color: #667eea; font-size: 18px; font-weight: bold;');
+        console.log('%c✨ 英语学习助手 v5.0 已加载', 'color: #F59E0B; font-size: 18px; font-weight: bold;');
 
         const wordEditor = MdEditor.create(document.getElementById('wordInput'), {
           placeholder: '输入英文单词/短语或中文，例如: apple / 苹果 / hello world',
@@ -847,7 +1443,7 @@
             if (text.trim()) {
               preview.innerHTML = renderMarkdown(text);
             } else {
-              preview.innerHTML = '<p style="color:var(--text-dim);font-style:italic;">输入内容即可实时预览...</p>';
+              preview.innerHTML = '<p style="color:var(--el-text-faint);font-style:italic;">输入内容即可实时预览...</p>';
             }
           }
         }
@@ -864,14 +1460,10 @@
             const preset = presets[service];
             document.getElementById('apiUrl').value = preset.url;
             document.getElementById('modelName').value = preset.model;
-            
-            // active class managed by click event listener
-            
             if (service === 'custom') {
                 document.getElementById('apiUrl').focus();
             }
-            
-            showTestResult('info', `✅ 已选择预设，请填写 API Key 后测试连接`);
+            showTestResult('info', `已选择预设，请填写 API Key 后测试连接`);
         }
 
         async function testApiConnection() {
@@ -879,15 +1471,15 @@
             const apiKey = document.getElementById('apiKey').value.trim();
             const modelName = document.getElementById('modelName').value.trim();
             const testBtn = document.getElementById('testBtn');
-            
+
             if (!apiUrl || !apiKey || !modelName) {
-                showTestResult('error', '❌ 请填写完整的API配置信息');
+                showTestResult('error', '请填写完整的API配置信息');
                 return;
             }
-            
-            testBtn.innerHTML = '⏳ 测试中...';
+
+            testBtn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;stroke-width:1.5;fill:none;animation:elSpin 0.8s linear infinite"><circle cx="12" cy="12" r="10" stroke-dasharray="30 70"/></svg> 测试中...';
             testBtn.disabled = true;
-            
+
             try {
                 const response = await fetch(`${apiUrl}/chat/completions`, {
                     method: 'POST',
@@ -901,28 +1493,27 @@
                         max_tokens: 50
                     })
                 });
-                
+
                 if (!response.ok) {
-                    const errorText = await response.text();
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-                
+
                 const data = await response.json();
                 const reply = data.choices[0].message.content;
-                
-                showTestResult('success', `✅ 连接成功！模型: ${data.model || modelName}<br><p>AI回复: ${escapeHtml(reply)}</p><p style="margin-top: 10px;"><strong>🎉 配置可以正常使用！</strong></p>`);
-                
+
+                showTestResult('success', `连接成功！模型: ${data.model || modelName}<br><p>AI回复: ${escapeHtml(reply)}</p><p style="margin-top: 10px;"><strong>配置可以正常使用！</strong></p>`);
+
             } catch (error) {
-                showTestResult('error', `❌ 连接失败<br><p><strong>错误:</strong> ${escapeHtml(error.message)}</p>`);
+                showTestResult('error', `连接失败<br><p><strong>错误:</strong> ${escapeHtml(error.message)}</p>`);
             } finally {
-                testBtn.innerHTML = '🔌 测试连接';
+                testBtn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;stroke-width:1.5;fill:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 测试连接';
                 testBtn.disabled = false;
             }
         }
 
         function showTestResult(type, message) {
             const testResult = document.getElementById('testResult');
-            testResult.className = `test-result ${type}`;
+            testResult.className = `el-test-result ${type}`;
             testResult.innerHTML = message;
         }
 
@@ -932,7 +1523,7 @@
             return div.innerHTML;
         }
 
-        // ===== 插件配置同步（LinguaFlow 扩展广播）：config{baseUrl,apiKey,model} → apiConfig{apiUrl,apiKey,modelName} =====
+        // ===== 插件配置同步 =====
         function applySyncedApiConfig(cfg) {
             if (!cfg || !cfg.baseUrl) return;
             const apiUrlEl = document.getElementById('apiUrl');
@@ -944,14 +1535,12 @@
             try {
                 localStorage.setItem('apiConfig', JSON.stringify({ apiUrl: cfg.baseUrl, apiKey: cfg.apiKey, modelName: cfg.model, savedAt: new Date().toISOString() }));
             } catch (e) {}
-            if (typeof showTestResult === 'function') showTestResult('success', `✅ 已同步插件配置（Base URL / API Key / Model）`);
+            if (typeof showTestResult === 'function') showTestResult('success', `已同步插件配置（Base URL / API Key / Model）`);
         }
-        // 网页环境：content script 通过 postMessage 广播
         window.addEventListener('message', (e) => {
             const d = e.data;
             if (d && d.source === 'linguaflow-extension' && d.config) applySyncedApiConfig(d.config);
         });
-        // 扩展环境：直接监听 chrome.storage，并读取已有配置兑底
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
             chrome.storage.onChanged.addListener((changes, area) => {
                 if (area === 'local' && changes.config && changes.config.newValue) {
@@ -967,14 +1556,14 @@
             const apiUrl = document.getElementById('apiUrl').value.trim();
             const apiKey = document.getElementById('apiKey').value.trim();
             const modelName = document.getElementById('modelName').value.trim();
-            
+
             if (!apiUrl || !apiKey || !modelName) {
-                showTestResult('error', '❌ 请填写完整的API配置信息');
+                showTestResult('error', '请填写完整的API配置信息');
                 return;
             }
-            
+
             localStorage.setItem('apiConfig', JSON.stringify({ apiUrl, apiKey, modelName, savedAt: new Date().toISOString() }));
-            showTestResult('success', `✅ 配置已保存！<br><p>URL: ${apiUrl}</p><p>Model: ${modelName}</p>`);
+            showTestResult('success', `配置已保存！<br><p>URL: ${apiUrl}</p><p>Model: ${modelName}</p>`);
         }
 
         function clearApiConfig() {
@@ -984,7 +1573,7 @@
                 document.getElementById('modelName').value = '';
                 localStorage.removeItem('apiConfig');
                 document.getElementById('testResult').style.display = 'none';
-                document.querySelectorAll('.preset-card').forEach(card => card.classList.remove('active'));
+                document.querySelectorAll('.el-preset-card').forEach(card => card.classList.remove('active'));
             }
         }
 
@@ -1000,8 +1589,8 @@
 
         function toggleSection(sectionId) {
             const content = document.getElementById(`${sectionId}-content`);
-            const icon = document.getElementById(`${sectionId}-icon`);
-            
+            const icon = document.getElementById(`apiConfig-icon`);
+
             if (content.classList.contains('collapsed')) {
                 content.classList.remove('collapsed');
                 icon.classList.remove('collapsed');
@@ -1012,13 +1601,11 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Load config from localStorage (works in all contexts)
             loadApiConfig();
             loadFromStorage();
             displayHistory();
             try { initVoices(); } catch(e) { console.warn('[EL] initVoices:', e.message); }
             try { if (speechSynthesis && speechSynthesis.onvoiceschanged !== undefined) { speechSynthesis.onvoiceschanged = initVoices; } } catch(e) {}
-            // Additionally sync from chrome.storage if available
             try {
                 if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
                     chrome.storage.local.get(['apiConfig', 'englishLearningData', 'learningHistory'], function(data) {
@@ -1044,7 +1631,7 @@
             const voiceSelect = document.getElementById('voiceSelect');
             const voices = speechSynthesis.getVoices();
             voiceSelect.innerHTML = '';
-            
+
             voices.forEach(voice => {
                 const option = document.createElement('option');
                 option.value = voice.name;
@@ -1058,12 +1645,10 @@
             const word = wordEditor.getMarkdown().trim();
             if (!word) return;
             stopSpeaking();
-            
             const utterance = new SpeechSynthesisUtterance(word);
             const voices = speechSynthesis.getVoices();
             const selectedVoice = voices.find(v => v.name === document.getElementById('voiceSelect').value);
             if (selectedVoice) utterance.voice = selectedVoice;
-            
             utterance.rate = parseFloat(document.getElementById('rateSlider').value);
             utterance.lang = /^[\u4e00-\u9fa5]+$/.test(word) ? 'zh-CN' : 'en-US';
             try { speechSynthesis.speak(utterance); } catch(e) { console.warn("[EL] speak:", e.message); }
@@ -1077,12 +1662,10 @@
             const word = wordEditor.getMarkdown().trim();
             if (!word) return;
             stopSpeaking();
-            
             const utterance = new SpeechSynthesisUtterance(word);
             const voices = speechSynthesis.getVoices();
             const selectedVoice = voices.find(v => v.name === document.getElementById('voiceSelect').value);
             if (selectedVoice) utterance.voice = selectedVoice;
-            
             utterance.rate = 0.6;
             utterance.lang = /^[\u4e00-\u9fa5]+$/.test(word) ? 'zh-CN' : 'en-US';
             try { speechSynthesis.speak(utterance); } catch(e) { console.warn("[EL] speak:", e.message); }
@@ -1144,26 +1727,29 @@
         function displayHistory() {
             const history = getHistory();
             const historyList = document.getElementById('historyList');
-            
+
             if (history.length === 0) {
                 historyList.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
-                        <p>暂无学习记录</p>
-                        <p style="font-size: 0.9em; margin-top: 10px;">开始学习你的第一个单词吧！</p>
+                    <div class="el-empty-state">
+                        <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        <div class="el-empty-state-title">暂无学习记录</div>
+                        <div class="el-empty-state-desc">开始学习你的第一个单词吧</div>
                     </div>
                 `;
                 return;
             }
 
             historyList.innerHTML = history.map((item, index) => `
-                <div class="history-item" data-index="${index}">
+                <div class="el-history-item" data-index="${index}">
                     <div style="flex: 1;">
-                        <div class="history-word">${item.word}</div>
-                        <div class="history-time">${new Date(item.timestamp).toLocaleString('zh-CN')}</div>
+                        <div class="el-history-word">${escapeHtml(item.word)}</div>
+                        <div class="el-history-time">${new Date(item.timestamp).toLocaleString('zh-CN')}</div>
                     </div>
-                    <div class="history-actions">
-                        <button class="btn-small btn-delete" data-del-index="${index}">删除</button>
+                    <div class="el-history-actions">
+                        <button class="el-btn-delete-sm" data-del-index="${index}">
+                            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            删除
+                        </button>
                     </div>
                 </div>
             `).join('');
@@ -1173,13 +1759,10 @@
             const history = getHistory();
             const item = history[index];
             wordEditor.setMarkdown(item.word);
-            // Re-render from raw content (or fallback to saved innerHTML for old entries)
             const content = item.content;
             if (content && content.trim().startsWith('<')) {
-                // Old format: saved as innerHTML, display directly
                 document.getElementById('resultContent').innerHTML = content;
             } else {
-                // New format: raw text, re-render
                 let result;
                 try {
                     const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -1190,7 +1773,7 @@
                 if (result) {
                     displayResult(result);
                 } else {
-                    document.getElementById('resultContent').innerHTML = `<div class="result-card"><h3>📖 学习结果</h3><div class="md-rendered">${renderMarkdown(content || '')}</div></div>`;
+                    document.getElementById('resultContent').innerHTML = `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 学习结果</div><div class="md-rendered">${renderMarkdown(content || '')}</div></div>`;
                 }
             }
             document.getElementById('resultSection').style.display = 'block';
@@ -1238,7 +1821,7 @@
 
                 const data = await response.json();
                 const content = data.choices[0].message.content;
-                
+
                 let result;
                 try {
                     const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -1251,11 +1834,11 @@
                     displayResult(result);
                     saveHistory({ word, content: content, timestamp: new Date().toISOString() });
                 } else {
-                    document.getElementById('resultContent').innerHTML = `<div class="result-card"><h3>📖 学习结果</h3><div class="md-rendered">${renderMarkdown(content)}</div></div>`;
+                    document.getElementById('resultContent').innerHTML = `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 学习结果</div><div class="md-rendered">${renderMarkdown(content)}</div></div>`;
                     document.getElementById('resultSection').style.display = 'block';
                     saveHistory({ word, content: content, timestamp: new Date().toISOString() });
                 }
-                
+
                 saveToStorage();
 
             } catch (error) {
@@ -1267,39 +1850,57 @@
 
         function displayResult(result) {
             const html = `
-                <div class="result-card">
-                    <h3>📝 ${result.word}</h3>
-                    <p><strong>英式音标:</strong> ${result.phonetic_uk || 'N/A'}</p>
-                    <p><strong>美式音标:</strong> ${result.phonetic_us || 'N/A'}</p>
-                    <p><strong>词性:</strong> ${result.part_of_speech || 'N/A'}</p>
+                <div class="el-result-card el-result-word-header">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        ${escapeHtml(result.word)}
+                    </div>
+                    <div class="el-phonetic-grid">
+                        <div class="el-phonetic-item">
+                            <div class="el-phonetic-label">英式音标</div>
+                            <div class="el-phonetic-value">${escapeHtml(result.phonetic_uk || 'N/A')}</div>
+                        </div>
+                        <div class="el-phonetic-item">
+                            <div class="el-phonetic-label">美式音标</div>
+                            <div class="el-phonetic-value">${escapeHtml(result.phonetic_us || 'N/A')}</div>
+                        </div>
+                    </div>
+                    <p style="margin-top:12px"><strong>词性:</strong> ${escapeHtml(result.part_of_speech || 'N/A')}</p>
                 </div>
-                <div class="result-card">
-                    <h3>📖 释义</h3>
-                    <div class="md-rendered"><strong>中文:</strong> ${renderMarkdown(result.chinese_meaning || 'N/A')}</div>
-                    <div class="md-rendered"><strong>英文:</strong> ${renderMarkdown(result.english_definition || 'N/A')}</div>
+                <div class="el-result-card">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                        释义
+                    </div>
+                    <p><strong>中文:</strong> ${renderMarkdown(result.chinese_meaning || 'N/A')}</p>
+                    <p><strong>英文:</strong> ${renderMarkdown(result.english_definition || 'N/A')}</p>
                 </div>
-                <div class="result-card">
-                    <h3>💡 用法</h3>
+                <div class="el-result-card">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+                        用法
+                    </div>
                     <div class="md-rendered">${renderMarkdown(result.usage || 'N/A')}</div>
                 </div>
-                <div class="result-card">
-                    <h3>📚 例句</h3>
-                    ${(result.examples || []).map((ex, i) => `<div class="md-rendered"><strong>${i+1}.</strong> ${renderMarkdown(ex.en)}<br><span style="margin-left:20px;color:var(--text-dim);">${renderMarkdown(ex.zh)}</span></div>`).join('')}
+                <div class="el-result-card">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                        例句
+                    </div>
+                    ${(result.examples || []).map((ex, i) => `<div style="margin-bottom:12px;"><p><strong>${i+1}.</strong> ${renderMarkdown(ex.en)}</p><p style="padding-left:20px;color:var(--el-text-faint);">${renderMarkdown(ex.zh)}</p></div>`).join('')}
                 </div>
-                ${result.synonyms && result.synonyms.length ? `<div class="result-card"><h3>🔄 同义词</h3><div class="md-rendered">${result.synonyms.join(', ')}</div></div>` : ''}
-                ${result.antonyms && result.antonyms.length ? `<div class="result-card"><h3>⚡ 反义词</h3><div class="md-rendered">${result.antonyms.join(', ')}</div></div>` : ''}
-                ${result.memory_tip ? `<div class="result-card"><h3>🧠 记忆技巧</h3><div class="md-rendered">${renderMarkdown(result.memory_tip)}</div></div>` : ''}
+                ${result.synonyms && result.synonyms.length ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 同义词</div><p>${result.synonyms.join(', ')}</p></div>` : ''}
+                ${result.antonyms && result.antonyms.length ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> 反义词</div><p>${result.antonyms.join(', ')}</p></div>` : ''}
+                ${result.memory_tip ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.89-.356-1.751-.988-2.386l-.548-.547z"/></svg> 记忆技巧</div><div class="md-rendered">${renderMarkdown(result.memory_tip)}</div></div>` : ''}
             `;
             document.getElementById('resultContent').innerHTML = html;
             document.getElementById('resultSection').style.display = 'block';
         }
 
-        // 获取UTC+8时间信息，用于文件命名和"今天"判定
+        // UTC+8 helpers
         function getUTC8Time(date) {
-            // 将时间转换为UTC+8(北京时间)
             const utc8Ms = date.getTime() + (date.getTimezoneOffset() * 60000) + (8 * 3600000);
             const utc8Date = new Date(utc8Ms);
-            
             const pad = n => String(n).padStart(2, '0');
             const year = utc8Date.getFullYear();
             const month = pad(utc8Date.getMonth() + 1);
@@ -1307,14 +1908,9 @@
             const hours = pad(utc8Date.getHours());
             const minutes = pad(utc8Date.getMinutes());
             const seconds = pad(utc8Date.getSeconds());
-            
-            // 用于文件命名: 2026-06-19_14-30-45 (避免 Windows 文件名非法字符 : *)
             const timestamp = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
-            // 用于"今天"判定: 2026-06-19
             const dateStr = `${year}-${month}-${day}`;
-            // 用于显示: 2026-06-19 14:30:45 UTC+8
             const display = `${year}-${month}-${day} ${hours}:${minutes}:${seconds} (UTC+8)`;
-            
             return { timestamp, dateStr, display, utc8Date };
         }
 
@@ -1323,69 +1919,42 @@
         }
 
         function saveContent() {
-            console.log('开始保存今天内容...');
             const history = getHistory();
-            console.log('历史记录总数:', history.length);
-            
             if (history.length === 0) {
                 showError('还没有学习内容，请先学习一些单词');
                 return;
             }
-
             const now = new Date();
             const utc8 = getUTC8Time(now);
-            
-            console.log('今天日期(UTC+8):', utc8.dateStr);
-            
             const todayHistory = history.filter(item => {
                 const itemDate = getUTC8DateString(new Date(item.timestamp));
-                console.log('记录日期(UTC+8):', itemDate, item.word);
                 return itemDate === utc8.dateStr;
             });
-            
-            console.log('今天(UTC+8)学习记录数:', todayHistory.length);
-            
             if (todayHistory.length === 0) {
                 showError('今天还没有学习内容，请先学习一些单词');
                 return;
             }
-
             try {
-                console.log('生成Markdown...');
                 const md = generateMarkdown(todayHistory, now);
-                console.log('生成HTML...');
                 const html = generateHTML(todayHistory, now);
-
-                console.log('下载Markdown文件...');
                 downloadFile(`${utc8.timestamp}-英语学习笔记.md`, md, 'text/markdown');
-                
-                console.log('下载HTML文件...');
                 setTimeout(() => {
                     downloadFile(`${utc8.timestamp}-英语学习笔记.html`, html, 'text/html');
-                    console.log('保存完成!');
                 }, 500);
-
-                // 显示成功消息
-                const successMsg = `✅ 已保存今天(UTC+8) ${todayHistory.length} 个单词\n\n📝 ${utc8.timestamp}-英语学习笔记.md\n🌐 ${utc8.timestamp}-英语学习笔记.html\n\n💡 如果浏览器阻止下载,请允许弹出窗口`;
-                
-                // 使用自定义的成功提示
+                const successMsg = `已保存今天(UTC+8) ${todayHistory.length} 个单词\n\n${utc8.timestamp}-英语学习笔记.md\n${utc8.timestamp}-英语学习笔记.html\n\n如果浏览器阻止下载,请允许弹出窗口`;
                 showSuccess(successMsg);
-                
             } catch (error) {
-                console.error('保存失败:', error);
                 showError(`保存失败: ${error.message}`);
             }
         }
 
         function showSuccess(message) {
             const errorEl = document.getElementById('errorMessage');
-            errorEl.style.background = 'rgba(16,185,129,0.12)';
-            errorEl.style.color = '#10b981';
-            errorEl.style.border = '1px solid rgba(16,185,129,0.3)';
+            errorEl.style.background = 'rgba(5, 150, 105, 0.08)';
+            errorEl.style.color = '#047857';
+            errorEl.style.border = '1px solid rgba(5, 150, 105, 0.2)';
             errorEl.textContent = message;
             errorEl.classList.add('active');
-            
-            // 10秒后隐藏
             setTimeout(() => {
                 errorEl.classList.remove('active');
                 errorEl.style.background = '';
@@ -1394,7 +1963,6 @@
             }, 10000);
         }
 
-        // 将一段HTML片段中的标签、实体解码为纯文本
         function htmlToText(html) {
             if (!html) return '';
             const div = document.createElement('div');
@@ -1402,11 +1970,8 @@
             return (div.textContent || div.innerText || '').trim();
         }
 
-        // 从 result-card 的 HTML 中提取 "字段: 值" 形式的内容
-        // 匹配 displayResult() 生成的: <p><strong>字段:</strong> 值</p>
         function extractText(content, field) {
             if (!content) return '';
-            // 匹配 <strong>字段:</strong> 后面紧跟到 </p> 的值
             const re = new RegExp('<strong>\\s*' + field + '\\s*:?</strong>([\\s\\S]*?)</p>', 'i');
             const m = content.match(re);
             if (!m) return '';
@@ -1414,10 +1979,8 @@
             return text && text !== 'N/A' ? text : '';
         }
 
-        // 提取某个 <h3>小节</h3> 之后到下一个 <h3> 或卡片结束之间的内容
         function extractSection(content, field) {
             if (!content) return '';
-            // 从 <h3>field</h3> 之后开始, 到下一个 <h3> 结束
             const re = new RegExp('<h3[^>]*>' + field + '[\\s\\S]*?</h3>([\\s\\S]*?)(?=<h3|$)', 'i');
             const m = content.match(re);
             if (!m) return '';
@@ -1425,25 +1988,18 @@
             return text && text !== 'N/A' ? text : '';
         }
 
-        // 提取例句: 多对 "1. 英文" + 缩进的中文翻译
-        // displayResult() 中: <p><strong>i.</strong> en</p><p style="...">zh</p>
         function extractExamples(content) {
             if (!content) return [];
             const examples = [];
-            // 英文行: <p><strong>1.</strong> hello</p>
             const enRegex = /<p>\s*<strong>\d+\.\s*<\/strong>\s*([\s\S]*?)<\/p>/gi;
-            // 中文行: <p style="...">你好</p> (紧跟在英文行后)
             const zhRegex = /<p\s+style="[^"]*"[^>]*>\s*([\s\S]*?)<\/p>/gi;
             const enMatches = [...content.matchAll(enRegex)];
             const zhMatches = [...content.matchAll(zhRegex)];
-
             const count = Math.max(enMatches.length, zhMatches.length);
             for (let i = 0; i < count; i++) {
                 const en = enMatches[i] ? htmlToText(enMatches[i][1]) : '';
                 const zh = zhMatches[i] ? htmlToText(zhMatches[i][1]) : '';
-                if (en || zh) {
-                    examples.push({ en, zh });
-                }
+                if (en || zh) examples.push({ en, zh });
             }
             return examples;
         }
@@ -1451,16 +2007,10 @@
         function generateMarkdown(history, date) {
             let md = `# 📚 英语学习笔记\n\n`;
             md += `---\n\n`;
-            md += `> 📅 **学习日期**: ${date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}\n`;
-            md += `> \n`;
-            md += `> ⏰ **导出时间**: ${date.toLocaleString('zh-CN')} (UTC: ${date.toISOString()})\n`;
-            md += `> \n`;
-            md += `> 📊 **今日学习**: **${history.length}** 个单词/短语\n`;
-            md += `> \n`;
-            md += `> 💡 **学习建议**: 每天坚持学习10-20个单词,配合复习效果更佳!\n\n`;
-            md += `---\n\n`;
-            
-            // 目录
+            md += `> 📅 **学习日期**: ${date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}\n>\n`;
+            md += `> ⏰ **导出时间**: ${date.toLocaleString('zh-CN')} (UTC: ${date.toISOString()})\n>\n`;
+            md += `> 📊 **今日学习**: **${history.length}** 个单词/短语\n>\n`;
+            md += `> 💡 **学习建议**: 每天坚持学习10-20个单词,配合复习效果更佳!\n\n---\n\n`;
             md += `## 📖 目录\n\n`;
             history.forEach((item, index) => {
                 const time = new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -1468,35 +2018,22 @@
                 md += `${index + 1}. [**${item.word}**](#${anchor}) - _${time}_\n`;
             });
             md += `\n---\n\n`;
-            
-            // 每个单词的详细内容
             history.forEach((item, index) => {
                 const anchor = item.word.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-').replace(/-+/g, '-');
                 md += `## ${index + 1}. ${item.word} {#${anchor}}\n\n`;
-                
-                // 解析HTML内容,提取各个部分
                 const content = item.content;
-                
-                // 提取单词标题信息
                 const wordMatch = content.match(/<h3[^>]*>📝\s*([^<]+)<\/h3>/);
-                if (wordMatch) {
-                    md += `### 📝 基本信息\n\n`;
-                }
-                
+                if (wordMatch) md += `### 📝 基本信息\n\n`;
                 const phoneticUk = extractText(content, '英式音标');
                 const phoneticUs = extractText(content, '美式音标');
                 const partOfSpeech = extractText(content, '词性');
-                
                 if (phoneticUk || phoneticUs || partOfSpeech) {
-                    md += `| 项目 | 内容 |\n`;
-                    md += `|------|------|\n`;
+                    md += `| 项目 | 内容 |\n|------|------|\n`;
                     if (phoneticUk) md += `| 🔊 英式音标 | ${phoneticUk} |\n`;
                     if (phoneticUs) md += `| 🔊 美式音标 | ${phoneticUs} |\n`;
                     if (partOfSpeech) md += `| 🏷️ 词性 | ${partOfSpeech} |\n`;
                     md += `\n`;
                 }
-                
-                // 释义
                 const chineseMeaning = extractText(content, '中文');
                 const englishDefinition = extractText(content, '英文');
                 if (chineseMeaning || englishDefinition) {
@@ -1504,68 +2041,32 @@
                     if (chineseMeaning) md += `**🇨🇳 中文释义**:\n\n${chineseMeaning}\n\n`;
                     if (englishDefinition) md += `**🇬🇧 英文释义**:\n\n${englishDefinition}\n\n`;
                 }
-                
-                // 用法
                 const usage = extractSection(content, '用法');
-                if (usage) {
-                    md += `### 💡 用法说明\n\n${usage}\n\n`;
-                }
-                
-                // 例句
+                if (usage) md += `### 💡 用法说明\n\n${usage}\n\n`;
                 const examples = extractExamples(content);
                 if (examples.length > 0) {
                     md += `### 📚 经典例句\n\n`;
                     examples.forEach((ex, i) => {
-                        md += `${i + 1}. **${ex.en}**\n`;
-                        md += `\n`;
-                        md += `   > ${ex.zh}\n\n`;
+                        md += `${i + 1}. **${ex.en}**\n\n   > ${ex.zh}\n\n`;
                     });
                 }
-                
-                // 同义词
                 const synonyms = extractText(content, '同义词');
                 if (synonyms && synonyms !== 'N/A' && synonyms.trim()) {
                     md += `### 🔄 同义词\n\n`;
-                    const synList = synonyms.split(/[,，]/).map(s => s.trim()).filter(s => s && s !== 'N/A');
-                    if (synList.length > 0) {
-                        synList.forEach(syn => {
-                            md += `- ${syn}\n`;
-                        });
-                        md += `\n`;
-                    }
+                    synonyms.split(/[,，]/).map(s => s.trim()).filter(s => s && s !== 'N/A').forEach(syn => { md += `- ${syn}\n`; });
+                    md += `\n`;
                 }
-                
-                // 反义词
                 const antonyms = extractText(content, '反义词');
                 if (antonyms && antonyms !== 'N/A' && antonyms.trim()) {
                     md += `### ⚡ 反义词\n\n`;
-                    const antList = antonyms.split(/[,，]/).map(a => a.trim()).filter(a => a && a !== 'N/A');
-                    if (antList.length > 0) {
-                        antList.forEach(ant => {
-                            md += `- ${ant}\n`;
-                        });
-                        md += `\n`;
-                    }
+                    antonyms.split(/[,，]/).map(a => a.trim()).filter(a => a && a !== 'N/A').forEach(ant => { md += `- ${ant}\n`; });
+                    md += `\n`;
                 }
-                
-                // 记忆技巧
                 const memoryTip = extractText(content, '记忆技巧');
-                if (memoryTip && memoryTip !== 'N/A' && memoryTip.trim()) {
-                    md += `### 🧠 记忆技巧\n\n`;
-                    md += `> 💭 ${memoryTip}\n\n`;
-                }
-                
+                if (memoryTip && memoryTip !== 'N/A' && memoryTip.trim()) md += `### 🧠 记忆技巧\n\n> 💭 ${memoryTip}\n\n`;
                 md += `---\n\n`;
             });
-            
-            // 底部签名
-            md += `---\n\n`;
-            md += `<div align="center">\n\n`;
-            md += `✨ **Generated by English Learning Assistant**\n\n`;
-            md += `💪 _Keep learning, keep growing!_\n\n`;
-            md += `📅 _坚持每天学习,积少成多!_\n\n`;
-            md += `</div>\n`;
-            
+            md += `---\n\n<div align="center">\n\n✨ **Generated by English Learning Assistant**\n\n💪 _Keep learning, keep growing!_\n\n📅 _坚持每天学习,积少成多!_\n\n</div>\n`;
             return md;
         }
 
@@ -1579,14 +2080,12 @@
                     ${item.content}
                 </div>
             `).join('');
-
             return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>英语学习笔记</title>
-<style>body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);padding:40px;}.container{max-width:900px;margin:0 auto;background:white;padding:50px;border-radius:20px;}.header{text-align:center;margin-bottom:40px;}h1{color:#667eea;}.word-card{background:#f8f9fa;padding:30px;border-radius:15px;margin:20px 0;border-left:5px solid #667eea;}.word-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}.time-badge{background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:5px 15px;border-radius:20px;}</style>
-</head><body><div class="container"><div class="header"><h1>📚 英语学习笔记</h1><p>${date.toLocaleDateString('zh-CN')} | ${history.length} 个单词</p></div>${cards}</div></body></html>`;
+<style>body{font-family:'Inter','Noto Sans SC',sans-serif;background:#F8FAFC;padding:40px;color:#1E293B;}.container{max-width:900px;margin:0 auto;background:white;padding:50px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,0.05);}.header{text-align:center;margin-bottom:40px;}h1{color:#0F172A;font-size:36px;font-weight:700;}.word-card{background:#F8FAFC;padding:30px;border-radius:14px;margin:20px 0;border:1px solid rgba(15,23,42,0.08);box-shadow:0 2px 8px rgba(0,0,0,0.04);}.word-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}.time-badge{background:linear-gradient(135deg,#F59E0B,#D97706);color:white;padding:5px 15px;border-radius:20px;font-weight:600;}</style>
+</head><body><div class="container"><div class="header"><h1>📚 英语学习笔记</h1><p style="color:#64748B;">${date.toLocaleDateString('zh-CN')} | ${history.length} 个单词</p></div>${cards}</div></body></html>`;
         }
 
         function downloadFile(filename, content, type) {
-            console.log('下载文件:', filename);
             try {
                 const blob = new Blob([content], { type: type + ';charset=utf-8' });
                 const url = URL.createObjectURL(blob);
@@ -1596,15 +2095,11 @@
                 a.style.display = 'none';
                 document.body.appendChild(a);
                 a.click();
-                
-                // 延迟清理
                 setTimeout(() => {
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
-                    console.log('文件下载成功:', filename);
                 }, 100);
             } catch (error) {
-                console.error('下载文件失败:', error);
                 throw error;
             }
         }
@@ -1637,15 +2132,15 @@
             document.getElementById('pronunciationPanel').style.display = wordEditor.getMarkdown().trim() ? 'block' : 'none';
         });
 
-        // ===== Event Listeners (CSP compliant - no inline handlers) =====
+        // ===== Event Listeners =====
         (function() {
             var apiConfigHeader = document.getElementById('apiConfigHeader');
             if (apiConfigHeader) apiConfigHeader.addEventListener('click', function() { toggleSection('apiConfig'); });
 
-            document.querySelectorAll('.preset-card[data-preset]').forEach(function(card) {
+            document.querySelectorAll('.el-preset-card[data-preset]').forEach(function(card) {
                 card.addEventListener('click', function() {
                     var preset = this.getAttribute('data-preset');
-                    document.querySelectorAll('.preset-card').forEach(function(c) { c.classList.remove('active'); });
+                    document.querySelectorAll('.el-preset-card').forEach(function(c) { c.classList.remove('active'); });
                     this.classList.add('active');
                     usePreset(preset);
                 });
@@ -1667,7 +2162,7 @@
             bind('clearAllHistoryBtn', clearAllHistory);
         })();
 
-        // History event delegation (CSP compliant)
+        // History event delegation
         document.getElementById('historyList').addEventListener('click', function(e) {
             var delBtn = e.target.closest('[data-del-index]');
             if (delBtn) {
@@ -1675,7 +2170,7 @@
                 deleteHistoryItem(parseInt(delBtn.getAttribute('data-del-index')), e);
                 return;
             }
-            var historyItem = e.target.closest('.history-item');
+            var historyItem = e.target.closest('.el-history-item');
             if (historyItem) {
                 loadHistory(parseInt(historyItem.getAttribute('data-index')));
             }

@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.18.0-blue)
+![Version](https://img.shields.io/badge/version-0.19.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -230,6 +230,15 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.19.0 (2026-08-28)
+- **英语学习页面 UI 全面重构**：深海蓝 (#0F172A) + 琥珀金 (#F59E0B) 专业配色，Inter + Noto Sans SC 字体
+- 统一 Lucide 线性图标系统（1.5px 描边，24×24px），替换所有 emoji 图标
+- 微渐变 + 多层阴影卡片悬浮感设计，摒弃纯扁平风格
+- 严格 8px 栅格间距，模块间距 ≥64px（桌面）/ 40px（移动）
+- 支持暗色主题（Catppuccin Frappé/Macchiato/Mocha 自动适配）
+- 网页版（index.html iframe）与 Chrome 插件版同步更新
+- WCAG 2.1 AA 对比度标准，1024px/375px 响应式布局
 
 ### v0.18.0 (2026-08-28)
 

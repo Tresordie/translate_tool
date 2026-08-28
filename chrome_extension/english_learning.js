@@ -1,4 +1,4 @@
-        // ===== Chrome Extension Storage Adapter =====
+// ===== Chrome Extension Storage Adapter =====
         // Safely bridge localStorage <-> chrome.storage.local
         // If anything fails, fall back to native localStorage (page still works)
         (function() {
@@ -37,7 +37,7 @@
           }
         })();
 
-        console.log('%c✨ 英语学习助手 v4.0 已加载', 'color: #8b5cf6; font-size: 18px; font-weight: bold;');
+        console.log('%c✨ 英语学习助手 v5.0 已加载', 'color: #F59E0B; font-size: 18px; font-weight: bold;');
 
         const wordEditor = MdEditor.create(document.getElementById('wordInput'), {
           placeholder: '输入英文单词/短语或中文，例如: apple / 苹果 / hello world',
@@ -67,7 +67,7 @@
             if (text.trim()) {
               preview.innerHTML = renderMarkdown(text);
             } else {
-              preview.innerHTML = '<p style="color:var(--text-dim);font-style:italic;">输入内容即可实时预览...</p>';
+              preview.innerHTML = '<p style="color:var(--el-text-faint);font-style:italic;">输入内容即可实时预览...</p>';
             }
           }
         }
@@ -85,13 +85,11 @@
             document.getElementById('apiUrl').value = preset.url;
             document.getElementById('modelName').value = preset.model;
             
-            // active class managed by click event listener
-            
             if (service === 'custom') {
                 document.getElementById('apiUrl').focus();
             }
             
-            showTestResult('info', `✅ 已选择预设，请填写 API Key 后测试连接`);
+            showTestResult('info', `已选择预设，请填写 API Key 后测试连接`);
         }
 
         async function testApiConnection() {
@@ -101,11 +99,11 @@
             const testBtn = document.getElementById('testBtn');
             
             if (!apiUrl || !apiKey || !modelName) {
-                showTestResult('error', '❌ 请填写完整的API配置信息');
+                showTestResult('error', '请填写完整的API配置信息');
                 return;
             }
             
-            testBtn.innerHTML = '⏳ 测试中...';
+            testBtn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;stroke-width:1.5;fill:none;animation:elSpin 0.8s linear infinite"><circle cx="12" cy="12" r="10" stroke-dasharray="30 70"/></svg> 测试中...';
             testBtn.disabled = true;
             
             try {
@@ -130,19 +128,19 @@
                 const data = await response.json();
                 const reply = data.choices[0].message.content;
                 
-                showTestResult('success', `✅ 连接成功！模型: ${data.model || modelName}<br><p>AI回复: ${escapeHtml(reply)}</p><p style="margin-top: 10px;"><strong>🎉 配置可以正常使用！</strong></p>`);
+                showTestResult('success', `连接成功！模型: ${data.model || modelName}<br><p>AI回复: ${escapeHtml(reply)}</p><p style="margin-top: 10px;"><strong>配置可以正常使用！</strong></p>`);
                 
             } catch (error) {
-                showTestResult('error', `❌ 连接失败<br><p><strong>错误:</strong> ${escapeHtml(error.message)}</p>`);
+                showTestResult('error', `连接失败<br><p><strong>错误:</strong> ${escapeHtml(error.message)}</p>`);
             } finally {
-                testBtn.innerHTML = '🔌 测试连接';
+                testBtn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;stroke-width:1.5;fill:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 测试连接';
                 testBtn.disabled = false;
             }
         }
 
         function showTestResult(type, message) {
             const testResult = document.getElementById('testResult');
-            testResult.className = `test-result ${type}`;
+            testResult.className = `el-test-result ${type}`;
             testResult.innerHTML = message;
         }
 
@@ -158,12 +156,12 @@
             const modelName = document.getElementById('modelName').value.trim();
             
             if (!apiUrl || !apiKey || !modelName) {
-                showTestResult('error', '❌ 请填写完整的API配置信息');
+                showTestResult('error', '请填写完整的API配置信息');
                 return;
             }
             
             localStorage.setItem('apiConfig', JSON.stringify({ apiUrl, apiKey, modelName, savedAt: new Date().toISOString() }));
-            showTestResult('success', `✅ 配置已保存！<br><p>URL: ${apiUrl}</p><p>Model: ${modelName}</p>`);
+            showTestResult('success', `配置已保存！<br><p>URL: ${apiUrl}</p><p>Model: ${modelName}</p>`);
         }
 
         function clearApiConfig() {
@@ -173,7 +171,7 @@
                 document.getElementById('modelName').value = '';
                 localStorage.removeItem('apiConfig');
                 document.getElementById('testResult').style.display = 'none';
-                document.querySelectorAll('.preset-card').forEach(card => card.classList.remove('active'));
+                document.querySelectorAll('.el-preset-card').forEach(card => card.classList.remove('active'));
             }
         }
 
@@ -187,7 +185,7 @@
             }
         }
 
-        // ===== 插件配置同步（LinguaFlow 扩展广播）：config{baseUrl,apiKey,model} → apiConfig{apiUrl,apiKey,modelName} =====
+        // ===== 插件配置同步（LinguaFlow 扩展广播） =====
         function applySyncedApiConfig(cfg) {
             if (!cfg || !cfg.baseUrl) return;
             const apiUrlEl = document.getElementById('apiUrl');
@@ -199,14 +197,14 @@
             try {
                 localStorage.setItem('apiConfig', JSON.stringify({ apiUrl: cfg.baseUrl, apiKey: cfg.apiKey, modelName: cfg.model, savedAt: new Date().toISOString() }));
             } catch (e) {}
-            if (typeof showTestResult === 'function') showTestResult('success', `✅ 已同步插件配置（Base URL / API Key / Model）`);
+            if (typeof showTestResult === 'function') showTestResult('success', `已同步插件配置（Base URL / API Key / Model）`);
         }
         // 网页环境：content script 通过 postMessage 广播
         window.addEventListener('message', (e) => {
             const d = e.data;
             if (d && d.source === 'linguaflow-extension' && d.config) applySyncedApiConfig(d.config);
         });
-        // 扩展环境：直接监听 chrome.storage，并读取已有配置兑底
+        // 扩展环境：直接监听 chrome.storage
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
             chrome.storage.onChanged.addListener((changes, area) => {
                 if (area === 'local' && changes.config && changes.config.newValue) {
@@ -220,7 +218,7 @@
 
         function toggleSection(sectionId) {
             const content = document.getElementById(`${sectionId}-content`);
-            const icon = document.getElementById(`${sectionId}-icon`);
+            const icon = document.getElementById(`apiConfig-icon`);
             
             if (content.classList.contains('collapsed')) {
                 content.classList.remove('collapsed');
@@ -232,13 +230,11 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Load config from localStorage (works in all contexts)
             loadApiConfig();
             loadFromStorage();
             displayHistory();
             try { initVoices(); } catch(e) { console.warn('[EL] initVoices:', e.message); }
             try { if (speechSynthesis && speechSynthesis.onvoiceschanged !== undefined) { speechSynthesis.onvoiceschanged = initVoices; } } catch(e) {}
-            // Additionally sync from chrome.storage if available
             try {
                 if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
                     chrome.storage.local.get(['apiConfig', 'englishLearningData', 'learningHistory'], function(data) {
@@ -367,23 +363,26 @@
             
             if (history.length === 0) {
                 historyList.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
-                        <p>暂无学习记录</p>
-                        <p style="font-size: 0.9em; margin-top: 10px;">开始学习你的第一个单词吧！</p>
+                    <div class="el-empty-state">
+                        <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        <div class="el-empty-state-title">暂无学习记录</div>
+                        <div class="el-empty-state-desc">开始学习你的第一个单词吧</div>
                     </div>
                 `;
                 return;
             }
 
             historyList.innerHTML = history.map((item, index) => `
-                <div class="history-item" data-index="${index}">
+                <div class="el-history-item" data-index="${index}">
                     <div style="flex: 1;">
-                        <div class="history-word">${item.word}</div>
-                        <div class="history-time">${new Date(item.timestamp).toLocaleString('zh-CN')}</div>
+                        <div class="el-history-word">${escapeHtml(item.word)}</div>
+                        <div class="el-history-time">${new Date(item.timestamp).toLocaleString('zh-CN')}</div>
                     </div>
-                    <div class="history-actions">
-                        <button class="btn-small btn-delete" data-del-index="${index}">删除</button>
+                    <div class="el-history-actions">
+                        <button class="el-btn-delete-sm" data-del-index="${index}">
+                            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            删除
+                        </button>
                     </div>
                 </div>
             `).join('');
@@ -395,7 +394,7 @@
             wordEditor.setMarkdown(item.word);
             // Re-render from raw content if available, else use stored innerHTML
             if (item.rawContent) {
-                document.getElementById('resultContent').innerHTML = `<div class="result-card"><div class="md-rendered">${renderMarkdown(item.rawContent)}</div></div>`;
+                document.getElementById('resultContent').innerHTML = `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--el-accent);stroke-width:1.5;fill:none"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 学习结果</div><div class="md-rendered">${renderMarkdown(item.rawContent)}</div></div>`;
             } else {
                 document.getElementById('resultContent').innerHTML = item.content;
             }
@@ -457,7 +456,7 @@
                     displayResult(result);
                     saveHistory({ word, content: content, timestamp: new Date().toISOString() });
                 } else {
-                    document.getElementById('resultContent').innerHTML = `<div class="result-card"><h3>📖 学习结果</h3><div class="md-rendered">${renderMarkdown(content)}</div></div>`;
+                    document.getElementById('resultContent').innerHTML = `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--el-accent);stroke-width:1.5;fill:none"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 学习结果</div><div class="md-rendered">${renderMarkdown(content)}</div></div>`;
                     document.getElementById('resultSection').style.display = 'block';
                     saveHistory({ word, content: content, timestamp: new Date().toISOString() });
                 }
@@ -473,36 +472,55 @@
 
         function displayResult(result) {
             const html = `
-                <div class="result-card">
-                    <h3>📝 ${result.word}</h3>
-                    <p><strong>英式音标:</strong> ${result.phonetic_uk || 'N/A'}</p>
-                    <p><strong>美式音标:</strong> ${result.phonetic_us || 'N/A'}</p>
-                    <p><strong>词性:</strong> ${result.part_of_speech || 'N/A'}</p>
+                <div class="el-result-card el-result-word-header">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        ${escapeHtml(result.word)}
+                    </div>
+                    <div class="el-phonetic-grid">
+                        <div class="el-phonetic-item">
+                            <div class="el-phonetic-label">英式音标</div>
+                            <div class="el-phonetic-value">${escapeHtml(result.phonetic_uk || 'N/A')}</div>
+                        </div>
+                        <div class="el-phonetic-item">
+                            <div class="el-phonetic-label">美式音标</div>
+                            <div class="el-phonetic-value">${escapeHtml(result.phonetic_us || 'N/A')}</div>
+                        </div>
+                    </div>
+                    <p style="margin-top:12px"><strong>词性:</strong> ${escapeHtml(result.part_of_speech || 'N/A')}</p>
                 </div>
-                <div class="result-card">
-                    <h3>📖 释义</h3>
-                    <div class="md-rendered"><strong>中文:</strong> ${renderMarkdown(result.chinese_meaning || 'N/A')}</div>
-                    <div class="md-rendered"><strong>英文:</strong> ${renderMarkdown(result.english_definition || 'N/A')}</div>
+                <div class="el-result-card">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                        释义
+                    </div>
+                    <p><strong>中文:</strong> ${renderMarkdown(result.chinese_meaning || 'N/A')}</p>
+                    <p><strong>英文:</strong> ${renderMarkdown(result.english_definition || 'N/A')}</p>
                 </div>
-                <div class="result-card">
-                    <h3>💡 用法</h3>
+                <div class="el-result-card">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+                        用法
+                    </div>
                     <div class="md-rendered">${renderMarkdown(result.usage || 'N/A')}</div>
                 </div>
-                <div class="result-card">
-                    <h3>📚 例句</h3>
-                    ${(result.examples || []).map((ex, i) => `<div class="md-rendered"><p><strong>${i+1}.</strong> ${renderMarkdown(ex.en)}</p><p style="margin-left:20px;color:var(--text-dim);">${renderMarkdown(ex.zh)}</p></div>`).join('')}
+                <div class="el-result-card">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                        例句
+                    </div>
+                    ${(result.examples || []).map((ex, i) => `<div style="margin-bottom:12px;"><p><strong>${i+1}.</strong> ${renderMarkdown(ex.en)}</p><p style="padding-left:20px;color:var(--el-text-faint);">${renderMarkdown(ex.zh)}</p></div>`).join('')}
                 </div>
-                ${result.synonyms && result.synonyms.length ? `<div class="result-card"><h3>🔄 同义词</h3><div class="md-rendered"><p>${result.synonyms.join(', ')}</p></div></div>` : ''}
-                ${result.antonyms && result.antonyms.length ? `<div class="result-card"><h3>⚡ 反义词</h3><div class="md-rendered"><p>${result.antonyms.join(', ')}</p></div></div>` : ''}
-                ${result.memory_tip ? `<div class="result-card"><h3>🧠 记忆技巧</h3><div class="md-rendered">${renderMarkdown(result.memory_tip)}</div></div>` : ''}
+                ${result.synonyms && result.synonyms.length ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 同义词</div><p>${result.synonyms.join(', ')}</p></div>` : ''}
+                ${result.antonyms && result.antonyms.length ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> 反义词</div><p>${result.antonyms.join(', ')}</p></div>` : ''}
+                ${result.memory_tip ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.89-.356-1.751-.988-2.386l-.548-.547z"/></svg> 记忆技巧</div><div class="md-rendered">${renderMarkdown(result.memory_tip)}</div></div>` : ''}
             `;
             document.getElementById('resultContent').innerHTML = html;
             document.getElementById('resultSection').style.display = 'block';
         }
 
-        // 获取UTC+8时间信息，用于文件命名和"今天"判定
+        // 获取UTC+8时间信息
         function getUTC8Time(date) {
-            // 将时间转换为UTC+8(北京时间)
             const utc8Ms = date.getTime() + (date.getTimezoneOffset() * 60000) + (8 * 3600000);
             const utc8Date = new Date(utc8Ms);
             
@@ -514,11 +532,8 @@
             const minutes = pad(utc8Date.getMinutes());
             const seconds = pad(utc8Date.getSeconds());
             
-            // 用于文件命名: 2026-06-19_14-30-45 (避免 Windows 文件名非法字符 : *)
             const timestamp = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
-            // 用于"今天"判定: 2026-06-19
             const dateStr = `${year}-${month}-${day}`;
-            // 用于显示: 2026-06-19 14:30:45 UTC+8
             const display = `${year}-${month}-${day} ${hours}:${minutes}:${seconds} (UTC+8)`;
             
             return { timestamp, dateStr, display, utc8Date };
@@ -531,7 +546,6 @@
         function saveContent() {
             console.log('开始保存今天内容...');
             const history = getHistory();
-            console.log('历史记录总数:', history.length);
             
             if (history.length === 0) {
                 showError('还没有学习内容，请先学习一些单词');
@@ -541,15 +555,10 @@
             const now = new Date();
             const utc8 = getUTC8Time(now);
             
-            console.log('今天日期(UTC+8):', utc8.dateStr);
-            
             const todayHistory = history.filter(item => {
                 const itemDate = getUTC8DateString(new Date(item.timestamp));
-                console.log('记录日期(UTC+8):', itemDate, item.word);
                 return itemDate === utc8.dateStr;
             });
-            
-            console.log('今天(UTC+8)学习记录数:', todayHistory.length);
             
             if (todayHistory.length === 0) {
                 showError('今天还没有学习内容，请先学习一些单词');
@@ -557,24 +566,17 @@
             }
 
             try {
-                console.log('生成Markdown...');
                 const md = generateMarkdown(todayHistory, now);
-                console.log('生成HTML...');
                 const html = generateHTML(todayHistory, now);
 
-                console.log('下载Markdown文件...');
                 downloadFile(`${utc8.timestamp}-英语学习笔记.md`, md, 'text/markdown');
                 
-                console.log('下载HTML文件...');
                 setTimeout(() => {
                     downloadFile(`${utc8.timestamp}-英语学习笔记.html`, html, 'text/html');
-                    console.log('保存完成!');
                 }, 500);
 
-                // 显示成功消息
-                const successMsg = `✅ 已保存今天(UTC+8) ${todayHistory.length} 个单词\n\n📝 ${utc8.timestamp}-英语学习笔记.md\n🌐 ${utc8.timestamp}-英语学习笔记.html\n\n💡 如果浏览器阻止下载,请允许弹出窗口`;
+                const successMsg = `已保存今天(UTC+8) ${todayHistory.length} 个单词\n\n${utc8.timestamp}-英语学习笔记.md\n${utc8.timestamp}-英语学习笔记.html\n\n如果浏览器阻止下载,请允许弹出窗口`;
                 
-                // 使用自定义的成功提示
                 showSuccess(successMsg);
                 
             } catch (error) {
@@ -585,13 +587,12 @@
 
         function showSuccess(message) {
             const errorEl = document.getElementById('errorMessage');
-            errorEl.style.background = 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.1))';
-            errorEl.style.color = '#10b981';
-            errorEl.style.border = '1px solid rgba(16,185,129,0.3)';
+            errorEl.style.background = 'rgba(5, 150, 105, 0.08)';
+            errorEl.style.color = '#047857';
+            errorEl.style.border = '1px solid rgba(5, 150, 105, 0.2)';
             errorEl.textContent = message;
             errorEl.classList.add('active');
             
-            // 10秒后隐藏
             setTimeout(() => {
                 errorEl.classList.remove('active');
                 errorEl.style.background = '';
@@ -600,7 +601,6 @@
             }, 10000);
         }
 
-        // 将一段HTML片段中的标签、实体解码为纯文本
         function htmlToText(html) {
             if (!html) return '';
             const div = document.createElement('div');
@@ -608,11 +608,8 @@
             return (div.textContent || div.innerText || '').trim();
         }
 
-        // 从 result-card 的 HTML 中提取 "字段: 值" 形式的内容
-        // 匹配 displayResult() 生成的: <p><strong>字段:</strong> 值</p>
         function extractText(content, field) {
             if (!content) return '';
-            // 匹配 <strong>字段:</strong> 后面紧跟到 </p> 的值
             const re = new RegExp('<strong>\\s*' + field + '\\s*:?</strong>([\\s\\S]*?)</p>', 'i');
             const m = content.match(re);
             if (!m) return '';
@@ -620,10 +617,8 @@
             return text && text !== 'N/A' ? text : '';
         }
 
-        // 提取某个 <h3>小节</h3> 之后到下一个 <h3> 或卡片结束之间的内容
         function extractSection(content, field) {
             if (!content) return '';
-            // 从 <h3>field</h3> 之后开始, 到下一个 <h3> 结束
             const re = new RegExp('<h3[^>]*>' + field + '[\\s\\S]*?</h3>([\\s\\S]*?)(?=<h3|$)', 'i');
             const m = content.match(re);
             if (!m) return '';
@@ -631,14 +626,10 @@
             return text && text !== 'N/A' ? text : '';
         }
 
-        // 提取例句: 多对 "1. 英文" + 缩进的中文翻译
-        // displayResult() 中: <p><strong>i.</strong> en</p><p style="...">zh</p>
         function extractExamples(content) {
             if (!content) return [];
             const examples = [];
-            // 英文行: <p><strong>1.</strong> hello</p>
             const enRegex = /<p>\s*<strong>\d+\.\s*<\/strong>\s*([\s\S]*?)<\/p>/gi;
-            // 中文行: <p style="...">你好</p> (紧跟在英文行后)
             const zhRegex = /<p\s+style="[^"]*"[^>]*>\s*([\s\S]*?)<\/p>/gi;
             const enMatches = [...content.matchAll(enRegex)];
             const zhMatches = [...content.matchAll(zhRegex)];
@@ -657,16 +648,11 @@
         function generateMarkdown(history, date) {
             let md = `# 📚 英语学习笔记\n\n`;
             md += `---\n\n`;
-            md += `> 📅 **学习日期**: ${date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}\n`;
-            md += `> \n`;
-            md += `> ⏰ **导出时间**: ${date.toLocaleString('zh-CN')} (UTC: ${date.toISOString()})\n`;
-            md += `> \n`;
-            md += `> 📊 **今日学习**: **${history.length}** 个单词/短语\n`;
-            md += `> \n`;
-            md += `> 💡 **学习建议**: 每天坚持学习10-20个单词,配合复习效果更佳!\n\n`;
-            md += `---\n\n`;
+            md += `> 📅 **学习日期**: ${date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}\n>\n`;
+            md += `> ⏰ **导出时间**: ${date.toLocaleString('zh-CN')} (UTC: ${date.toISOString()})\n>\n`;
+            md += `> 📊 **今日学习**: **${history.length}** 个单词/短语\n>\n`;
+            md += `> 💡 **学习建议**: 每天坚持学习10-20个单词,配合复习效果更佳!\n\n---\n\n`;
             
-            // 目录
             md += `## 📖 目录\n\n`;
             history.forEach((item, index) => {
                 const time = new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -675,15 +661,12 @@
             });
             md += `\n---\n\n`;
             
-            // 每个单词的详细内容
             history.forEach((item, index) => {
                 const anchor = item.word.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-').replace(/-+/g, '-');
                 md += `## ${index + 1}. ${item.word} {#${anchor}}\n\n`;
                 
-                // 解析HTML内容,提取各个部分
                 const content = item.content;
                 
-                // 提取单词标题信息
                 const wordMatch = content.match(/<h3[^>]*>📝\s*([^<]+)<\/h3>/);
                 if (wordMatch) {
                     md += `### 📝 基本信息\n\n`;
@@ -694,15 +677,13 @@
                 const partOfSpeech = extractText(content, '词性');
                 
                 if (phoneticUk || phoneticUs || partOfSpeech) {
-                    md += `| 项目 | 内容 |\n`;
-                    md += `|------|------|\n`;
+                    md += `| 项目 | 内容 |\n|------|------|\n`;
                     if (phoneticUk) md += `| 🔊 英式音标 | ${phoneticUk} |\n`;
                     if (phoneticUs) md += `| 🔊 美式音标 | ${phoneticUs} |\n`;
                     if (partOfSpeech) md += `| 🏷️ 词性 | ${partOfSpeech} |\n`;
                     md += `\n`;
                 }
                 
-                // 释义
                 const chineseMeaning = extractText(content, '中文');
                 const englishDefinition = extractText(content, '英文');
                 if (chineseMeaning || englishDefinition) {
@@ -711,50 +692,39 @@
                     if (englishDefinition) md += `**🇬🇧 英文释义**:\n\n${englishDefinition}\n\n`;
                 }
                 
-                // 用法
                 const usage = extractSection(content, '用法');
                 if (usage) {
                     md += `### 💡 用法说明\n\n${usage}\n\n`;
                 }
                 
-                // 例句
                 const examples = extractExamples(content);
                 if (examples.length > 0) {
                     md += `### 📚 经典例句\n\n`;
                     examples.forEach((ex, i) => {
-                        md += `${i + 1}. **${ex.en}**\n`;
-                        md += `\n`;
-                        md += `   > ${ex.zh}\n\n`;
+                        md += `${i + 1}. **${ex.en}**\n\n   > ${ex.zh}\n\n`;
                     });
                 }
                 
-                // 同义词
                 const synonyms = extractText(content, '同义词');
                 if (synonyms && synonyms !== 'N/A' && synonyms.trim()) {
                     md += `### 🔄 同义词\n\n`;
                     const synList = synonyms.split(/[,，]/).map(s => s.trim()).filter(s => s && s !== 'N/A');
                     if (synList.length > 0) {
-                        synList.forEach(syn => {
-                            md += `- ${syn}\n`;
-                        });
+                        synList.forEach(syn => { md += `- ${syn}\n`; });
                         md += `\n`;
                     }
                 }
                 
-                // 反义词
                 const antonyms = extractText(content, '反义词');
                 if (antonyms && antonyms !== 'N/A' && antonyms.trim()) {
                     md += `### ⚡ 反义词\n\n`;
                     const antList = antonyms.split(/[,，]/).map(a => a.trim()).filter(a => a && a !== 'N/A');
                     if (antList.length > 0) {
-                        antList.forEach(ant => {
-                            md += `- ${ant}\n`;
-                        });
+                        antList.forEach(ant => { md += `- ${ant}\n`; });
                         md += `\n`;
                     }
                 }
                 
-                // 记忆技巧
                 const memoryTip = extractText(content, '记忆技巧');
                 if (memoryTip && memoryTip !== 'N/A' && memoryTip.trim()) {
                     md += `### 🧠 记忆技巧\n\n`;
@@ -764,7 +734,6 @@
                 md += `---\n\n`;
             });
             
-            // 底部签名
             md += `---\n\n`;
             md += `<div align="center">\n\n`;
             md += `✨ **Generated by English Learning Assistant**\n\n`;
@@ -787,8 +756,8 @@
             `).join('');
 
             return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>英语学习笔记</title>
-<style>body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);padding:40px;}.container{max-width:900px;margin:0 auto;background:white;padding:50px;border-radius:20px;}.header{text-align:center;margin-bottom:40px;}h1{color:#667eea;}.word-card{background:#f8f9fa;padding:30px;border-radius:15px;margin:20px 0;border-left:5px solid #667eea;}.word-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}.time-badge{background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:5px 15px;border-radius:20px;}</style>
-</head><body><div class="container"><div class="header"><h1>📚 英语学习笔记</h1><p>${date.toLocaleDateString('zh-CN')} | ${history.length} 个单词</p></div>${cards}</div></body></html>`;
+<style>body{font-family:'Inter','Noto Sans SC',sans-serif;background:#F8FAFC;padding:40px;color:#1E293B;}.container{max-width:900px;margin:0 auto;background:white;padding:50px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,0.05);}.header{text-align:center;margin-bottom:40px;}h1{color:#0F172A;font-size:36px;font-weight:700;}.word-card{background:#F8FAFC;padding:30px;border-radius:14px;margin:20px 0;border:1px solid rgba(15,23,42,0.08);box-shadow:0 2px 8px rgba(0,0,0,0.04);}.word-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}.time-badge{background:linear-gradient(135deg,#F59E0B,#D97706);color:white;padding:5px 15px;border-radius:20px;font-weight:600;}</style>
+</head><body><div class="container"><div class="header"><h1>📚 英语学习笔记</h1><p style="color:#64748B;">${date.toLocaleDateString('zh-CN')} | ${history.length} 个单词</p></div>${cards}</div></body></html>`;
         }
 
         function downloadFile(filename, content, type) {
@@ -803,7 +772,6 @@
                 document.body.appendChild(a);
                 a.click();
                 
-                // 延迟清理
                 setTimeout(() => {
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
@@ -848,10 +816,10 @@
             var apiConfigHeader = document.getElementById('apiConfigHeader');
             if (apiConfigHeader) apiConfigHeader.addEventListener('click', function() { toggleSection('apiConfig'); });
 
-            document.querySelectorAll('.preset-card[data-preset]').forEach(function(card) {
+            document.querySelectorAll('.el-preset-card[data-preset]').forEach(function(card) {
                 card.addEventListener('click', function() {
                     var preset = this.getAttribute('data-preset');
-                    document.querySelectorAll('.preset-card').forEach(function(c) { c.classList.remove('active'); });
+                    document.querySelectorAll('.el-preset-card').forEach(function(c) { c.classList.remove('active'); });
                     this.classList.add('active');
                     usePreset(preset);
                 });
@@ -881,7 +849,7 @@
                 deleteHistoryItem(parseInt(delBtn.getAttribute('data-del-index')), e);
                 return;
             }
-            var historyItem = e.target.closest('.history-item');
+            var historyItem = e.target.closest('.el-history-item');
             if (historyItem) {
                 loadHistory(parseInt(historyItem.getAttribute('data-index')));
             }
