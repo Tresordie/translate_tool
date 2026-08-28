@@ -60,9 +60,10 @@
             --el-transition-slow: 0.3s ease;
         }
 
-        html[data-theme="cat-frappe"] .el-wrapper,
-        html[data-theme="cat-macchiato"] .el-wrapper,
-        html[data-theme="cat-mocha"] .el-wrapper {
+        /* 暗色主题：在 html 层级覆盖变量，确保 html/body 背景色也跟随暗色 */
+        html[data-theme="cat-frappe"],
+        html[data-theme="cat-macchiato"],
+        html[data-theme="cat-mocha"] {
             --el-bg: #1E1E2E;
             --el-bg-subtle: #181825;
             --el-surface: #302D41;
@@ -93,12 +94,13 @@
             color: var(--el-text);
             background: var(--el-bg);
             min-height: 100vh;
-            padding: var(--el-space-lg);
+            padding: 0;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
 
-        .el-container { max-width: 100%; margin: 0 auto; }
+        /* 内容容器：水平内边距 24px，与 AI Parse 页面 .container 一致 */
+        .el-container { max-width: 100%; margin: 0 auto; padding: 0 24px; }
 
         .el-header {
             background: var(--el-gradient-header);
@@ -365,7 +367,6 @@
         .el-result-card .md-rendered strong { color: var(--el-text); }
 
         @media (max-width: 768px) {
-            .el-wrapper { padding: var(--el-space-md); }
             .el-header { padding: var(--el-space-xl) var(--el-space-lg); margin-bottom: var(--el-space-2xl); }
             .el-header-title { font-size: 28px; }
             .el-section { padding: var(--el-space-lg) var(--el-space-md); margin-bottom: var(--el-space-2xl); }
@@ -377,10 +378,8 @@
             .el-phonetic-grid { grid-template-columns: 1fr; }
         }
 
-        /* Side Panel 模式：内容宽度与 AI Parse 页面一致（水平内边距 24px） */
+        /* Side Panel 模式 */
         @media (max-width: 480px) {
-            .el-wrapper { padding: 0; }
-            .el-container { max-width: 100%; padding: 0 24px; }
             .el-header { border-radius: 0; margin-bottom: var(--el-space-lg); padding: var(--el-space-lg) var(--el-space-md); }
             .el-header-title { font-size: 24px; }
             .el-section { border-radius: 0; border-left: none; border-right: none; margin-bottom: var(--el-space-lg); padding: var(--el-space-md); }
@@ -398,7 +397,6 @@
         }
 
         @media (max-width: 375px) {
-            .el-wrapper { padding: 0; }
             .el-header-title { font-size: 22px; }
             .el-preset-grid { grid-template-columns: 1fr; }
         }
