@@ -21,6 +21,22 @@
   let _busy = false;
   let _mdPreviewOpen = false;
 
+  /* ==================== 状态持久化（Web: localStorage / 扩展: chrome.storage.local） ==================== */
+
+  const STATE_KEY = 'ai_parse_state';
+  const HISTORY_LIMIT = 30;
+  const state = { draft: '', instructions: '', lang: 'zh', history: [] };
+
+  let saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 500);
+  }
+  function saveNow() {
+    clearTimeout(saveTimer);
+    Ai.saveState(STATE_KEY, state);
+  }
+
   /* ==================== 通用工具 ==================== */
 
   const RUN_ICON =
@@ -125,11 +141,12 @@
 
   function initEditor() {
     const notesEditor = MdEditor.create($('notesInput'), {
-      initialMarkdown: localStorage.getItem('ai_parse_draft') || '',
+      initialMarkdown: '',
       placeholder: '在这里粘贴原始工作笔记 / 测试日志 / 会议纪要 / 邮件线程...',
       onInput: () => {
-        if (_mdPreviewOpen) $('mdPreviewContent').innerHTML = renderMarkdown(notesEditor.getMarkdown());
-        try { localStorage.setItem('ai_parse_draft', notesEditor.getMarkdown()); } catch (e) {}
+        state.draft = notesEditor.getMarkdown();
+        if (_mdPreviewOpen) $('mdPreviewContent').innerHTML = renderMarkdown(state.draft);
+        scheduleSave();
       },
     });
 
@@ -201,12 +218,14 @@
     $('clearInputBtn').addEventListener('click', () => {
       notesEditor.clear();
       $('instructionsInput').value = '';
+      state.draft = '';
+      state.instructions = '';
       loadedFiles = [];
       $('fileInput').value = '';
       updateFileNameTag();
       updateMode();
       hideResults();
-      try { localStorage.removeItem('ai_parse_draft'); } catch (e) {}
+      saveNow();
       showToast('已清空', 'success');
     });
   }
@@ -280,7 +299,7 @@
     setLoading(true);
     $('runBtn').innerHTML = runBtnHtml('解析中...');
     try {
-      const tasks = await Ai.parseNotes(notes);
+      const tasks = await Ai.parseNotes(notes, state.lang);
       currentTasks = tasks;
       if (!tasks.length) {
         hideResults();
@@ -295,6 +314,7 @@
       $('resultMeta').textContent = '共提取 ' + tasks.length + ' 个任务';
       $('taskListSection').style.display = 'block';
       renderTaskList(tasks);
+      pushHistory({ mode: 'parse', lang: state.lang, input: notes, tasks: tasks });
       showToast('已提取 ' + tasks.length + ' 个任务，可勾选后创建', 'success');
     } catch (err) {
       showError(err);
@@ -316,9 +336,13 @@
     setLoading(true);
     $('runBtn').innerHTML = runBtnHtml('分析中...');
     try {
-      const md = await Ai.analyzeContent({ instructions, content, email });
+      const md = await Ai.analyzeContent({ instructions, content, email, lang: state.lang });
       currentSummaryMd = md;
       showSummary(md, email ? '邮件线程分析' : '分析结果');
+      pushHistory({
+        mode: 'analyze', lang: state.lang, email: email,
+        input: (instructions ? instructions + '\n' : '') + notes, md: md,
+      });
       showToast(email ? '邮件线程总结已生成' : '分析完成', 'success');
     } catch (err) {
       showError(err);
@@ -348,6 +372,137 @@
       }
       runParse(notes);
     }
+  }
+
+  /* ==================== 历史记录 ==================== */
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    const p = (n) => String(n).padStart(2, '0');
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function pushHistory(entry) {
+    entry.input = String(entry.input || '').slice(0, 5000);
+    const firstLine = entry.input.split('\n').map((l) => l.trim()).find((l) => l.length > 0);
+    entry.title = (firstLine || (entry.mode === 'parse' ? '任务抽取' : '分析总结')).slice(0, 60);
+    entry.ts = Date.now();
+    state.history.unshift(entry);
+    if (state.history.length > HISTORY_LIMIT) state.history.length = HISTORY_LIMIT;
+    saveNow();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const list = $('historyList');
+    $('historyCount').textContent = state.history.length + ' 条';
+    if (!state.history.length) {
+      list.innerHTML = '<div class="records-empty">暂无历史记录，解析 / 分析完成后自动保存，点击可恢复结果</div>';
+      return;
+    }
+    list.innerHTML = state.history.map((h, i) => {
+      const preview = h.mode === 'parse'
+        ? (h.tasks || []).map((t) => t.title).join('；').slice(0, 90)
+        : String(h.md || '').replace(/[#|>*`-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90);
+      const modeTag = h.mode === 'parse' ? '任务抽取' : (h.email ? '邮件分析' : '分析');
+      const lang = Ai.getOutputLang(h.lang);
+      return '<div class="history-item" data-index="' + i + '">'
+        + '<div class="history-item-body">'
+        + '<div class="hi-title">' + escapeHtml(h.title) + '</div>'
+        + '<div class="hi-preview">' + escapeHtml(preview || '(空)') + '</div>'
+        + '<div class="hi-meta">'
+        + '<span class="hi-tag">' + modeTag + '</span>'
+        + '<span class="hi-tag">' + escapeHtml(lang.label) + '</span>'
+        + '<span>' + formatTime(h.ts) + '</span>'
+        + '</div></div>'
+        + '<div class="hi-actions">'
+        + '<button class="hi-btn hi-delete" data-index="' + i + '" title="删除">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>'
+        + '</button></div></div>';
+    }).join('');
+  }
+
+  function restoreHistory(index) {
+    const h = state.history[index];
+    if (!h) return;
+    hideError();
+    if (h.mode === 'parse') {
+      currentTasks = h.tasks || [];
+      $('summaryResult').style.display = 'none';
+      $('summaryFooter').classList.remove('visible');
+      $('resultTitle').textContent = '任务列表';
+      $('resultMeta').textContent = '历史记录 · ' + formatTime(h.ts);
+      $('taskListSection').style.display = 'block';
+      renderTaskList(currentTasks);
+    } else {
+      currentSummaryMd = h.md || '';
+      showSummary(currentSummaryMd, h.email ? '邮件线程分析' : '分析结果');
+      $('resultMeta').textContent = '历史记录 · ' + formatTime(h.ts);
+    }
+    showToast('已恢复历史记录', 'info');
+  }
+
+  function initHistory() {
+    $('historyList').addEventListener('click', (e) => {
+      const delBtn = e.target.closest('.hi-delete');
+      if (delBtn) {
+        e.stopPropagation();
+        const idx = parseInt(delBtn.getAttribute('data-index'), 10);
+        state.history.splice(idx, 1);
+        saveNow();
+        renderHistory();
+        showToast('已删除该条记录', 'info');
+        return;
+      }
+      const item = e.target.closest('.history-item');
+      if (item) restoreHistory(parseInt(item.getAttribute('data-index'), 10));
+    });
+    $('clearHistoryBtn').addEventListener('click', () => {
+      if (!state.history.length) return;
+      if (!confirm('确定清空全部 ' + state.history.length + ' 条历史记录？此操作不可恢复。')) return;
+      state.history = [];
+      saveNow();
+      renderHistory();
+      showToast('已清空全部历史记录', 'info');
+    });
+  }
+
+  /* ==================== 语种选择 ==================== */
+
+  function initLangSelect() {
+    const sel = $('langSelect');
+    sel.innerHTML = Ai.OUTPUT_LANGS.map((l) =>
+      '<option value="' + l.code + '">' + escapeHtml(l.label) + '</option>').join('');
+    sel.value = state.lang;
+    sel.addEventListener('change', () => {
+      state.lang = sel.value;
+      saveNow();
+    });
+  }
+
+  /* ==================== 状态加载 ==================== */
+
+  function loadPersistedState() {
+    Ai.loadState(STATE_KEY).then((saved) => {
+      if (saved && typeof saved === 'object') {
+        if (typeof saved.draft === 'string') state.draft = saved.draft;
+        if (typeof saved.instructions === 'string') state.instructions = saved.instructions;
+        if (typeof saved.lang === 'string') state.lang = saved.lang;
+        if (Array.isArray(saved.history)) state.history = saved.history;
+      }
+      // 迁移旧版草稿键（ai_parse_draft），避免升级后内容丢失
+      if (!state.draft) {
+        let legacy = null;
+        try { legacy = localStorage.getItem('ai_parse_draft'); } catch (e) {}
+        if (legacy) state.draft = legacy;
+      }
+      if (!Ai.OUTPUT_LANGS.some((l) => l.code === state.lang)) state.lang = 'zh';
+      notesEditor.setMarkdown(state.draft);
+      $('instructionsInput').value = state.instructions;
+      $('langSelect').value = state.lang;
+      updateMode();
+      renderHistory();
+    });
   }
 
   /* ==================== 按钮绑定 ==================== */
@@ -413,7 +568,11 @@
       Ai.downloadText('ai-parse-' + stamp() + '.html', Ai.mdToHtml(currentSummaryMd, 'AI 解析总结'), 'text/html;charset=utf-8');
     });
 
-    $('instructionsInput').addEventListener('input', updateMode);
+    $('instructionsInput').addEventListener('input', () => {
+      state.instructions = String($('instructionsInput').value || '');
+      scheduleSave();
+      updateMode();
+    });
 
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -431,6 +590,9 @@
     initSettings();
     initFiles(notesEditor);
     initActions();
+    initLangSelect();
+    initHistory();
+    loadPersistedState();
     updateMode();
     updateCreateBtn();
   }

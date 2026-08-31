@@ -75,6 +75,38 @@
     }
   }
 
+  /* ================= 页面状态持久化（双通道） ================= */
+
+  /** 读取页面状态（JSON 对象），不存在或损坏时返回 null；扩展环境读 chrome.storage.local，网页环境读 localStorage */
+  function loadState(key) {
+    return new Promise(function (resolve) {
+      if (isExtension()) {
+        try {
+          chrome.storage.local.get([key], function (res) { resolve((res && res[key]) || null); });
+        } catch (e) { resolve(null); }
+      } else {
+        var raw = null;
+        try { raw = localStorage.getItem(key); } catch (e) {}
+        var data = null;
+        if (raw) { try { data = JSON.parse(raw); } catch (e) {} }
+        resolve(data);
+      }
+    });
+  }
+
+  /** 写入页面状态；扩展环境写 chrome.storage.local，网页环境写 localStorage */
+  function saveState(key, value) {
+    if (isExtension()) {
+      try {
+        var patch = {};
+        patch[key] = value;
+        chrome.storage.local.set(patch, function () {});
+      } catch (e) {}
+    } else {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    }
+  }
+
   /* ================= chat/completions ================= */
 
   var REASONING_RE = /reasoner|reasoning|thinking|qwq|kimi-k3|deepseek-v4|(^|[^a-z0-9])o[134]($|[^0-9])/i;
@@ -150,6 +182,30 @@
     }
   }
 
+  /* ================= 输出语种配置（AI Parse） ================= */
+
+  // label 供下拉框展示，name 为注入 Prompt 的语种表述；新增语种只需在此追加
+  var OUTPUT_LANGS = [
+    { code: 'zh', label: '中文', name: 'Simplified Chinese (中文)' },
+    { code: 'en', label: '英语', name: 'English' },
+    { code: 'ja', label: '日语', name: 'Japanese (日本語)' },
+    { code: 'ko', label: '韩语', name: 'Korean (한국어)' },
+    { code: 'fr', label: '法语', name: 'French (Français)' },
+    { code: 'de', label: '德语', name: 'German (Deutsch)' },
+    { code: 'es', label: '西班牙语', name: 'Spanish (Español)' },
+    { code: 'ru', label: '俄语', name: 'Russian (Русский)' },
+    { code: 'ar', label: '阿拉伯语', name: 'Arabic (العربية)' },
+    { code: 'pt', label: '葡萄牙语', name: 'Portuguese (Português)' },
+  ];
+
+  /** 按 code 查语种配置；未知/缺省回退中文 */
+  function getOutputLang(code) {
+    for (var i = 0; i < OUTPUT_LANGS.length; i++) {
+      if (OUTPUT_LANGS[i].code === code) return OUTPUT_LANGS[i];
+    }
+    return OUTPUT_LANGS[0];
+  }
+
   /* ================= AI Parse — 任务抽取 ================= */
 
   var SYSTEM_PROMPT_TASKS = [
@@ -163,11 +219,12 @@
     '{"tasks":[{"title":"short imperative title","description":"context, details, measurements, links","priority":"P0|P1|P2|P3","tags":["tag1"],"subSteps":["step 1","step 2"]}]}',
     '3. priority: P0 = critical / blocking line-down, P1 = high / this week,',
     '   P2 = medium / normal, P3 = low / nice-to-have. Default P2.',
-    '4. title: imperative, <= 60 chars, in the SAME language as the notes.',
-    '5. description: keep concrete facts (values, part numbers, station names).',
-    '6. subSteps: only when the notes clearly enumerate steps; else [].',
-    '7. tags: 0-3 short lowercase keywords (e.g. "ate", "harness", "pvt").',
-    '8. If there is no actionable task, return {"tasks":[]}.',
+    '4. Language: write ALL human-readable fields (title, description, subSteps) in {{LANG}}.',
+    '5. title: imperative, <= 60 chars.',
+    '6. description: keep concrete facts (values, part numbers, station names).',
+    '7. subSteps: only when the notes clearly enumerate steps; else [].',
+    '8. tags: 0-3 short lowercase keywords (e.g. "ate", "harness", "pvt").',
+    '9. If there is no actionable task, return {"tasks":[]}.',
   ].join('\n');
 
   var CONTENT_ANALYZE_PROMPT = [
@@ -182,7 +239,7 @@
     '2. 数字保真：数值、型号、料号、寄存器名、命令名、日期与原文逐字一致，禁止四舍五入或泛化。',
     '3. 一条一个事实：每个要点只讲一个事实/事件/决策，禁止合并。',
     '4. 结构化：markdown 标题 + 编号/列表分区，禁止平铺长段落。',
-    '5. 语言：跟随内容语言（中文内容输出中文）。',
+    '5. 语言：{{LANG_RULE}}。',
     '',
     '# 输出',
     '仅输出 markdown 结果本身，无额外解释、无代码围栏。',
@@ -239,6 +296,27 @@
     '仅输出 markdown 结果本身，无额外解释、无代码围栏。',
   ].join('\n');
 
+  /** 任务抽取 system prompt（按语种注入） */
+  function tasksPrompt(langCode) {
+    return SYSTEM_PROMPT_TASKS.split('{{LANG}}').join(getOutputLang(langCode).name);
+  }
+
+  /** 自由分析 system prompt（按语种注入） */
+  function analyzePrompt(langCode) {
+    var rule = '全文严格使用' + getOutputLang(langCode).name + '输出';
+    return CONTENT_ANALYZE_PROMPT.split('{{LANG_RULE}}').join(rule);
+  }
+
+  /** 邮件线程 system prompt；非中文输出时追加语言覆盖段（章节结构保持不变） */
+  function emailPrompt(langCode) {
+    var lang = getOutputLang(langCode);
+    if (lang.code === 'zh') return EMAIL_THREAD_PROMPT;
+    return EMAIL_THREAD_PROMPT +
+      '\n\n# 输出语言（最高优先级）\n' +
+      '上文中的中文章节名称仅为结构模板：实际输出必须全部使用' + lang.name +
+      '，包括所有章节标题、表头与正文；章节结构与顺序保持不变。';
+  }
+
   function stripFences(s) {
     var t = String(s).trim();
     if (t.startsWith('```')) {
@@ -285,14 +363,14 @@
       .filter(function (t) { return t.title.length > 0; });
   }
 
-  /** 经典任务抽取：粘贴原始笔记 → 结构化 JSON 任务列表 */
-  async function parseNotes(notes) {
+  /** 经典任务抽取：粘贴原始笔记 → 结构化 JSON 任务列表；lang 为输出语种 code（见 OUTPUT_LANGS） */
+  async function parseNotes(notes, lang) {
     var content = await chat({
       temperature: 0.2,
       maxTokens: 4000,
       extraBody: { response_format: { type: 'json_object' } },
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT_TASKS },
+        { role: 'system', content: tasksPrompt(lang) },
         { role: 'user', content: String(notes || '') },
       ],
     });
@@ -301,7 +379,7 @@
 
   /* ================= AI Parse — 自由分析 / 邮件线程 ================= */
 
-  /** 自由分析：instructions 与/或附件 → 结构化 markdown 总结；email=true 走邮件线程 playbook */
+  /** 自由分析：instructions 与/或附件 → 结构化 markdown 总结；email=true 走邮件线程 playbook；lang 为输出语种 code */
   async function analyzeContent(opts) {
     var instructions = String(opts.instructions || '').trim();
     var content = String(opts.content || '').trim();
@@ -312,7 +390,7 @@
       temperature: 0.3,
       maxTokens: 3000,
       messages: [
-        { role: 'system', content: opts.email ? EMAIL_THREAD_PROMPT : CONTENT_ANALYZE_PROMPT },
+        { role: 'system', content: opts.email ? emailPrompt(opts.lang) : analyzePrompt(opts.lang) },
         { role: 'user', content: user },
       ],
     });
@@ -501,8 +579,12 @@
     getConfig: getConfig,
     saveConfig: saveConfig,
     initConfigSync: initConfigSync,
+    loadState: loadState,
+    saveState: saveState,
     chat: chat,
     isReasoningModel: isReasoningModel,
+    OUTPUT_LANGS: OUTPUT_LANGS,
+    getOutputLang: getOutputLang,
     parseNotes: parseNotes,
     analyzeContent: analyzeContent,
     generatePrompt: generatePrompt,
@@ -514,8 +596,8 @@
     describeApiError: describeApiError,
     createTodos: createTodos,
     PROMPTS: {
-      tasks: SYSTEM_PROMPT_TASKS,
-      analyze: CONTENT_ANALYZE_PROMPT,
+      tasks: tasksPrompt('zh'),
+      analyze: analyzePrompt('zh'),
       emailThread: EMAIL_THREAD_PROMPT,
       promptEngineer: PROMPT_ENGINEER_PROMPT,
     },

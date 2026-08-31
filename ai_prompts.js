@@ -17,6 +17,28 @@
   let _busy = false;
   let _mdPreviewOpen = false;
 
+  /* ==================== 状态持久化（Web: localStorage / 扩展: chrome.storage.local） ==================== */
+
+  const STATE_KEY = 'ai_prompts_state';
+  const HISTORY_LIMIT = 30;
+  const state = { draft: '', history: [] };
+
+  let saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 500);
+  }
+  function saveNow() {
+    clearTimeout(saveTimer);
+    Ai.saveState(STATE_KEY, state);
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   /* ==================== 通用工具 ==================== */
 
   const RUN_ICON =
@@ -101,11 +123,12 @@
 
   function initEditor() {
     const reqEditor = MdEditor.create($('reqInput'), {
-      initialMarkdown: localStorage.getItem('ai_prompts_draft') || '',
+      initialMarkdown: '',
       placeholder: '在这里输入粗糙需求，例如：\n"做一个 Chrome 插件，把选中文本翻译成中文并弹出结果，要求简洁准确，支持 20 种语言。"',
       onInput: () => {
-        if (_mdPreviewOpen) $('mdPreviewContent').innerHTML = renderMarkdown(reqEditor.getMarkdown());
-        try { localStorage.setItem('ai_prompts_draft', reqEditor.getMarkdown()); } catch (e) {}
+        state.draft = reqEditor.getMarkdown();
+        if (_mdPreviewOpen) $('mdPreviewContent').innerHTML = renderMarkdown(state.draft);
+        scheduleSave();
       },
     });
 
@@ -160,6 +183,7 @@
     try {
       const md = await Ai.generatePrompt(requirement);
       showResult(md);
+      pushHistory({ requirement: requirement, md: md });
       showToast('提示词已生成', 'success');
     } catch (err) {
       showError(err);
@@ -179,10 +203,113 @@
     }
   }
 
+  /* ==================== 历史记录 ==================== */
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    const p = (n) => String(n).padStart(2, '0');
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function pushHistory(entry) {
+    entry.requirement = String(entry.requirement || '').slice(0, 5000);
+    const firstLine = entry.requirement.split('\n').map((l) => l.trim()).find((l) => l.length > 0);
+    entry.title = (firstLine || '提示词生成').slice(0, 60);
+    entry.ts = Date.now();
+    state.history.unshift(entry);
+    if (state.history.length > HISTORY_LIMIT) state.history.length = HISTORY_LIMIT;
+    saveNow();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const list = $('historyList');
+    $('historyCount').textContent = state.history.length + ' 条';
+    if (!state.history.length) {
+      list.innerHTML = '<div class="records-empty">暂无历史记录，生成提示词后自动保存，点击可恢复结果</div>';
+      return;
+    }
+    list.innerHTML = state.history.map((h, i) => {
+      const preview = String(h.md || '').replace(/[#|>*`-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90);
+      return '<div class="history-item" data-index="' + i + '">'
+        + '<div class="history-item-body">'
+        + '<div class="hi-title">' + escapeHtml(h.title) + '</div>'
+        + '<div class="hi-preview">' + escapeHtml(preview || '(空)') + '</div>'
+        + '<div class="hi-meta">'
+        + '<span class="hi-tag">提示词</span>'
+        + '<span>' + formatTime(h.ts) + '</span>'
+        + '</div></div>'
+        + '<div class="hi-actions">'
+        + '<button class="hi-btn hi-delete" data-index="' + i + '" title="删除">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>'
+        + '</button></div></div>';
+    }).join('');
+  }
+
+  function restoreHistory(index) {
+    const h = state.history[index];
+    if (!h) return;
+    showResult(h.md || '');
+    $('resultMeta').textContent = '历史记录 · ' + formatTime(h.ts);
+    showToast('已恢复历史记录', 'info');
+  }
+
+  function initHistory() {
+    $('historyList').addEventListener('click', (e) => {
+      const delBtn = e.target.closest('.hi-delete');
+      if (delBtn) {
+        e.stopPropagation();
+        const idx = parseInt(delBtn.getAttribute('data-index'), 10);
+        state.history.splice(idx, 1);
+        saveNow();
+        renderHistory();
+        showToast('已删除该条记录', 'info');
+        return;
+      }
+      const item = e.target.closest('.history-item');
+      if (item) restoreHistory(parseInt(item.getAttribute('data-index'), 10));
+    });
+    $('clearHistoryBtn').addEventListener('click', () => {
+      if (!state.history.length) return;
+      if (!confirm('确定清空全部 ' + state.history.length + ' 条历史记录？此操作不可恢复。')) return;
+      state.history = [];
+      saveNow();
+      renderHistory();
+      showToast('已清空全部历史记录', 'info');
+    });
+  }
+
+  /* ==================== 状态加载 ==================== */
+
+  function loadPersistedState() {
+    Ai.loadState(STATE_KEY).then((saved) => {
+      if (saved && typeof saved === 'object') {
+        if (typeof saved.draft === 'string') state.draft = saved.draft;
+        if (Array.isArray(saved.history)) state.history = saved.history;
+      }
+      // 迁移旧版草稿键（ai_prompts_draft），避免升级后内容丢失
+      if (!state.draft) {
+        let legacy = null;
+        try { legacy = localStorage.getItem('ai_prompts_draft'); } catch (e) {}
+        if (legacy) state.draft = legacy;
+      }
+      reqEditor.setMarkdown(state.draft);
+      renderHistory();
+    });
+  }
+
   /* ==================== 按钮绑定 ==================== */
 
   function initActions() {
     $('runBtn').addEventListener('click', run);
+
+    $('clearReqBtn').addEventListener('click', () => {
+      reqEditor.clear();
+      state.draft = '';
+      if (_mdPreviewOpen) $('mdPreviewContent').innerHTML = '';
+      saveNow();
+      showToast('已清空输入', 'success');
+    });
 
     $('copyPromptBtn').addEventListener('click', async () => {
       if (!currentResultMd) return;
@@ -221,6 +348,8 @@
     reqEditor = initEditor();
     initSettings();
     initActions();
+    initHistory();
+    loadPersistedState();
   }
 
   init();
