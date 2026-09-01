@@ -191,6 +191,12 @@ safeBind('openAiPrompts', 'click', () => {
   chrome.tabs.create({ url: promptsUrl });
 });
 
+// Open Hot News Radar in new tab
+safeBind('openHotNews', 'click', () => {
+  const hotnewsUrl = chrome.runtime.getURL('hotnews.html');
+  chrome.tabs.create({ url: hotnewsUrl });
+});
+
 safeBind('saveSettings', 'click', () => {
   const config = {
     baseUrl: $('baseUrl').value.trim().replace(/\/+$/, ''),

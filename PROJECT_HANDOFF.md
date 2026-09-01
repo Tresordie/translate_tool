@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.21.0 · 2026-09-01
+> **当前版本**：v0.22.0 · 2026-09-01
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -11,8 +11,8 @@
 
 LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接口）的 AI 翻译 + 效率工具集，包含两个形态：
 
-- **网页版** `index.html` — 7 个 Tab：智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结 / AI 解析 / AI 提示词
-- **Chrome 扩展** `chrome_extension/` — Popup 翻译弹窗 + Side Panel 侧边栏（同 7 个模块）+ 划词翻译 + 右键菜单
+- **网页版** `index.html` — 8 个 Tab：智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结 / AI 解析 / AI 提示词 / 热点雷达
+- **Chrome 扩展** `chrome_extension/` — Popup 翻译弹窗 + Side Panel 侧边栏（同 8 个模块）+ 划词翻译 + 右键菜单
 
 所有页面共用：
 - `theme.css` / `theme.js` — 6 款极简高级感主题（低饱和苹果风）+ 玻璃拟态/噪点质感
@@ -29,6 +29,7 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 | 邮件总结 | ✅ iframe | ✅ 信封图标按钮 | ✅ Tab 5 |
 | AI 解析 | ✅ iframe | ✅ 新标签页按钮 | ✅ Tab 6 |
 | AI 提示词 | ✅ iframe | ✅ 新标签页按钮 | ✅ Tab 7 |
+| 热点雷达 | ✅ iframe | ✅ 新标签页按钮 | ✅ Tab 8 |
 
 ## 3. 关键架构决策
 
@@ -101,10 +102,17 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 3. 根目录与 `chrome_extension/` 的页面副本必须同步修改：todolist 保留 3 处 CSP 差异（扩展版 Google Fonts 异步 + 2 处无 inline onclick），english_learning 保留 2 处差异（扩展版字体异步 + 外部 JS 引用，根目录为内联 JS）
 4. english_learning 根目录版的内联 JS = `chrome_extension/english_learning.js` 内容逐字一致（v0.21.0 消除分叉），改动任一侧需同步另一侧
 
+### 3.9 热点雷达两段式检索（v0.22.0）
+`hotnews.html/js`（两份副本，JS 逐字一致、HTML 仅字体加载差异）：
+- **数据源**：`https://api.vvhan.com/api/hotlist/all`（免费热榜聚合，无需密钥）。⚠️ 免费接口字段可能变动，`parseAllResponse()` 已做防御性解析（data 数组/对象、hotlist/list 别名、hot/hot_value 别名）；接口不可用时卡片显示错误态 + 重试。更换数据源只需改 `hotnews.js` 顶部的 `HOTLIST_API` 与解析函数。
+- **AI 归类**：候选池（每板块前 12 条）+ 卡片提示词 → `AiService.chat()`，要求严格输出 JSON 数组（`extractJsonItems()` 容错解析，AI 异常自动重试一次）。配置复用 ai-service.js 同步机制，页面无独立配置 UI。
+- **存储键**：`hn_cards`（扩展 chrome.storage.local / 网页 localStorage，含 id/name/prompt/items/updatedAt）；跨页同步监听同 todolist 模式。
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.22.0 | 新增「热点雷达」模块：卡片式全网热点 Top 10（热榜聚合真实数据 + AI 按提示词筛选归类），网页 Tab 8 / Side Panel Tab 8 / Popup 入口 |
 | v0.21.0 | todolist Dashboard 重设计 + english_learning 重设计（两份副本 CSS 统一 + JS 分叉消除 + 玻璃立体感补齐）+ 容器宽度统一 1400px + sidepanel.css 单层重写（令牌全量映射主题）+ README_EN 同步至 v0.21.0 |
 | v0.20.0 | 品牌升级为 AI Tool Box + Sora 字体 + Midnight 夜曲重设计 + workreport/todolist/english_learning/sidepanel 视觉重构 |
 | v0.19.8 | 划词浮窗与右键菜单细节修复 |
@@ -168,17 +176,17 @@ node -e "JSON.parse(require('fs').readFileSync('chrome_extension/manifest.json',
 
 接手本项目时，按此顺序验证环境：
 
-1. `git pull` 拉最新 master，确认版本徽章为 v0.18.0
+1. `git pull` 拉最新 master，确认版本徽章为 v0.22.0
 2. 浏览器打开 `index.html`，配置 API（可用 DeepSeek `https://api.deepseek.com/v1` + `deepseek-chat` 测试）
-3. 依次点击 7 个 Tab，确认每个都能正常工作
+3. 依次点击 8 个 Tab，确认每个都能正常工作
 4. Chrome 加载 `chrome_extension/`：
    - 点工具栏图标 → 弹窗翻译
-   - 点弹窗「侧边栏」按钮或按 `Alt+Shift+L` → 侧边栏 7 个 Tab 切换
+   - 点弹窗「侧边栏」按钮或按 `Alt+Shift+L` → 侧边栏 8 个 Tab 切换
    - 在任意页划词 → 弹出翻译图标
 5. 在弹窗改 API 配置 → 切到侧边栏「AI 解析」，应立即使用新配置（无需刷新）
-6. 切换主题（右下角面板 / 侧边栏右下角圆形按钮）→ 全部 7 个 Tab + 弹窗 + 网页版全部同步
+6. 切换主题（右下角面板 / 侧边栏右下角圆形按钮）→ 全部 8 个 Tab + 弹窗 + 网页版全部同步
 
 ---
 
-**最后更新**：2026-09-01 by Mika (agent) · v0.21.0（todolist Dashboard / english_learning / sidepanel 外壳重设计详见 §3.8）
+**最后更新**：2026-09-01 by Mika (agent) · v0.22.0（新增热点雷达模块，详见 §3.9；v0.21 重设计详见 §3.8）
 **参考文档**：`README.md` · `README_EN.md`（已同步至 v0.21.0） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

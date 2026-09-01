@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.21.0-blue)
+![Version](https://img.shields.io/badge/version-0.22.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -35,7 +35,8 @@
   - **Auto-Truncation for Oversized Content** — Over 60,000 characters, automatically keeps head & tail, omits and marks the middle — no manual splitting needed
 - **AI Parse** — New 6th tab: Classic mode (paste notes/requirements → AI extracts a task list, tick items and batch-create into the todo list, with priorities/tags/sub-steps) + Analysis mode (describe requirements or upload attachments → AI generates a structured analysis summary, auto-detects .eml email threads); results can be copied / downloaded as Markdown / HTML
 - **AI Prompts** — New 7th tab: enter a rough requirement → generate an expert-level structured prompt (with "📋 Prompt", "⚠ Assumptions", "💡 Usage tips"); copy the prompt body or everything, download
-- **Page Reuse Architecture** — Work Report, Task List, English Learning, Email Summary, AI Parse, and AI Prompts tabs embed standalone pages via iframe, sharing the same codebase with Chrome extension
+- **Hot News Radar** — New 8th tab: create multiple hot-news cards, each with its own prompt (used by AI for categorization); AI fetches real-time hot lists from Weibo / Zhihu / Baidu / Douyin / Bilibili / IT之家 / 36Kr and picks the Top 10 most relevant entries per card; cards show rank colors, source tags, clickable source links, heat values, and a refresh button (re-fetch + AI re-curation)
+- **Page Reuse Architecture** — Work Report, Task List, English Learning, Email Summary, AI Parse, AI Prompts, and Hot News Radar tabs embed standalone pages via iframe, sharing the same codebase with Chrome extension
 - **Zero Dependencies** — Pure HTML + CSS + JavaScript, no installation required
 
 ### Chrome Extension
@@ -52,8 +53,9 @@
 - **Toggle Switch** — Enable/disable text selection translation in settings
 - **Language Preference Memory** — Automatically saves source and target language choices
 - **Email Summary Entry** — New envelope icon in popup header opens the Email Summary page in a new tab (full parity with web version, including PDF upload and 30-language output)
-- **Side Panel** — Chrome 114+ dedicated side panel bundling all 7 modules (Smart Translation / Work Report / Task List / English Learning / Email Summary / AI Parse / AI Prompts) with one-click tab switching and lazy-loaded iframes; open it via the popup's Side Panel button, the `Alt+Shift+L` shortcut, or the "Open AI Tool Box in Side Panel" context-menu item
+- **Side Panel** — Chrome 114+ dedicated side panel bundling all 8 modules (Smart Translation / Work Report / Task List / English Learning / Email Summary / AI Parse / AI Prompts / Hot News Radar) with one-click tab switching and lazy-loaded iframes; open it via the popup's Side Panel button, the `Alt+Shift+L` shortcut, or the "Open AI Tool Box in Side Panel" context-menu item
 - **AI Parse / AI Prompts** — Two new Side Panel tabs (lazy-loaded); the popup also gains two entry buttons that open the standalone pages in a new tab
+- **Hot News Radar** — New Side Panel tab (lazy-loaded); the popup gains an entry button; cards and results sync across pages via chrome.storage
 
 ## 📸 Preview
 
@@ -117,6 +119,8 @@ translation_tool/
 ├── ai_parse.js             # AI Parse page logic
 ├── ai_prompts.html         # AI Prompts page (enter a requirement → generate a structured prompt)
 ├── ai_prompts.js           # AI Prompts page logic
+├── hotnews.html            # Hot News Radar page (card-based Top 10 hot news, AI-curated by prompt)
+├── hotnews.js              # Hot News Radar logic (hot-list aggregation + AI curation + card management)
 ├── install_url_scheme.sh     # Apple Reminders URL Scheme bridge installer
 ├── theme.css               # Shared theme system (6 minimal premium theme variables + per-page UI layers + glass cards/noise/ambient glow styles)
 ├── theme.js                # Theme switcher / data-mode light-dark flag / iframe theme sync / legacy theme migration / MD preview binding
@@ -217,6 +221,15 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.22.0 (2026-09-01)
+- **New module: Hot News Radar (8th tab)** — card-based whole-web hot news monitoring:
+  - Create multiple hot-news cards, each with its own prompt used by AI for categorization (e.g. "AI & LLM related hot topics")
+  - Two-stage retrieval: fetch real-time hot lists from Weibo / Zhihu / Baidu / Douyin / Bilibili / Toutiao / IT之家 / 36Kr / Huxi etc. (free aggregation API, no key needed), then the configured LLM filters and ranks the Top 10 per the card's prompt — real data + AI curation, no fabricated news
+  - Card style mirrors hot-list products: rank color scale (1/2/3), source tags, clickable source links, right-aligned heat values (auto-formatted 万/亿), footer with last-updated time
+  - Per-card refresh button (re-fetch + AI re-curation, auto retry once on AI errors) plus "refresh all"; cards and results sync across pages via chrome.storage / localStorage
+  - 8th web tab, 8th Side Panel tab (lazy-loaded), popup header entry button; reuses ai-service.js config sync (usable right after saving the extension config)
+- Internal: the hotnews page follows the v0.21 "single coherent stylesheet" architecture (6 themes light/dark adaptive, zero inline handlers, MV3 CSP compliant)
 
 ### v0.21.0 (2026-09-01)
 - **Task List Dashboard Redesign** — stats-first multi-panel grid layout: 4 KPI stat cards on top (today progress ring / due today / completed / all tasks), quick-add card + task panel card + side sync-guide card; task items gain a priority accent bar, animated checkbox, chip-style metadata and hover lift; filter pills become a segmented control and sync buttons become unified ghost buttons with theme-tinted icons; the whole stylesheet is rewritten as a single coherent layer (old base layer + two UI refinement overlay layers removed), fully following the 6 themes in light & dark

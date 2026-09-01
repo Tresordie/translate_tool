@@ -1092,6 +1092,12 @@
         </svg>
         AI 提示词
       </button>
+      <button class="tab-nav-btn" id="tabBtnHotNews" onclick="switchTab('hotnews')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
+        </svg>
+        热点雷达
+      </button>
     </div>
 
     <!-- Tab: Translation -->
@@ -1278,6 +1284,11 @@
     <div class="tab-panel" id="tabAiPrompts">
       <iframe src="ai_prompts.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="aiPromptsIframe" title="AI 提示词"></iframe>
     </div>
+
+    <!-- Tab: Hot News Radar -->
+    <div class="tab-panel" id="tabHotNews">
+      <iframe src="hotnews.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="hotnewsIframe" title="热点雷达"></iframe>
+    </div>
   </div><!-- /app-wrapper -->
 
   <div style="display:none"></div>
@@ -1388,6 +1399,9 @@
       } else if (tab === 'aiprompts') {
         document.getElementById('tabBtnAiPrompts').classList.add('active');
         document.getElementById('tabAiPrompts').classList.add('active');
+      } else if (tab === 'hotnews') {
+        document.getElementById('tabBtnHotNews').classList.add('active');
+        document.getElementById('tabHotNews').classList.add('active');
       }
     }
 
