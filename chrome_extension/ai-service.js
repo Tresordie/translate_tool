@@ -133,6 +133,12 @@
    * → 原路返回。扩展页面自身直连，不走桥。 */
   var _bridge = { available: null, seq: 0, pending: {} };
 
+  // 桥消息发往顶层帧：content script 默认只注入顶层（manifest 不含 all_frames），
+  // 嵌在 index.html 里的 iframe 页面（如热点雷达）必须经 window.top 才能到达 content.js。
+  function bridgeTarget() {
+    try { return window.top || window; } catch (e) { return window; }
+  }
+
   window.addEventListener('message', function (e) {
     var d = e.data;
     if (!d || d.source !== 'linguaflow-extension' || !d.bridgeId) return;
@@ -143,9 +149,9 @@
   function bridgePing() {
     return new Promise(function (resolve) {
       var id = 'ping' + (++_bridge.seq);
-      var timer = setTimeout(function () { delete _bridge.pending[id]; resolve(false); }, 1200);
+      var timer = setTimeout(function () { delete _bridge.pending[id]; resolve(false); }, 1500);
       _bridge.pending[id] = function () { clearTimeout(timer); resolve(true); };
-      try { window.postMessage({ source: 'linguaflow-page', type: 'bridge-ping', bridgeId: id }, '*'); }
+      try { bridgeTarget().postMessage({ source: 'linguaflow-page', type: 'bridge-ping', bridgeId: id }, '*'); }
       catch (e) { clearTimeout(timer); resolve(false); }
     });
   }
@@ -160,7 +166,7 @@
         else resolve({ ok: !!res.ok, status: res.status || 0, text: res.text || '' });
       };
       try {
-        window.postMessage({
+        bridgeTarget().postMessage({
           source: 'linguaflow-page', type: 'bridge-fetch', bridgeId: id,
           url: url, method: options.method || 'GET', headers: options.headers || {}, body: options.body || ''
         }, '*');

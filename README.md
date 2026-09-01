@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.23.0-blue)
+![Version](https://img.shields.io/badge/version-0.23.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -235,6 +235,10 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.23.1 (2026-09-01)
+- **修复：iframe 中的页面（如 index.html 的热点雷达 Tab）代理桥不可用** — content script 默认只注入顶层帧（manifest 未开 all_frames），桥消息发往 iframe 自身 window 时无人应答。现改为：桥请求发往 **window.top**（content script 必在顶层），content.js 用 **e.source**（发起请求的帧）精准回包——嵌在 index.html 里的热点雷达等 iframe 页面经桥直连无 CORS 端点（Token Plan）恢复可用。已用「iframe + 模拟 content script + 真实 HTTPS 请求」端到端验证协议全通
+- 热点雷达错误提示更新：桥不可用时提示安装扩展并开启「允许访问文件网址」
 
 ### v0.23.0 (2026-09-01)
 - **配置全端双向同步** — 修复反向缺口：网页版（index.html 设置面板 / 热点雷达配置区）保存配置后，经扩展 content script 中继写入 chrome.storage，弹窗/侧边栏实时同步；此前仅扩展→网页单向同步。任一端保存，网页版全部页面 + 扩展弹窗 + 侧边栏即刻生效

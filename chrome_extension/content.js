@@ -51,24 +51,26 @@
 
   // ===== 网页跨域代理桥 + 配置反向同步（v0.23.0） =====
   // 页面（index.html / hotnews.html 等）→ postMessage → 此处 → chrome.runtime → background
+  // 注意：content script 默认只注入顶层帧，因此桥请求（发往 window.top）由本监听处理，
+  // 回包必须发往 e.source（发起请求的帧，可能是 index.html 里的 iframe），而非本帧 window。
   window.addEventListener('message', (e) => {
     const d = e.data;
     if (!d || d.source !== 'linguaflow-page') return;
 
-    // 桥可用性探测
+    // 桥可用性探测：回给发起帧
     if (d.type === 'bridge-ping' && d.bridgeId) {
-      try { window.postMessage({ source: 'linguaflow-extension', bridgeId: d.bridgeId }, '*'); } catch (err) { /* ignore */ }
+      try { e.source.postMessage({ source: 'linguaflow-extension', bridgeId: d.bridgeId }, '*'); } catch (err) { /* ignore */ }
       return;
     }
 
-    // 代理请求：background fetch（host_permissions 免跨域）后原路返回
+    // 代理请求：background fetch（host_permissions 免跨域）后回给发起帧
     if (d.type === 'bridge-fetch' && d.bridgeId && d.url) {
       try {
         chrome.runtime.sendMessage(
           { action: 'linguaflow:proxyFetch', url: d.url, method: d.method, headers: d.headers, body: d.body },
           (res) => {
             try {
-              window.postMessage({
+              e.source.postMessage({
                 source: 'linguaflow-extension', bridgeId: d.bridgeId,
                 ok: !!(res && res.ok), status: (res && res.status) || 0,
                 text: (res && res.text) || '', error: (res && res.error) || ''
@@ -77,7 +79,7 @@
           }
         );
       } catch (err) {
-        try { window.postMessage({ source: 'linguaflow-extension', bridgeId: d.bridgeId, ok: false, status: 0, text: '', error: 'bridge unavailable' }, '*'); } catch (e2) { /* ignore */ }
+        try { e.source.postMessage({ source: 'linguaflow-extension', bridgeId: d.bridgeId, ok: false, status: 0, text: '', error: 'bridge unavailable' }, '*'); } catch (e2) { /* ignore */ }
       }
       return;
     }

@@ -481,7 +481,7 @@
         card.error = '模型名不存在：该端点仅支持特定模型 ID，请点击「获取模型列表」查看并重新填写保存';
         toggleApiPanel(true);
       } else if (/网络请求失败/.test(msg)) {
-        card.error = msg + '（若使用阿里云 Token Plan 等未开放跨域的端点，网页版无法直连，请在 Chrome 扩展内使用）';
+        card.error = msg + '（跨域直连与扩展代理桥均不可用：请确认已安装扩展并在 chrome://extensions 开启「允许访问文件网址」后刷新，或直接在 Chrome 扩展内使用）';
       }
       render();
     });

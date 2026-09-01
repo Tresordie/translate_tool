@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.23.0-blue)
+![Version](https://img.shields.io/badge/version-0.23.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,10 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.23.1 (2026-09-01)
+- **Fix: CORS bridge unavailable for pages inside iframes (e.g. the Hot News Radar tab of index.html)** — content scripts only inject into the top frame by default (manifest lacks all_frames), so bridge messages posted to the iframe's own window went unanswered. Bridge requests now go to **window.top** (where the content script lives) and content.js replies to **e.source** (the exact frame that asked). Verified end-to-end with an iframe + mock content script + real HTTPS request. The Token Plan endpoint is reachable again from the radar tab inside index.html
+- Hot News Radar error hints updated to mention installing the extension and enabling "Allow access to file URLs"
 
 ### v0.23.0 (2026-09-01)
 - **Two-way config sync across all surfaces** — fixes the reverse gap: saving the API config in the web version (index.html settings / Hot News Radar config card) now relays through the extension content script into chrome.storage, so the popup and side panel sync instantly; previously only extension→web was synced. Saving on any surface now reaches every web page, the popup and the side panel in real time
