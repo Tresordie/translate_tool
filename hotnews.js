@@ -1,6 +1,7 @@
 /* ================================================================
-   AI Tool Box — 热点雷达（Hot News Radar）v0.22.0
+   AI Tool Box — 热点雷达（Hot News Radar）v0.22.1
    两段式：真实热榜聚合数据（无需密钥）+ AI 按卡片提示词筛选 Top 10
+   数据源回退链：60s 分板块热榜（CORS 开放）→ UApi 热榜（直连/代理）→ 60s 日报
    存储遵循项目惯例：扩展 chrome.storage.local / 网页 localStorage('hn_*')
    ================================================================ */
 
@@ -8,10 +9,28 @@
   "use strict";
 
   // ===== 常量 =====
-  var HOTLIST_API = 'https://api.vvhan.com/api/hotlist/all';
-  var TOP_N = 10;          // 每张卡片展示条数
-  var PER_BOARD = 12;      // 候选池中每个板块最多取多少条
-  var POOL_TTL = 60 * 1000;// 候选池复用时长（60s 内刷新卡片不重复抓取）
+  var TOP_N = 10;           // 每张卡片展示条数
+  var PER_BOARD = 12;       // 候选池中每个板块最多取多少条
+  var POOL_TTL = 60 * 1000; // 候选池复用时长（60s 内刷新卡片不重复抓取）
+  var MIN_POOL = 20;        // 候选池最低条数（少于则视为该通道失败）
+
+  // 主数据源：UApi 全网热榜（逐板块抓取，字段 {type, list:[{index,title,url,hot_value}]}）
+  var UAPIS_BASE = 'https://uapis.cn/api/v1/misc/hotboard?type=';
+  var BOARDS = [
+    { type: 'weibo',    name: '微博' },
+    { type: 'zhihu',    name: '知乎' },
+    { type: 'baidu',    name: '百度' },
+    { type: 'douyin',   name: '抖音' },
+    { type: 'bilibili', name: 'B站' },
+    { type: 'toutiao',  name: '头条' },
+    { type: 'ithome',   name: 'IT之家' },
+    { type: '36kr',     name: '36氪' },
+    { type: 'sspai',    name: '少数派' },
+    { type: 'qq-news',  name: '腾讯新闻' }
+  ];
+  // 兜底数据源：60s 日报（CORS 开放，稳定可用；真实每日新闻，无热度值）
+  var FALLBACK_60S = 'https://60s.viki.moe/v2/60s';
+  var FETCH_TIMEOUT = 12000;
 
   // ===== Storage（扩展 chrome.storage.local / 网页 localStorage，键名 hn_*）=====
   var isExtension = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
@@ -40,9 +59,9 @@
   };
 
   // ===== 状态 =====
-  var cards = [];          // [{id, name, prompt, items, updatedAt}]，error 仅内存态
+  var cards = [];          // [{id, name, prompt, items, updatedAt}]，error/loading 仅内存态
   var editingId = null;
-  var pool = null;         // { items: [{title, source, hot, url}], fetchedAt }
+  var pool = null;         // { items: [{title, source, hot, url}], fetchedAt, source }
   var poolPromise = null;
 
   // ===== 工具 =====
@@ -77,63 +96,178 @@
     clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('show'); }, 2800);
   }
 
-  // ===== 候选池抓取 =====
-  function fetchPool(force) {
-    if (pool && !force && Date.now() - pool.fetchedAt < POOL_TTL) return Promise.resolve(pool);
-    if (poolPromise && !force) return poolPromise;
-    poolPromise = fetch(HOTLIST_API, { cache: 'no-store' })
-      .then(function (r) {
-        if (!r.ok) throw new Error('热榜接口 HTTP ' + r.status);
-        return r.json();
-      })
-      .then(function (json) {
-        var items = parseAllResponse(json);
-        if (!items.length) throw new Error('热榜接口返回空数据');
-        pool = { items: items, fetchedAt: Date.now() };
-        poolPromise = null;
-        return pool;
-      })
-      .catch(function (e) {
-        poolPromise = null;
-        throw new Error('热榜抓取失败：' + (e && e.message ? e.message : '网络异常'));
-      });
-    return poolPromise;
+  // ===== 底层请求（超时 + 文本返回） =====
+  function fetchText(url, timeout) {
+    var ms = timeout || FETCH_TIMEOUT;
+    return new Promise(function (resolve, reject) {
+      var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (ctrl) ctrl.abort();
+        reject(new Error('请求超时'));
+      }, ms);
+      fetch(url, { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+        .then(function (r) {
+          clearTimeout(timer);
+          if (!r.ok) { reject(new Error('HTTP ' + r.status)); return; }
+          return r.text();
+        })
+        .then(function (t) { if (t !== undefined) resolve(t); })
+        .catch(function (e) {
+          clearTimeout(timer);
+          reject(new Error(e && e.name === 'AbortError' ? '请求超时' : '无法连接'));
+        });
+    });
   }
 
-  // 防御性解析：兼容 data 为数组（[{type,name,color,data:[...]}]）或对象（{weibo:[...]}/{weibo:{data:[...]}}）
-  function parseAllResponse(json) {
-    var d = json && (json.data !== undefined ? json.data : (json.list !== undefined ? json.list : null));
-    var boards = [];
-    if (Array.isArray(d)) {
-      boards = d;
-    } else if (d && typeof d === 'object') {
-      boards = Object.keys(d).map(function (k) {
-        var v = d[k];
-        if (Array.isArray(v)) return { name: k, data: v };
-        if (v && typeof v === 'object') { if (!v.name) v.name = k; return v; }
-        return null;
-      }).filter(Boolean);
+  // 宽松 JSON 解析：容忍代理附加的 markdown 前后缀
+  function parseJsonLoose(text) {
+    var t = String(text || '').trim();
+    t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+    var s = t.indexOf('{'), e = t.lastIndexOf('}');
+    if (s === -1 || e <= s) throw new Error('非 JSON 响应');
+    return JSON.parse(t.slice(s, e + 1));
+  }
+
+  // allorigins /get 变体：{ contents: "<上游 JSON 字符串>" }
+  function parseContents(text) {
+    var j = JSON.parse(String(text));
+    if (j && typeof j.contents === 'string') return JSON.parse(j.contents);
+    return j;
+  }
+
+  // ===== 数据源回退链（v0.22.1）=====
+  // 源1 60s 分板块热榜（CORS 开放，网页/扩展均可直连）→ 源2 UApi 直连（扩展免跨域）
+  // → 源3-5 公共 CORS 代理 → UApi（网页版回退）→ 源6 60s 日报兜底（真实每日新闻）
+  function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function boardName(type) {
+    for (var i = 0; i < BOARDS.length; i++) {
+      if (BOARDS[i].type === type) return BOARDS[i].name;
     }
+    return type;
+  }
+
+  // 60s 分板块热榜解析（字段别名防御：hot_value / hot_value_desc / hot，link / url）
+  function parse60sBoard(text, type) {
+    var j = parseJsonLoose(text);
+    var arr = j && Array.isArray(j.data) ? j.data : [];
+    return arr.map(function (it) {
+      if (!it || !it.title) return null;
+      return {
+        title: String(it.title),
+        source: boardName(type),
+        hot: (it.hot_value !== undefined ? it.hot_value : (it.hot_value_desc !== undefined ? it.hot_value_desc : (it.hot !== undefined ? it.hot : ''))),
+        url: String(it.link || it.url || '')
+      };
+    }).filter(Boolean);
+  }
+
+  // 源 1：60s 分板块热榜。官方限速较严：串行抓取 + 429 退避重试一次
+  function fetch60sBoards() {
+    var boards60 = ['weibo', 'zhihu', 'douyin', 'toutiao', 'ithome', '36kr'];
     var items = [];
-    boards.forEach(function (b) {
-      if (!b) return;
-      var name = b.name || b.title || b.type || '热榜';
-      var list = Array.isArray(b.data) ? b.data
-        : (Array.isArray(b.hotlist) ? b.hotlist
-        : (Array.isArray(b.list) ? b.list : []));
-      list.slice(0, PER_BOARD).forEach(function (it) {
-        if (!it) return;
-        var title = it.title || it.name || it.word;
-        if (!title) return;
-        items.push({
-          title: String(title),
-          source: String(name),
-          hot: (it.hot !== undefined ? it.hot : (it.hot_value !== undefined ? it.hot_value : '')),
-          url: String(it.url || it.link || it.mobileUrl || '')
+    var chain = Promise.resolve();
+    boards60.forEach(function (type, i) {
+      chain = chain.then(function () {
+        function once() {
+          return fetchText('https://60s.viki.moe/v2/' + type, 10000).then(function (text) {
+            items = items.concat(parse60sBoard(text, type));
+          });
+        }
+        return delay(i ? 250 : 0).then(once).catch(function (e) {
+          if (/HTTP 429/.test(e.message)) {
+            return delay(900).then(once).catch(function () {});
+          }
         });
       });
     });
-    return items;
+    return chain.then(function () {
+      if (items.length < MIN_POOL) throw new Error('可用板块不足');
+      return items;
+    });
+  }
+
+  // 源 2：UApi 直连（扩展 host_permissions 免跨域；网页版该通道会被 CORS 拦截，自动落入代理通道）
+  var DIRECT_STRATEGY = { name: 'UApi直连', timeout: FETCH_TIMEOUT, wrap: function (u) { return u; }, parse: parseJsonLoose };
+
+  // 源 3-5：公共 CORS 代理 → UApi（网页版回退通道；不同代理在不同网络环境下可用性不同）
+  function buildProxyStrategies() {
+    return [
+      { name: '代理A', timeout: 15000, wrap: function (u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); }, parse: parseJsonLoose },
+      { name: '代理B', timeout: 15000, wrap: function (u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); }, parse: parseJsonLoose },
+      { name: '代理C', timeout: 25000, wrap: function (u) { return 'https://r.jina.ai/' + u; }, parse: parseJsonLoose },
+      { name: '代理D', timeout: 15000, wrap: function (u) { return 'https://api.allorigins.win/get?url=' + encodeURIComponent(u); }, parse: parseContents }
+    ];
+  }
+
+  // 经指定通道抓取全部板块（并行，个别板块失败可容忍）
+  function fetchBoardsVia(st) {
+    return Promise.all(BOARDS.map(function (b) {
+      return fetchText(st.wrap(UAPIS_BASE + encodeURIComponent(b.type)), st.timeout)
+        .then(function (text) {
+          var json = st.parse(text);
+          var list = json && Array.isArray(json.list) ? json.list : [];
+          var name = (json && json.type && boardName(json.type)) || b.name;
+          return list.slice(0, PER_BOARD).map(function (it) {
+            if (!it || !it.title) return null;
+            return {
+              title: String(it.title),
+              source: String(name),
+              hot: (it.hot_value !== undefined ? it.hot_value : (it.hot !== undefined ? it.hot : '')),
+              url: String(it.url || '')
+            };
+          }).filter(Boolean);
+        })
+        .catch(function () { return []; });
+    })).then(function (groups) {
+      var items = [];
+      groups.forEach(function (g) { items = items.concat(g); });
+      if (items.length < MIN_POOL) throw new Error('该通道可用板块不足');
+      return items;
+    });
+  }
+
+  // 源 6：60s 日报兜底（真实每日新闻，无热度值与链接）
+  function fetch60sDaily() {
+    return fetchText(FALLBACK_60S, FETCH_TIMEOUT).then(function (text) {
+      var j = JSON.parse(text);
+      var news = j && j.data && Array.isArray(j.data.news) ? j.data.news : [];
+      if (!news.length) throw new Error('兜底数据源返回空');
+      return news.map(function (t) {
+        return { title: String(t), source: '60s日报', hot: '', url: '' };
+      });
+    });
+  }
+
+  // ===== 候选池抓取（数据源回退链） =====
+  function fetchPool(force) {
+    if (pool && !force && Date.now() - pool.fetchedAt < POOL_TTL) return Promise.resolve(pool);
+    if (poolPromise && !force) return poolPromise;
+
+    var runners = [
+      { name: '60s热榜', run: fetch60sBoards },
+      { name: 'UApi直连', run: function () { return fetchBoardsVia(DIRECT_STRATEGY); } }
+    ];
+    buildProxyStrategies().forEach(function (st) {
+      runners.push({ name: st.name, run: function () { return fetchBoardsVia(st); } });
+    });
+    runners.push({ name: '60s日报', run: fetch60sDaily });
+
+    var idx = 0;
+    function attempt() {
+      if (idx >= runners.length) throw new Error('所有数据源暂不可用（接口限制或网络异常），请稍后重试');
+      var r = runners[idx++];
+      return r.run().then(function (items) {
+        pool = { items: items, fetchedAt: Date.now(), source: r.name };
+        poolPromise = null;
+        return pool;
+      }).catch(function (e) {
+        console.warn('[HotNews] 数据源 ' + r.name + ' 失败:', e && e.message);
+        return attempt();
+      });
+    }
+    poolPromise = attempt();
+    return poolPromise;
   }
 
   // ===== AI 筛选 =====
@@ -146,7 +280,7 @@
     });
     var system = '你是全网热点新闻筛选助手。用户给出主题提示词与一组来自各平台热榜的候选条目（JSON 数组）。'
       + '请筛选出与主题最相关的条目并排序：相关性优先，相关性相近时按热度从高到低；恰好输出 ' + TOP_N + ' 条，若相关条目不足 ' + TOP_N + ' 条，用候选池中综合热度最高的其他条目补足；'
-      + '标题、来源、热度、链接必须保持候选条目原文，不得改写或编造。'
+      + '标题、来源、热度、链接必须保持候选条目原文，不得改写或编造；hot 为空的条目保持为空。'
       + '只输出 JSON 数组，禁止输出任何解释、前后缀或 markdown 代码块标记。输出格式：'
       + '[{"title":"原文标题","source":"来源平台","hot":"热度值","url":"原文链接"}]';
     var user = '主题提示词：' + prompt + '\n\n候选条目：\n' + JSON.stringify(payload);
@@ -192,7 +326,7 @@
       render();
     }).catch(function (e) {
       var msg = e && e.message ? e.message : '未知错误';
-      var isPoolError = /热榜抓取失败/.test(msg);
+      var isPoolError = /数据源/.test(msg);
       if (!isRetry && !isPoolError) {
         return refreshCard(card, true); // AI 偶发格式/网络异常自动重试一次
       }

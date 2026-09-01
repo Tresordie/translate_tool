@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.22.0-blue)
+![Version](https://img.shields.io/badge/version-0.22.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,13 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.22.1 (2026-09-01)
+- **Fix: hot-list fetch failing in the web version** — the original vvhan aggregation API became unreachable (CORS/down); the Hot News Radar data source was rebuilt as a multi-level fallback chain:
+  - Primary: **60s per-board hot lists** (Weibo / Zhihu / Douyin / Toutiao / IT之家 / 36Kr, CORS-enabled so both web and extension can fetch directly, with heat values and source links; the upstream rate-limits strictly, so fetching is sequential with 429 backoff retry)
+  - Secondary: **UApi hot lists** (more boards incl. Baidu / Bilibili / QQ News / Sspai: direct fetch inside the extension; the web version falls back through public CORS proxies)
+  - Last resort: **60s daily news** (real daily news, CORS-enabled and stable)
+  - The first source yielding a pool (minimum 20 items) wins; the error state only appears when every source fails, with per-source failures logged to the console
 
 ### v0.22.0 (2026-09-01)
 - **New module: Hot News Radar (8th tab)** — card-based whole-web hot news monitoring:

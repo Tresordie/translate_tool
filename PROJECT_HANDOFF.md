@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.22.0 · 2026-09-01
+> **当前版本**：v0.22.1 · 2026-09-01
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -102,9 +102,13 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 3. 根目录与 `chrome_extension/` 的页面副本必须同步修改：todolist 保留 3 处 CSP 差异（扩展版 Google Fonts 异步 + 2 处无 inline onclick），english_learning 保留 2 处差异（扩展版字体异步 + 外部 JS 引用，根目录为内联 JS）
 4. english_learning 根目录版的内联 JS = `chrome_extension/english_learning.js` 内容逐字一致（v0.21.0 消除分叉），改动任一侧需同步另一侧
 
-### 3.9 热点雷达两段式检索（v0.22.0）
+### 3.9 热点雷达两段式检索（v0.22.0，数据源 v0.22.1 重建）
 `hotnews.html/js`（两份副本，JS 逐字一致、HTML 仅字体加载差异）：
-- **数据源**：`https://api.vvhan.com/api/hotlist/all`（免费热榜聚合，无需密钥）。⚠️ 免费接口字段可能变动，`parseAllResponse()` 已做防御性解析（data 数组/对象、hotlist/list 别名、hot/hot_value 别名）；接口不可用时卡片显示错误态 + 重试。更换数据源只需改 `hotnews.js` 顶部的 `HOTLIST_API` 与解析函数。
+- **数据源回退链（v0.22.1，原 vvhan 接口已失效）**：
+  1. **60s 分板块热榜** `https://60s.viki.moe/v2/{weibo|zhihu|douyin|toutiao|ithome|36kr}` —— CORS 开放，网页/扩展均可直连，含热度值与链接；⚠️ 官方限速严格（并行请求会 429），已实现串行 + 250ms 间隔 + 429 退避重试，仅取 6 板块
+  2. **UApi 热榜** `https://uapis.cn/api/v1/misc/hotboard?type={weibo|zhihu|baidu|douyin|bilibili|toutiao|ithome|36kr|sspai|qq-news}` —— 无 CORS 头：扩展内 host_permissions 免跨域直连；网页版经公共 CORS 代理回退（codetabs / allorigins / r.jina.ai / allorigins-get，不同网络可用性不同）
+  3. **60s 日报** `https://60s.viki.moe/v2/60s` —— CORS 开放稳定可用，真实每日新闻（无热度/链接）
+  - 任一源拿到 ≥20 条候选池即返回（`parse60sBoard`/`parseJsonLoose` 均为防御性解析）；全部失败才显示错误态，控制台按源分级输出失败原因。更换/追加数据源只需增改 `hotnews.js` 的源 runner 数组。
 - **AI 归类**：候选池（每板块前 12 条）+ 卡片提示词 → `AiService.chat()`，要求严格输出 JSON 数组（`extractJsonItems()` 容错解析，AI 异常自动重试一次）。配置复用 ai-service.js 同步机制，页面无独立配置 UI。
 - **存储键**：`hn_cards`（扩展 chrome.storage.local / 网页 localStorage，含 id/name/prompt/items/updatedAt）；跨页同步监听同 todolist 模式。
 
@@ -112,6 +116,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.22.1 | 修复网页版热榜抓取失败（vvhan 失效）：数据源重建为回退链（60s 分板块热榜 CORS 直连 → UApi 直连/代理 → 60s 日报兜底） |
 | v0.22.0 | 新增「热点雷达」模块：卡片式全网热点 Top 10（热榜聚合真实数据 + AI 按提示词筛选归类），网页 Tab 8 / Side Panel Tab 8 / Popup 入口 |
 | v0.21.0 | todolist Dashboard 重设计 + english_learning 重设计（两份副本 CSS 统一 + JS 分叉消除 + 玻璃立体感补齐）+ 容器宽度统一 1400px + sidepanel.css 单层重写（令牌全量映射主题）+ README_EN 同步至 v0.21.0 |
 | v0.20.0 | 品牌升级为 AI Tool Box + Sora 字体 + Midnight 夜曲重设计 + workreport/todolist/english_learning/sidepanel 视觉重构 |
