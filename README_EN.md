@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.24.0-blue)
+![Version](https://img.shields.io/badge/version-0.24.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,9 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.24.1 (2026-09-02)
+- **Fix card refresh error "(g || []).forEach is not a function"** — the v0.24.0 search-layer merge mistakenly passed the pool object (returned by fetchPool) into mergePools as if it were an array; call site fixed and mergePools now guards against non-array entries
 
 ### v0.24.0 (2026-09-02)
 - **Hot News Radar upgraded to true whole-web search** — candidate sources expanded from "10 hot-list boards" to a two-layer structure:

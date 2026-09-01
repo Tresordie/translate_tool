@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.24.0-blue)
+![Version](https://img.shields.io/badge/version-0.24.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -235,6 +235,9 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.24.1 (2026-09-02)
+- **修复卡片刷新报错「(g || []).forEach is not a function」** — v0.24.0 引入的搜索层合并时，误把 fetchPool 返回的候选池对象当数组传入 mergePools；已修正调用点并给 mergePools 增加数组防御（非数组静默跳过）
 
 ### v0.24.0 (2026-09-02)
 - **热点雷达升级为真正的「全网搜索」** — 候选来源由「10 个热榜板块」扩展为双层结构：

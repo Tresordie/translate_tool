@@ -281,7 +281,9 @@
   function mergePools(groups) {
     var items = [], seen = {};
     groups.forEach(function (g) {
-      (g || []).forEach(function (it) {
+      // 防御：g 必须是数组（fetchPool 返回的是池对象 {items,...}，非数组）
+      if (!Array.isArray(g)) return;
+      g.forEach(function (it) {
         var k = it.source + '|' + it.title;
         if (!seen[k]) { seen[k] = 1; items.push(it); }
       });
@@ -546,8 +548,8 @@
     card.loading = true;
     render();
     return Promise.all([fetchPool(), fetchBingSearch(card.prompt)]).then(function (rs) {
-      // 搜索结果（与提示词直接匹配）排在热榜条目之前，合并去重
-      var candidates = mergePools([rs[1], rs[0]]);
+      // rs[0] = 候选池对象 {items,...}；rs[1] = 必应搜索结果数组（与提示词直接匹配，排在前）
+      var candidates = mergePools([rs[1], rs[0] && rs[0].items]);
       if (!candidates.length) throw new Error('所有数据源暂不可用（接口限制或网络异常），请稍后重试');
       return aiSelect(card.prompt, candidates);
     }).then(function (items) {
