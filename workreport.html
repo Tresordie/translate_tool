@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LinguaFlow · 工作报告</title>
+  <title>AI Tool Box · 工作报告</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="theme.css">
@@ -712,7 +712,101 @@
       border-color: var(--neon-cyan); color: var(--neon-cyan);
       background: var(--cyan-a06);
     }
-  </style>
+  
+    /* ============================================================
+       UI 精修层（v0.19.9）：统一主色渐变，提升按钮/标题栏质感
+       ============================================================ */
+
+    /* --- Header 标题质感：渐变文字 + 柔和光晕 --- */
+    .header h1 {
+      background: var(--header-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 3px 18px var(--primary-a25)) drop-shadow(0 10px 32px var(--accent2-a06));
+      letter-spacing: -0.5px;
+    }
+    .header-badge {
+      border-color: var(--primary-a18);
+      box-shadow: inset 0 1px 0 var(--white-a08), 0 4px 16px var(--primary-a06);
+    }
+    .header-badge .dot {
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary-a30, var(--primary-a25));
+    }
+
+    /* --- 标题分节条（settings-header 图标 / summary 前）统一主色 --- */
+    .settings-icon-wrap {
+      background: var(--btn-gradient);
+      box-shadow: 0 4px 16px var(--primary-a20);
+    }
+
+    /* --- 主操作按钮：统一品牌渐变（替代绿色渐变）--- */
+    .btn-save,
+    .btn-record {
+      background-image: var(--btn-gradient);
+      background-size: 150% 150%;
+      background-position: 0% 50%;
+      color: #fff;
+      box-shadow: 0 4px 18px var(--primary-a20), 0 0 24px var(--cyan-a08);
+      border: none;
+    }
+    .btn-save:hover,
+    .btn-record:hover {
+      background-position: 100% 50%;
+      box-shadow: 0 8px 28px var(--primary-a25), 0 0 32px var(--cyan-a12);
+      transform: translateY(-1px);
+    }
+    /* 禁用态保留透明渐变 */
+    .btn-record:disabled {
+      background-image: linear-gradient(135deg, var(--bg-elevated), var(--bg-card2));
+      box-shadow: none;
+      color: var(--text-dim);
+      opacity: 0.7;
+      transform: none;
+    }
+
+    /* --- 记录区 hover：主色而非绿色 --- */
+    .record-item:hover {
+      border-color: var(--primary-a25);
+      background: var(--primary-a06);
+    }
+    .record-item:hover .record-checkbox { accent-color: var(--primary); }
+    .record-checkbox { accent-color: var(--primary); }
+    .record-date { color: var(--primary); }
+    .record-edit:hover { background: var(--primary-a15); }
+
+    /* --- 语言栏：主色底而非绿色 --- */
+    .lang-bar {
+      background: var(--primary-a06);
+      border-bottom: 1px solid var(--primary-a12);
+    }
+    .lang-arrow { color: var(--primary); }
+
+    /* --- 汇总区：主色底而非绿色 --- */
+    .summary-section {
+      background: var(--primary-a06);
+    }
+
+    /* --- 输入聚焦：主色而非绿色 --- */
+    .work-input-section textarea:focus,
+    .md-editor:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px var(--primary-a10), 0 0 16px var(--primary-a12);
+    }
+    .btn-download { border-color: var(--primary-a15); color: var(--text-secondary); }
+    .btn-download:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* --- 加载条：品牌渐变循环 --- */
+    .loading-bar {
+      background: linear-gradient(90deg, var(--primary), var(--neon-cyan), var(--neon-purple), var(--primary));
+      background-size: 300% 100%;
+    }
+    .btn-filter, .btn-copy-summary, .btn-select-all,
+    .btn-cancel-edit, .btn-danger { border-radius: 10px; }
+    .btn-summarize svg { color: #fff; }
+
+</style>
 </head>
 <body>
   <!-- Animated Background -->
@@ -999,7 +1093,7 @@
     </div>
 
     <div class="footer">
-      LinguaFlow · 工作报告 — AI-Powered Work Summary
+      AI Tool Box · 工作报告 — AI-Powered Work Summary
     </div>
   </div>
 

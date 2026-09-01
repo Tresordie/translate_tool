@@ -4,14 +4,14 @@
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: 'linguaflow-translate',
-    title: 'LinguaFlow 翻译 "%s"',
+    title: 'AI Tool Box 翻译 "%s"',
     contexts: ['selection'],
   });
   // 侧边栏入口（Chrome 114+ Side Panel API）
   if (chrome.sidePanel) {
     chrome.contextMenus.create({
       id: 'linguaflow-open-side-panel',
-      title: '在侧边栏打开 LinguaFlow',
+      title: '在侧边栏打开 AI Tool Box',
       contexts: ['all'],
     });
   }

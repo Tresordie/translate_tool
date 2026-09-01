@@ -140,9 +140,10 @@ body::after {
   50% { opacity: 0.5; transform: scale(0.7); box-shadow: 0 0 3px var(--neon-cyan), 0 0 6px rgba(var(--cyan-rgb),0.2); }
 }
 .logo-text {
+  font-family: 'Sora', 'Syne', 'Plus Jakarta Sans', sans-serif;
   font-size: 17px;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: 0.01em;
   background: var(--header-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;

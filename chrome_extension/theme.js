@@ -1,46 +1,31 @@
 /**
- * theme.js — LinguaFlow Catppuccin 主题切换系统
- * 功能: 主题切换UI（Latte/Frappé/Macchiato/Mocha 四组）、localStorage持久化、iframe跨页面同步
+ * theme.js — AI Tool Box 主题切换系统（极简高级感 · 6 款）
+ * 功能: 主题切换UI（浅色/深色两组，默认 lf-graphite）、localStorage持久化、
+ *      data-mode 明暗标记、iframe跨页面同步、旧版 Catppuccin 主题自动迁移
  * 用法: 在页面底部引入 <script src="theme.js"></script> 即可自动注入切换器
  */
 (function (global) {
   'use strict';
 
   var STORAGE_KEY = 'linguaflow_theme';
-  var DEFAULT_THEME = 'cat-mocha';
+  var DEFAULT_THEME = 'lf-graphite';
 
-  /* 主题分组：Catppuccin 四风味，每款 3 种最佳强调色变体 */
+  /* 主题分组：浅色 × 深色（极简高级感 · 低饱和苹果风），默认 lf-graphite */
   var THEME_GROUPS = [
     {
-      label: 'Latte 拿铁',
+      label: '浅色',
       themes: [
-        { id: 'cat-latte', name: '拿铁 · 蓝', desc: '浅色 · 奶油底×经典蓝' },
-        { id: 'cat-latte-mauve', name: '拿铁 · 紫', desc: '浅色 · 香芋紫×海松青' },
-        { id: 'cat-latte-pink', name: '拿铁 · 粉', desc: '浅色 · 蜜桃粉×晴空蓝' }
+        { id: 'lf-paper', name: '纸感白 · Paper', desc: '浅色 · 苹果纯白×官网蓝' },
+        { id: 'lf-mist', name: '雾霭 · Mist', desc: '浅色 · 冷调浅灰×苹果靛蓝' },
+        { id: 'lf-cream', name: '奶油 · Cream', desc: '浅色 · 暖调米白×焦糖棕' }
       ]
     },
     {
-      label: 'Frappé 冰沙',
+      label: '深色',
       themes: [
-        { id: 'cat-frappe', name: '冰沙 · 蓝', desc: '深灰 · 雾霭蓝×丁香紫' },
-        { id: 'cat-frappe-mauve', name: '冰沙 · 紫', desc: '深灰 · 丁香紫×碧波青' },
-        { id: 'cat-frappe-green', name: '冰沙 · 绿', desc: '深灰 · 抹茶绿×蜜桃橙' }
-      ]
-    },
-    {
-      label: 'Macchiato 玛奇朵',
-      themes: [
-        { id: 'cat-macchiato', name: '玛奇朵 · 蓝', desc: '深蓝 · 静谧蓝×薰衣草' },
-        { id: 'cat-macchiato-mauve', name: '玛奇朵 · 紫', desc: '深蓝 · 薰衣草×海松青' },
-        { id: 'cat-macchiato-teal', name: '玛奇朵 · 青', desc: '深蓝 · 海松青×樱花粉' }
-      ]
-    },
-    {
-      label: 'Mocha 摩卡',
-      themes: [
-        { id: 'cat-mocha', name: '摩卡 · 蓝', desc: '暗夜 · 经典蓝×梦幻紫' },
-        { id: 'cat-mocha-mauve', name: '摩卡 · 紫', desc: '暗夜 · 梦幻紫×翡翠青' },
-        { id: 'cat-mocha-green', name: '摩卡 · 绿', desc: '暗夜 · 荧光绿×蜜桃橙' }
+        { id: 'lf-graphite', name: '石墨 · Graphite', desc: '深色 · 苹果深空×经典蓝' },
+        { id: 'lf-slate', name: '板岩 · Slate', desc: '深色 · 深蓝灰×靛紫' },
+        { id: 'lf-midnight', name: '午夜 · Midnight', desc: '深色 · 暖调近黑×紫罗兰' }
       ]
     }
   ];
@@ -51,8 +36,26 @@
     THEMES = THEMES.concat(THEME_GROUPS[g].themes);
   }
 
+  var DARK_THEMES = { 'lf-graphite': 1, 'lf-slate': 1, 'lf-midnight': 1 };
+
   function getSavedTheme() {
-    try { return localStorage.getItem(STORAGE_KEY) || DEFAULT_THEME; } catch (e) { return DEFAULT_THEME; }
+    var saved;
+    try { saved = localStorage.getItem(STORAGE_KEY); } catch (e) {}
+    /* 旧版 Catppuccin 主题迁移：老用户已保存的主题自动落到同明暗的新主题 */
+    if (saved && saved !== 'null') {
+      var map = {
+        'cat-mocha': 'lf-graphite', 'cat-mocha-mauve': 'lf-midnight', 'cat-mocha-green': 'lf-graphite',
+        'cat-macchiato': 'lf-slate', 'cat-macchiato-mauve': 'lf-midnight', 'cat-macchiato-teal': 'lf-slate',
+        'cat-frappe': 'lf-slate', 'cat-frappe-mauve': 'lf-midnight', 'cat-frappe-green': 'lf-graphite',
+        'cat-latte': 'lf-paper', 'cat-latte-mauve': 'lf-mist', 'cat-latte-pink': 'lf-mist'
+      };
+      if (map.hasOwnProperty(saved)) {
+        try { localStorage.setItem(STORAGE_KEY, map[saved]); } catch (e) {}
+        return map[saved];
+      }
+      return saved;
+    }
+    return DEFAULT_THEME;
   }
 
   function applyTheme(themeId, animate) {
@@ -62,6 +65,7 @@
       setTimeout(function () { html.classList.remove('theme-transitioning'); }, 400);
     }
     html.setAttribute('data-theme', themeId);
+    html.setAttribute('data-mode', DARK_THEMES[themeId] ? 'dark' : 'light');
     try { localStorage.setItem(STORAGE_KEY, themeId); } catch (e) {}
     updatePanelState(themeId);
 
@@ -91,7 +95,7 @@
     // 面板
     panelEl = document.createElement('div');
     panelEl.className = 'theme-panel';
-    var html = '<div class="theme-panel-title">Catppuccin 主题</div>';
+    var html = '<div class="theme-panel-title">AI Tool Box 主题</div>';
     for (var g = 0; g < THEME_GROUPS.length; g++) {
       var group = THEME_GROUPS[g];
       html += '<div class="theme-group-title">' + group.label + '</div>';

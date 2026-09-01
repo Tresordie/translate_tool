@@ -1,8 +1,8 @@
-# LinguaFlow · AI Smart Translation
+# AI Tool Box · AI Smart Translation & Productivity Toolkit
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.16.1-blue)
+![Version](https://img.shields.io/badge/version-0.21.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -19,7 +19,8 @@
 - **Original Format Preservation** — Fully preserves Markdown, HTML, code blocks, and other original formats with auto-formatting after translation
 - **Chrome Extension Fullscreen Mode** — New "fullscreen button" in popup top-right corner, opens full translation page in new tab (no height limit)
 - **Dynamic Popup Height** — Max height set to `screen.availHeight`, can drag to screen bottom
-- **12 Catppuccin Themes with One-Click Switching** — Latte / Frappé / Macchiato / Mocha flavors × Blue/Mauve/Pink/Green/Teal accent variants, each theme an independent color world (base/mantle/crust layered backgrounds, subtext/overlay text ladder, warm-cool contrast secondary accents) via floating grouped panel, glassmorphism texture, default Mocha Blue
+- **6 Minimal Premium Themes with One-Click Switching** — Low-saturation Apple-style palette: light (Paper / Mist / Cream) × dark (Graphite / Slate / Nocturne), neutral layered backgrounds, restrained accent colors, Apple-style text ladder, hairline borders + soft diffuse shadows; floating panel in the bottom-right corner, default Graphite
+- **Branded Title Typography** — Display font Sora (async loaded, falls back to Syne/Plus Jakarta Sans), gradient text + glow, clamp-based responsive sizing
 - **Typing Effect** — Translation results appear character by character for a smooth experience
 - **Translation History** — Auto-saves up to 20 recent translations with one-click recall
 - **Quick Actions** — Swap languages, paste from clipboard, clear, and copy results
@@ -32,15 +33,17 @@
 - **Email Summary** — New 5th tab: paste email threads or upload local files (.txt/.md/.eml/.pdf); AI produces a professional four-section detailed summary (subject & background / timeline table / technical key points / risks & caveats) plus a responsibility-based To Do List (P0/P1/P2 priorities), with 30-language output, HTML/Markdown download, and history review & editing
   - **PDF Parsing** — Built-in pdf.js local parsing (up to 200MB) with automatic handling of huge files: reading progress indicator, early stop at text budget / page cap, per-page memory release
   - **Auto-Truncation for Oversized Content** — Over 60,000 characters, automatically keeps head & tail, omits and marks the middle — no manual splitting needed
-- **Page Reuse Architecture** — Work Report, Task List, English Learning, and Email Summary tabs embed standalone pages via iframe, sharing the same codebase with Chrome extension
+- **AI Parse** — New 6th tab: Classic mode (paste notes/requirements → AI extracts a task list, tick items and batch-create into the todo list, with priorities/tags/sub-steps) + Analysis mode (describe requirements or upload attachments → AI generates a structured analysis summary, auto-detects .eml email threads); results can be copied / downloaded as Markdown / HTML
+- **AI Prompts** — New 7th tab: enter a rough requirement → generate an expert-level structured prompt (with "📋 Prompt", "⚠ Assumptions", "💡 Usage tips"); copy the prompt body or everything, download
+- **Page Reuse Architecture** — Work Report, Task List, English Learning, Email Summary, AI Parse, and AI Prompts tabs embed standalone pages via iframe, sharing the same codebase with Chrome extension
 - **Zero Dependencies** — Pure HTML + CSS + JavaScript, no installation required
 
 ### Chrome Extension
 
 - **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
 - **Popup Translation Panel** — Click the toolbar icon for quick text translation
-- **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
-- **12 Catppuccin Theme Switching** — Shares the theme.css system with the web version, vibrant colors + glassmorphism texture
+- **Right-click Menu** — Select text and right-click to choose "AI Tool Box Translate"
+- **6 Minimal Premium Themes + Textured UI** — Shares the theme.css system with the web version: restrained low-saturation palette, glassmorphism cards, subtle noise background and depth shadows
 - **Deep Context-Aware Translation** — AI performs 5-step context analysis (domain/text type/tone/audience/intent) for precise translations
 - **Resizable Popup** — Drag any edge or corner to freely resize the popup (320–800px wide, 300–780px tall), size auto-saved
 - **Uninterrupted Translation** — Translation continues in background Service Worker even if popup closes; results auto-restored on reopen
@@ -49,7 +52,8 @@
 - **Toggle Switch** — Enable/disable text selection translation in settings
 - **Language Preference Memory** — Automatically saves source and target language choices
 - **Email Summary Entry** — New envelope icon in popup header opens the Email Summary page in a new tab (full parity with web version, including PDF upload and 30-language output)
-- **Side Panel** — Chrome 114+ dedicated side panel bundling all 5 modules (Smart Translation / Work Report / Task List / English Learning / Email Summary) with one-click tab switching and lazy-loaded iframes; open it via the popup's Side Panel button, the `Alt+Shift+L` shortcut, or the "Open LinguaFlow in Side Panel" context-menu item
+- **Side Panel** — Chrome 114+ dedicated side panel bundling all 7 modules (Smart Translation / Work Report / Task List / English Learning / Email Summary / AI Parse / AI Prompts) with one-click tab switching and lazy-loaded iframes; open it via the popup's Side Panel button, the `Alt+Shift+L` shortcut, or the "Open AI Tool Box in Side Panel" context-menu item
+- **AI Parse / AI Prompts** — Two new Side Panel tabs (lazy-loaded); the popup also gains two entry buttons that open the standalone pages in a new tab
 
 ## 📸 Preview
 
@@ -102,15 +106,20 @@
 
 ```
 translation_tool/
-├── index.html              # Web app (translation main page)
+├── index.html              # Web app (translation main page, 7 tabs: Translate / Report / Todos / English / Email / AI Parse / AI Prompts)
 ├── workreport.html         # Work report page (standalone, shared with extension)
 ├── workreport.js           # Work report core logic (IIFE encapsulated)
 ├── english_learning.html    # English learning assistant page (standalone, shared)
 ├── todolist.html            # Task list page (standalone, with Markdown/AppleScript features)
-├── todolist.js              # Task list core logic (IIFE encapsulated)
+├── todolist.js              # Task list core logic (IIFE encapsulated, cross-page AI Parse task sync)
+├── ai-service.js           # AI Parse / AI Prompts shared service (config read-write / OpenAI-compatible chat / task extraction / prompt engineering)
+├── ai_parse.html           # AI Parse page (classic task extraction + analysis mode structured summary)
+├── ai_parse.js             # AI Parse page logic
+├── ai_prompts.html         # AI Prompts page (enter a requirement → generate a structured prompt)
+├── ai_prompts.js           # AI Prompts page logic
 ├── install_url_scheme.sh     # Apple Reminders URL Scheme bridge installer
-├── theme.css               # Shared theme system (12 Catppuccin theme variables + glass cards/noise/ambient glow styles)
-├── theme.js                # Theme switcher / iframe theme sync / starfield / MD preview binding
+├── theme.css               # Shared theme system (6 minimal premium theme variables + per-page UI layers + glass cards/noise/ambient glow styles)
+├── theme.js                # Theme switcher / data-mode light-dark flag / iframe theme sync / legacy theme migration / MD preview binding
 ├── markdown.js             # Markdown renderer
 ├── md-editor.js            # Markdown editor component
 ├── email_summary.html      # Email summary page (standalone, shared with extension)
@@ -124,9 +133,14 @@ translation_tool/
 │   ├── popup.html          # Popup UI
 │   ├── popup.css           # Popup styles
 │   ├── popup.js            # Popup logic
-│   ├── sidepanel.html      # Side Panel UI (Chrome 114+)
-│   ├── sidepanel.css       # Side Panel styles
-│   ├── sidepanel.js        # Side Panel logic (tab switching / config sync)
+│   ├── sidepanel.html      # Side Panel UI (Chrome 114+, 7 tabs)
+│   ├── sidepanel.css       # Side Panel styles (single-layer, theme-token driven)
+│   ├── sidepanel.js        # Side Panel logic (tab switching / lazy load / config sync)
+│   ├── ai-service.js       # AI Parse / AI Prompts shared service (shared with web version)
+│   ├── ai_parse.html       # AI Parse page (Chrome extension version)
+│   ├── ai_parse.js         # AI Parse page logic
+│   ├── ai_prompts.html     # AI Prompts page (Chrome extension version)
+│   ├── ai_prompts.js       # AI Prompts page logic
 │   ├── fullpage.html       # Fullscreen translation page
 │   ├── fullpage.js         # Fullscreen page logic
 │   ├── content.js          # Text selection translation
@@ -162,7 +176,7 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - **Popup Translation Panel** — Click the toolbar icon for quick text translation
 - **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
 - **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
-- **12 Catppuccin Themes + Textured UI** — Shares the theme system with the web version: vibrant colors, glassmorphism cards, noise background and depth shadows
+- **6 Minimal Premium Themes + Textured UI** — Shares the theme system with the web version: restrained low-saturation palette, glassmorphism cards, subtle noise background and depth shadows
 - **Resizable Popup** — Drag any edge or corner to resize (320–800px wide, 300–780px tall), auto-saved
 - **Uninterrupted Translation** — Background Service Worker continues translating even after popup closes; results auto-restored
 - **Translation History** — Auto-saves up to 20 entries with individual deletion and clear-all
@@ -178,7 +192,7 @@ In addition to the web version, this project includes a **Chrome browser extensi
 3. Enable **Developer mode** in the top-right corner
 4. Click **"Load unpacked"**
 5. Select the `chrome_extension` folder
-6. Click the LinguaFlow icon in the toolbar and configure your API to get started
+6. Click the AI Tool Box icon in the toolbar and configure your API to get started
 
 ### How to Use Text Selection Translation
 
@@ -189,11 +203,11 @@ In addition to the web version, this project includes a **Chrome browser extensi
 
 ### How to Use the Side Panel (Chrome 114+)
 
-1. Click the LinguaFlow toolbar icon, then click the **Side Panel** button in the popup header (or press `Alt+Shift+L`, or right-click → "Open LinguaFlow in Side Panel")
-2. The side panel opens on the right edge of the window with 5 tabs: **Smart Translation / Work Report / Task List / English Learning / Email Summary**
+1. Click the AI Tool Box toolbar icon, then click the **Side Panel** button in the popup header (or press `Alt+Shift+L`, or right-click → "Open AI Tool Box in Side Panel")
+2. The side panel opens on the right edge of the window with 7 tabs: **Smart Translation / Work Report / Task List / English Learning / Email Summary / AI Parse / AI Prompts**
 3. Click any tab to switch modules instantly — each module is lazily loaded on first open to keep startup fast
-4. Configure your API in the popup's **Settings** panel (gear icon) — all modules sync the config in real time
-5. Click the circular theme button in the bottom-right corner to switch between 12 Catppuccin themes directly inside the side panel — changes sync to every module in real time
+4. Configure your API in the side panel's **Settings** panel (gear icon) — the config syncs to the popup, fullscreen page and every module in real time
+5. Click the circular theme button in the bottom-right corner to switch between the 6 themes directly inside the side panel — changes sync to every module in real time
 
 ## 📋 Browser Compatibility
 
@@ -203,6 +217,43 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.21.0 (2026-09-01)
+- **Task List Dashboard Redesign** — stats-first multi-panel grid layout: 4 KPI stat cards on top (today progress ring / due today / completed / all tasks), quick-add card + task panel card + side sync-guide card; task items gain a priority accent bar, animated checkbox, chip-style metadata and hover lift; filter pills become a segmented control and sync buttons become unified ghost buttons with theme-tinted icons; the whole stylesheet is rewritten as a single coherent layer (old base layer + two UI refinement overlay layers removed), fully following the 6 themes in light & dark
+- **English Learning Redesign (both copies unified)** — fixes the root-directory copy's hardcoded orange palette not following themes: all `--el-*` variables now map to global theme variables; provider presets become horizontal chips; the word header card uses the brand gradient (fixes a white-on-light contrast bug); the page CSS of both copies (web / extension) is now identical; the JS fork between the two copies is also resolved (the root copy's inline JS adopts the extension fixes: history rawContent re-rendering, fetch error handling, themed result-card SVG strokes) and the misplaced refinement CSS inside the export template is cleaned up
+- **Glass Depth for English Learning** — sections and header now use the same glassmorphism craft as theme.css `.glass-card`: translucent glass background, backdrop blur, top-edge highlight, 4-layer diffuse shadow and gradient glow border, plus page ambient light — visual depth now matches the other pages
+- **Unified Container Width** — the task list page container now uses the same `1400px + 24px` standard as the other pages
+- **Side Panel Shell Rewrite** — `sidepanel.css` rewritten from 3 stacked overlay layers (581 lines) into a single coherent layer: all `--sp-*` tokens map to global theme variables, fixing "shell colors not following the theme" and a dark-mode scope bug where tabs used a hardcoded `#818CF8`; the header is reduced to glass + a single hairline; the tab bar becomes a single row of icon pills where the active item smoothly expands into a gradient pill with its label (fixes 7 tabs overflowing narrow panels)
+- Internal: todolist / english_learning page styles now use a "single coherent stylesheet" architecture (replacing the v0.20 overlay approach); the two copies (root / chrome_extension) keep only the CSP-required differences
+
+### v0.20.0 (2026-09-01)
+- **Brand Upgrade** — the product is renamed **AI Tool Box**; all visible titles updated (main UI / extension popup / Side Panel / fullscreen page / sub-page titles, manifest name, context menus, selection tooltip) while internal identifiers stay unchanged for user-data compatibility
+- **Title Font Upgrade** — Sora display font (async loaded), refined title typography (weight 800, tracking, clamp-based sizing)
+- **Nocturne Theme Redesign** — reworked from "warm near-black violet" to "deep-sea indigo × electric blue" (primary #6E7BFF)
+- **Work Report Page Refactor** — buttons/title bar unified to the brand gradient; language bar and summary area recolored
+- **Task List Refactor** — gradient title, brand gradient buttons, card-style task items + layered shadows, glowing progress ring, refined empty state, narrow-container responsive breakpoints
+- **English Learning Refactor** — the `--el-*` system bridged to global theme variables; dark banner replaced by a primary-color glow band with gradient title; full light/dark adaptation
+- **Side Panel Redesign** — header ambient light + gradient logo/title, gradient pill segment control for page switching with narrow-panel overflow fix
+- Internal: light/dark grouping now driven by `html[data-mode]`, legacy Catppuccin theme IDs auto-migrate (see PROJECT_HANDOFF §3.4/3.6)
+
+### v0.19.7 – v0.19.8 (2026-08-29)
+- Selection tooltip & context-menu detail fixes (v0.19.8)
+- English learning page fixes: input-area right border restored when stretched, `resize: vertical` support (v0.19.7)
+
+### v0.19.0 – v0.19.5 (2026-08-28 – 08-29)
+- **New minimal premium theme system** — 6 low-saturation Apple-style themes (`lf-*` + `data-mode` light/dark grouping), replacing the 12 Catppuccin themes; legacy IDs auto-migrate
+- English learning page: unified inner width with the AI Parse page, dark-theme white-edge fixes, themed scrollbars, pronunciation language selector expanded to 30 languages, pronunciation panel language selection restored
+
+### v0.18.0 (2026-08-28)
+- **Side Panel modern minimal redesign** — light gray-white / dark backgrounds, 12px rounded cards, subtle shadows, hairline borders, frosted-glass header, system fonts (Google Fonts dependency removed), dark mode adaptation
+- **Config sync fix** — `ai-service.js` `initConfigSync` now also writes `localStorage('translate_config')` so AI Parse / AI Prompts pick up new API settings immediately
+
+### v0.17.0 (2026-08-28)
+- **AI Parse & AI Prompts** — integrated from the TaskFlow project
+  - AI Parse: Classic mode (paste notes → extract a task list) + Analysis mode (requirements → structured summary, email detection)
+  - AI Prompts: rough requirement → expert-level copyable prompt (with assumptions and usage tips)
+  - Web version gains two tabs (iframe embedded); Side Panel gains two tabs; popup gains entry buttons
+  - Shares the LLM API config (Base URL / API Key / Model) with instant sync across all pages
 
 ### v0.16.1 (2026-08-28)
 

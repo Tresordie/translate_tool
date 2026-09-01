@@ -6,45 +6,60 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-replace">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>英语学习助手 v5.0</title>
+    <title>AI Tool Box · 英语学习助手</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Sans+JP:wght@300;400;500;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Sans+Arabic:wght@300;400;500;600;700&family=Noto+Sans+Hebrew:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@300;400;500;600;700&family=Noto+Sans+Bengali:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="theme.css">
     <style>
         /* ============================================================
-           Design Tokens — Professional English Learning Theme
-           深海蓝 + 琥珀金 · 专业沉稳 · 沉浸学习
+           英语学习助手 · v0.21.0 重设计
+           单一连贯样式层：--el-* 全量映射全局主题变量，
+           跟随 theme.css 6 款主题 + data-mode 明暗自适应
            ============================================================ */
+
         :root {
-            --el-primary: #0F172A;
-            --el-primary-light: #1E293B;
-            --el-primary-lighter: #334155;
-            --el-accent: #F59E0B;
-            --el-accent-hover: #D97706;
-            --el-accent-soft: rgba(245, 158, 11, 0.1);
-            --el-accent-border: rgba(245, 158, 11, 0.25);
-            --el-bg: #F8FAFC;
-            --el-bg-subtle: #F1F5F9;
-            --el-surface: #FFFFFF;
-            --el-surface-hover: #F8FAFC;
-            --el-surface-active: #F1F5F9;
-            --el-text: #1E293B;
-            --el-text-secondary: #475569;
-            --el-text-muted: #64748B;
-            --el-text-faint: #94A3B8;
-            --el-border: rgba(15, 23, 42, 0.08);
-            --el-border-strong: rgba(15, 23, 42, 0.15);
-            --el-border-accent: rgba(245, 158, 11, 0.3);
-            --el-shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
-            --el-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
-            --el-shadow-lg: 0 4px 16px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.03);
-            --el-shadow-xl: 0 10px 30px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
-            --el-shadow-hover: 0 8px 24px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
-            --el-gradient-header: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
-            --el-gradient-accent: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-            --el-gradient-surface: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
-            --el-gradient-card: linear-gradient(135deg, #FFFFFF 0%, #FAFBFC 100%);
+            /* 强调色 → 主题主色 */
+            --el-accent: var(--primary);
+            --el-accent-hover: var(--primary-dark);
+            --el-accent-soft: var(--primary-a08);
+            --el-accent-border: var(--primary-a25);
+            --el-border-accent: var(--primary-a25);
+            --el-gradient-accent: var(--btn-gradient);
+
+            /* 背景分层 → 主题背景栈 */
+            --el-bg: var(--bg-body);
+            --el-bg-subtle: var(--bg-card2);
+            --el-surface: var(--bg-card);
+            --el-surface-hover: var(--bg-card2);
+            --el-surface-active: var(--bg-elevated);
+
+            /* 文字阶梯 → 主题文字 */
+            --el-primary: var(--text);
+            --el-primary-light: var(--text-secondary);
+            --el-primary-lighter: var(--text-dim);
+            --el-text: var(--text);
+            --el-text-secondary: var(--text-secondary);
+            --el-text-muted: var(--text-dim);
+            --el-text-faint: var(--text-dim);
+
+            /* 边框 → 主题玻璃边框 */
+            --el-border: var(--glass-border);
+            --el-border-strong: var(--primary-a18);
+
+            /* 渐变 → 主题渐变 */
+            --el-gradient-header: linear-gradient(135deg, var(--primary-a10) 0%, transparent 55%, var(--accent2-a06) 100%);
+            --el-gradient-surface: var(--bg-card);
+            --el-gradient-card: var(--bg-card);
+
+            /* 阴影 → 克制弥散，hover 主色染色 */
+            --el-shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+            --el-shadow-md: 0 2px 8px rgba(0,0,0,0.05);
+            --el-shadow-lg: 0 4px 16px rgba(0,0,0,0.06);
+            --el-shadow-xl: 0 10px 30px rgba(0,0,0,0.08);
+            --el-shadow-hover: 0 8px 24px var(--primary-a12);
+
+            /* 间距 */
             --el-space-xs: 4px;
             --el-space-sm: 8px;
             --el-space-md: 16px;
@@ -52,374 +67,456 @@
             --el-space-xl: 32px;
             --el-space-2xl: 48px;
             --el-space-3xl: 64px;
-            --el-radius-sm: 6px;
-            --el-radius-md: 10px;
-            --el-radius-lg: 14px;
+
+            /* 圆角与过渡 */
+            --el-radius-sm: 8px;
+            --el-radius-md: 12px;
+            --el-radius-lg: 16px;
             --el-radius-xl: 20px;
             --el-transition: 0.2s ease;
             --el-transition-slow: 0.3s ease;
-        }
-
-        /* 暗色主题：在 html 层级覆盖变量，确保 html/body 背景色也跟随暗色 */
-        html[data-theme="cat-frappe"],
-        html[data-theme="cat-frappe-mauve"],
-        html[data-theme="cat-frappe-green"],
-        html[data-theme="cat-macchiato"],
-        html[data-theme="cat-macchiato-mauve"],
-        html[data-theme="cat-macchiato-teal"],
-        html[data-theme="cat-mocha"],
-        html[data-theme="cat-mocha-mauve"],
-        html[data-theme="cat-mocha-green"] {
-            --el-bg: #1E1E2E;
-            --el-bg-subtle: #181825;
-            --el-surface: #302D41;
-            --el-surface-hover: #3B3852;
-            --el-surface-active: #45425A;
-            --el-text: #CDD6F4;
-            --el-text-secondary: #BAC2DE;
-            --el-text-muted: #A6ADC8;
-            --el-text-faint: #7F849C;
-            --el-border: rgba(205, 214, 244, 0.08);
-            --el-border-strong: rgba(205, 214, 244, 0.15);
-            --el-shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
-            --el-shadow-md: 0 4px 6px rgba(0,0,0,0.2);
-            --el-shadow-lg: 0 4px 16px rgba(0,0,0,0.25);
-            --el-shadow-xl: 0 10px 30px rgba(0,0,0,0.3);
-            --el-shadow-hover: 0 8px 24px rgba(0,0,0,0.3);
-            --el-gradient-header: linear-gradient(135deg, #11111B 0%, #1E1E2E 50%, #302D41 100%);
-            --el-gradient-surface: linear-gradient(180deg, #1E1E2E 0%, #181825 100%);
-            --el-gradient-card: linear-gradient(135deg, #302D41 0%, #2A273A 100%);
         }
 
         .el-wrapper * { margin: 0; padding: 0; box-sizing: border-box; }
 
         .el-wrapper {
             font-family: 'Plus Jakarta Sans', 'Inter', 'Noto Sans', 'Noto Sans SC', 'Noto Sans JP', 'Noto Sans KR', 'Noto Sans Arabic', 'Noto Sans Hebrew', 'Noto Sans Thai', 'Noto Sans Devanagari', 'Noto Sans Bengali', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            font-size: 16px;
+            font-size: 15px;
             line-height: 1.6;
             color: var(--el-text);
-            background: var(--el-bg);
+            background: transparent;
             min-height: 100vh;
-            padding: 0;
+            padding: 0 0 40px;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
 
-        /* 内容容器：max-width 1400px + 水平内边距 24px，与 AI Parse 页面 .container 一致 */
-        .el-container { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+        /* 页面背景跟随主题（覆盖 theme.css 的画布底色） */
+        html, body { background: var(--el-bg) !important; margin: 0 !important; padding: 0 !important; overflow-x: hidden !important; }
 
-        .el-header {
-            background: var(--el-gradient-header);
-            border-radius: var(--el-radius-xl);
-            padding: var(--el-space-2xl) var(--el-space-xl);
-            text-align: center;
-            margin-bottom: var(--el-space-3xl);
-            box-shadow: var(--el-shadow-xl);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .el-header::before {
+        /* 页面环境光：给玻璃卡片可折射的底色层次（配合 backdrop-filter 呈现立体感） */
+        body::before {
             content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(ellipse at 30% 20%, rgba(245, 158, 11, 0.08) 0%, transparent 60%),
-                        radial-gradient(ellipse at 70% 80%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
+            position: fixed; inset: 0;
+            background:
+                radial-gradient(ellipse 55% 42% at 12% 0%, var(--primary-a08) 0%, transparent 60%),
+                radial-gradient(ellipse 45% 40% at 92% 100%, var(--accent2-a06) 0%, transparent 55%);
             pointer-events: none;
         }
 
-        .el-header-title {
-            font-size: 36px;
-            font-weight: 700;
-            color: #FFFFFF;
-            letter-spacing: -0.02em;
-            margin-bottom: var(--el-space-sm);
+        /* 内容容器：与 AI Parse 页面 .container 一致（1400px + 24px 水平内边距） */
+        .el-container { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+        /* ---------- 页头：玻璃光晕带 ---------- */
+        .el-header {
             position: relative;
+            background-color: var(--glass-bg);
+            background-image: var(--el-gradient-header);
+            backdrop-filter: blur(24px) saturate(1.4);
+            -webkit-backdrop-filter: blur(24px) saturate(1.4);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--el-radius-lg);
+            padding: 26px 28px;
+            margin: 20px 0 22px;
+            box-shadow: var(--glass-shadow);
+        }
+        /* 渐变发光描边（与 theme.css .glass-card 同工艺） */
+        .el-header::after {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: var(--el-radius-lg); padding: 1px;
+            background: linear-gradient(160deg, var(--primary-a25), var(--cyan-a15) 28%, var(--accent2-a10) 62%, transparent 78%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+            pointer-events: none; z-index: -1;
+            opacity: var(--glow-opacity);
+        }
+        .el-header::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 12% 0%, var(--primary-a08) 0%, transparent 55%),
+                        radial-gradient(ellipse at 88% 100%, var(--accent2-a06) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .el-header-title {
+            position: relative;
+            font-size: 25px;
+            font-weight: 800;
+            letter-spacing: 0.01em;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 12px;
+            gap: 11px;
+            background: var(--header-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .el-header-title svg {
+            width: 25px; height: 25px; flex-shrink: 0;
+            stroke: var(--el-accent); stroke-width: 1.7; fill: none;
+            filter: drop-shadow(0 2px 8px var(--primary-a20));
+        }
+        .el-header-subtitle {
+            position: relative;
+            margin-top: 5px;
+            font-size: 0.9rem;
+            color: var(--el-text-secondary);
+            letter-spacing: 0.02em;
         }
 
-        .el-header-title svg { width: 32px; height: 32px; stroke: var(--el-accent); stroke-width: 1.5; fill: none; }
-        .el-header-subtitle { font-size: 16px; color: rgba(255, 255, 255, 0.65); font-weight: 400; letter-spacing: 0.02em; position: relative; }
-
+        /* ---------- 区块卡片：玻璃拟态立体感（与 theme.css .glass-card 同工艺） ---------- */
         .el-section {
-            background: var(--el-gradient-card);
-            border: 1px solid var(--el-border);
+            position: relative;
+            background-color: var(--glass-bg);
+            background-image: linear-gradient(180deg, var(--white-a08) 0%, transparent 32%);
+            backdrop-filter: blur(24px) saturate(1.4);
+            -webkit-backdrop-filter: blur(24px) saturate(1.4);
+            border: 1px solid var(--glass-border);
             border-radius: var(--el-radius-lg);
-            padding: var(--el-space-lg);
-            margin-bottom: var(--el-space-3xl);
-            box-shadow: var(--el-shadow-lg);
-            transition: box-shadow var(--el-transition);
+            padding: 22px 24px;
+            margin-bottom: 20px;
+            box-shadow: var(--glass-shadow);
+            transition: box-shadow var(--el-transition), border-color var(--el-transition);
         }
 
-        .el-section:hover { box-shadow: var(--el-shadow-hover); }
+        /* 渐变发光描边（mask 工艺，与 theme.css .glass-card::before 一致） */
+        .el-section::before {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: var(--el-radius-lg); padding: 1px;
+            background: linear-gradient(160deg, var(--primary-a25), var(--cyan-a15) 28%, var(--accent2-a10) 62%, transparent 78%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+            pointer-events: none; z-index: -1;
+            opacity: var(--glow-opacity);
+        }
+
+        .el-section:hover {
+            border-color: var(--primary-a18);
+            box-shadow: var(--glass-shadow), 0 12px 34px var(--primary-a10);
+        }
 
         .el-section-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: var(--el-space-lg);
-            padding-bottom: var(--el-space-md);
+            gap: 12px;
+            margin-bottom: 18px;
+            padding-bottom: 13px;
             border-bottom: 1px solid var(--el-border);
         }
 
         .el-section-title {
-            font-size: 22px;
-            font-weight: 600;
+            font-size: 1.02rem;
+            font-weight: 700;
             color: var(--el-text);
             display: flex;
             align-items: center;
-            gap: 10px;
-            letter-spacing: -0.01em;
+            gap: 9px;
+            letter-spacing: 0.01em;
         }
 
-        .el-section-title svg { width: 24px; height: 24px; stroke: var(--el-accent); stroke-width: 1.5; fill: none; flex-shrink: 0; }
+        .el-section-title svg { width: 17px; height: 17px; stroke: var(--el-accent); stroke-width: 1.8; fill: none; flex-shrink: 0; }
 
         .el-toggle-btn {
-            width: 32px; height: 32px;
+            width: 30px; height: 30px;
             border-radius: var(--el-radius-sm);
             border: 1px solid var(--el-border);
-            background: var(--el-surface);
+            background: transparent;
             cursor: pointer;
             display: flex; align-items: center; justify-content: center;
             transition: all var(--el-transition);
             color: var(--el-text-muted);
+            flex-shrink: 0;
         }
 
-        .el-toggle-btn:hover { background: var(--el-surface-hover); border-color: var(--el-border-strong); }
-        .el-toggle-btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; transition: transform var(--el-transition); }
+        .el-toggle-btn:hover { background: var(--el-accent-soft); border-color: var(--el-accent-border); color: var(--el-accent); }
+        .el-toggle-btn svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2; fill: none; transition: transform var(--el-transition); }
         .el-toggle-btn.collapsed svg { transform: rotate(-90deg); }
 
-        .el-section-content { max-height: 2000px; overflow: visible; transition: max-height 0.4s ease-out, opacity 0.3s ease; opacity: 1; }
+        .el-section-content { max-height: 2400px; overflow: visible; transition: max-height 0.4s ease-out, opacity 0.3s ease; opacity: 1; }
         .el-section-content.collapsed { max-height: 0; opacity: 0; overflow: hidden; }
 
-        .el-info-banner { background: var(--el-accent-soft); border: 1px solid var(--el-accent-border); border-radius: var(--el-radius-md); padding: var(--el-space-md) var(--el-space-lg); margin-bottom: var(--el-space-lg); }
-        .el-info-banner-title { font-size: 14px; font-weight: 600; color: var(--el-accent-hover); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
-        .el-info-banner-title svg { width: 16px; height: 16px; stroke: var(--el-accent-hover); stroke-width: 1.5; fill: none; }
-        .el-info-banner-step { font-size: 14px; color: var(--el-text-secondary); line-height: 1.8; padding-left: 22px; }
+        /* ---------- 使用流程横幅 ---------- */
+        .el-info-banner {
+            background: var(--el-accent-soft);
+            border: 1px solid var(--el-accent-border);
+            border-radius: var(--el-radius-md);
+            padding: 14px 18px;
+            margin-bottom: 16px;
+        }
+        .el-info-banner-title { font-size: 0.85rem; font-weight: 600; color: var(--el-accent-hover); margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+        .el-info-banner-title svg { width: 15px; height: 15px; stroke: var(--el-accent-hover); stroke-width: 1.8; fill: none; }
+        .el-info-banner-step { font-size: 0.85rem; color: var(--el-text-secondary); line-height: 1.8; padding-left: 21px; }
 
-        .el-preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: var(--el-space-lg); }
+        /* ---------- 预设供应商：横向 chip 行 ---------- */
+        .el-preset-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
 
         .el-preset-card {
-            padding: var(--el-space-md);
+            display: flex; align-items: center; gap: 9px;
+            padding: 8px 16px 8px 12px;
             background: var(--el-surface);
             border: 1px solid var(--el-border);
-            border-radius: var(--el-radius-md);
+            border-radius: 999px;
             cursor: pointer;
             transition: all var(--el-transition);
-            text-align: center;
-            box-shadow: var(--el-shadow-sm);
+            text-align: left;
         }
 
-        .el-preset-card:hover { border-color: var(--el-border-strong); box-shadow: var(--el-shadow-md); transform: translateY(-1px); }
-        .el-preset-card.active { border-color: var(--el-accent); background: var(--el-accent-soft); box-shadow: 0 0 0 1px var(--el-accent-border), var(--el-shadow-md); }
-        .el-preset-icon { width: 24px; height: 24px; stroke: var(--el-text-muted); stroke-width: 1.5; fill: none; margin: 0 auto 8px; display: block; }
+        .el-preset-card:hover { border-color: var(--el-border-strong); box-shadow: var(--el-shadow-sm); transform: translateY(-1px); }
+        .el-preset-card.active {
+            border-color: var(--el-accent);
+            background: var(--el-accent-soft);
+            box-shadow: 0 0 0 1px var(--el-accent-border);
+        }
+        .el-preset-icon { width: 17px; height: 17px; stroke: var(--el-text-muted); stroke-width: 1.7; fill: none; flex-shrink: 0; }
         .el-preset-card.active .el-preset-icon { stroke: var(--el-accent); }
-        .el-preset-name { font-weight: 600; font-size: 14px; color: var(--el-text); margin-bottom: 2px; }
-        .el-preset-desc { font-size: 12px; color: var(--el-text-faint); }
+        .el-preset-name { font-weight: 600; font-size: 0.86rem; color: var(--el-text); }
+        .el-preset-desc { font-size: 0.72rem; color: var(--el-text-faint); }
         .el-preset-card.active .el-preset-name { color: var(--el-accent-hover); }
 
-        .el-form-group { margin-bottom: var(--el-space-md); }
-        .el-form-label { display: block; margin-bottom: 6px; color: var(--el-text-secondary); font-weight: 500; font-size: 14px; }
+        /* ---------- 表单 ---------- */
+        .el-form-group { margin-bottom: 14px; }
+        .el-form-label { display: block; margin-bottom: 6px; color: var(--el-text-secondary); font-weight: 600; font-size: 0.8rem; }
 
         .el-form-input {
-            width: 100%; padding: 12px 16px;
-            border: 1px solid var(--el-border-strong);
-            border-radius: var(--el-radius-md);
-            font-size: 15px; font-family: inherit;
+            width: 100%; padding: 10px 14px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            font-size: 0.9rem; font-family: inherit;
             transition: all var(--el-transition);
-            background: var(--el-surface); color: var(--el-text);
-            box-shadow: var(--el-shadow-sm);
+            background: var(--el-bg-subtle); color: var(--el-text);
+            outline: none;
         }
 
-        .el-form-input:focus { outline: none; border-color: var(--el-accent); box-shadow: 0 0 0 3px var(--el-accent-soft), var(--el-shadow-sm); }
+        .el-form-input:focus { border-color: var(--el-accent-border); background: var(--el-surface); box-shadow: 0 0 0 3px var(--el-accent-soft); }
         .el-form-input::placeholder { color: var(--el-text-faint); }
 
         .el-form-select {
-            width: 100%; padding: 12px 16px;
-            border: 1px solid var(--el-border-strong);
-            border-radius: var(--el-radius-md);
-            font-size: 15px; font-family: inherit;
-            background: var(--el-surface); color: var(--el-text);
-            box-shadow: var(--el-shadow-sm); cursor: pointer;
-            appearance: none;
+            width: 100%; padding: 10px 40px 10px 14px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            font-size: 0.9rem; font-family: inherit;
+            background: var(--el-bg-subtle); color: var(--el-text);
+            cursor: pointer; outline: none;
+            appearance: none; -webkit-appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat; background-position: right 12px center; padding-right: 40px;
+            background-repeat: no-repeat; background-position: right 13px center;
+            transition: all var(--el-transition);
         }
 
-        .el-form-select:focus { outline: none; border-color: var(--el-accent); box-shadow: 0 0 0 3px var(--el-accent-soft), var(--el-shadow-sm); }
+        .el-form-select:focus { border-color: var(--el-accent-border); background-color: var(--el-surface); box-shadow: 0 0 0 3px var(--el-accent-soft); }
 
-        .el-button-group { display: flex; gap: 12px; flex-wrap: wrap; margin-top: var(--el-space-lg); }
+        /* ---------- 按钮 ---------- */
+        .el-button-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 
         .el-btn {
-            padding: 12px 24px; border: none; border-radius: var(--el-radius-md);
-            font-size: 15px; font-weight: 600; font-family: inherit;
+            height: 42px; padding: 0 20px; border: none; border-radius: 10px;
+            font-size: 0.9rem; font-weight: 600; font-family: inherit;
             cursor: pointer; transition: all var(--el-transition);
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-            flex: 1; min-width: 140px;
+            flex: 1; min-width: 130px;
         }
 
         .el-btn:active { transform: scale(0.98); }
         .el-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
-        .el-btn svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.5; fill: none; }
+        .el-btn svg { width: 17px; height: 17px; stroke: currentColor; stroke-width: 1.8; fill: none; }
 
-        .el-btn-primary { background: var(--el-gradient-accent); color: #FFFFFF; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25); }
-        .el-btn-primary:hover:not(:disabled) { box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35); transform: translateY(-1px); }
-        .el-btn-success { background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #FFFFFF; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2); }
-        .el-btn-success:hover:not(:disabled) { box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3); transform: translateY(-1px); }
-        .el-btn-danger { background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%); color: #FFFFFF; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2); }
-        .el-btn-danger:hover:not(:disabled) { box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3); transform: translateY(-1px); }
-        .el-btn-warning { background: linear-gradient(135deg, #EA580C 0%, #C2410C 100%); color: #FFFFFF; box-shadow: 0 2px 8px rgba(234, 88, 12, 0.2); }
-        .el-btn-warning:hover:not(:disabled) { box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3); transform: translateY(-1px); }
+        .el-btn-primary { background: var(--el-gradient-accent); background-size: 150% 130%; background-position: 0% 50%; color: #FFFFFF; box-shadow: 0 4px 14px var(--primary-a25); text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        .el-btn-primary:hover:not(:disabled) { background-position: 100% 50%; box-shadow: 0 6px 20px var(--primary-a25); transform: translateY(-1px); }
+        .el-btn-success { background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #FFFFFF; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.22); }
+        .el-btn-success:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(5, 150, 105, 0.3); transform: translateY(-1px); filter: saturate(1.08); }
+        .el-btn-danger { background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%); color: #FFFFFF; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.22); }
+        .el-btn-danger:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3); transform: translateY(-1px); filter: saturate(1.08); }
+        .el-btn-warning { background: linear-gradient(135deg, #EA580C 0%, #C2410C 100%); color: #FFFFFF; box-shadow: 0 2px 8px rgba(234, 88, 12, 0.22); }
+        .el-btn-warning:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(234, 88, 12, 0.3); transform: translateY(-1px); filter: saturate(1.08); }
 
-        .el-btn-sm { padding: 8px 14px; font-size: 13px; min-width: auto; flex: none; }
+        .el-btn-sm { height: 32px; padding: 0 13px; font-size: 0.78rem; min-width: auto; flex: none; gap: 6px; }
+        .el-btn-sm svg { width: 13px; height: 13px; }
 
         .el-icon-btn {
-            width: 36px; height: 36px; border-radius: var(--el-radius-sm);
-            border: 1px solid var(--el-border); background: var(--el-surface);
+            width: 42px; height: 42px; border-radius: 10px;
+            border: 1px solid var(--el-border); background: transparent;
             cursor: pointer; display: flex; align-items: center; justify-content: center;
             color: var(--el-text-muted); transition: all var(--el-transition); flex: none;
         }
 
         .el-icon-btn:hover { color: var(--el-accent); border-color: var(--el-accent-border); background: var(--el-accent-soft); }
-        .el-icon-btn svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.5; fill: none; }
+        .el-icon-btn svg { width: 17px; height: 17px; stroke: currentColor; stroke-width: 1.8; fill: none; }
 
-        .el-test-result { margin-top: var(--el-space-md); padding: var(--el-space-md); border-radius: var(--el-radius-md); display: none; font-size: 14px; line-height: 1.6; animation: elSlideIn 0.2s ease; }
+        /* ---------- 测试结果 / 错误提示 ---------- */
+        .el-test-result { margin-top: 14px; padding: 13px 16px; border-radius: var(--el-radius-md); display: none; font-size: 0.88rem; line-height: 1.6; animation: elSlideIn 0.2s ease; }
         @keyframes elSlideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-        .el-test-result.success { background: rgba(5, 150, 105, 0.08); border: 1px solid rgba(5, 150, 105, 0.2); color: #047857; display: block; }
-        .el-test-result.error { background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.2); color: #B91C1C; display: block; }
+        .el-test-result.success { background: var(--green-a08); border: 1px solid var(--green-a15); color: #047857; display: block; }
+        .el-test-result.error { background: var(--red-a08); border: 1px solid var(--red-a12); color: #B91C1C; display: block; }
         .el-test-result.info { background: var(--el-accent-soft); border: 1px solid var(--el-accent-border); color: var(--el-accent-hover); display: block; }
-        html[data-theme="cat-frappe"] .el-test-result.success, html[data-theme="cat-frappe-mauve"] .el-test-result.success, html[data-theme="cat-frappe-green"] .el-test-result.success, html[data-theme="cat-macchiato"] .el-test-result.success, html[data-theme="cat-macchiato-mauve"] .el-test-result.success, html[data-theme="cat-macchiato-teal"] .el-test-result.success, html[data-theme="cat-mocha"] .el-test-result.success, html[data-theme="cat-mocha-mauve"] .el-test-result.success, html[data-theme="cat-mocha-green"] .el-test-result.success { color: #A6E3A1; }
-        html[data-theme="cat-frappe"] .el-test-result.error, html[data-theme="cat-frappe-mauve"] .el-test-result.error, html[data-theme="cat-frappe-green"] .el-test-result.error, html[data-theme="cat-macchiato"] .el-test-result.error, html[data-theme="cat-macchiato-mauve"] .el-test-result.error, html[data-theme="cat-macchiato-teal"] .el-test-result.error, html[data-theme="cat-mocha"] .el-test-result.error, html[data-theme="cat-mocha-mauve"] .el-test-result.error, html[data-theme="cat-mocha-green"] .el-test-result.error { color: #F38BA8; }
+        html[data-mode="dark"] .el-test-result.success { color: var(--neon-green); }
+        html[data-mode="dark"] .el-test-result.error { color: var(--red); }
 
+        .el-error-message { background: var(--red-a08); color: #DC2626; padding: 13px 17px; border-radius: var(--el-radius-md); margin-top: 12px; display: none; border: 1px solid var(--red-a12); font-size: 0.88rem; }
+        .el-error-message.active { display: block; animation: elSlideIn 0.2s ease; }
+        html[data-mode="dark"] .el-error-message { color: var(--red); }
+
+        /* ---------- 学习内容输入区 ---------- */
         .el-input-area { position: relative; width: 100%; padding: 1px; }
 
         .el-md-editor {
-            padding: 14px 16px; font-size: 15px; line-height: 1.6;
-            min-height: 120px; max-height: 320px; overflow-y: auto; overflow-x: hidden;
+            padding: 13px 15px; font-size: 0.92rem; line-height: 1.65;
+            min-height: 140px; max-height: 340px; overflow-y: auto; overflow-x: hidden;
             outline: none; color: var(--el-text); cursor: text;
-            background: var(--el-surface); border: 1px solid var(--el-border-strong);
+            background: var(--el-bg-subtle); border: 1px solid transparent;
             border-radius: var(--el-radius-md); transition: all var(--el-transition);
-            box-shadow: var(--el-shadow-sm);
             width: 100%; word-wrap: break-word; overflow-wrap: break-word;
             word-break: break-word; white-space: pre-wrap;
             font-family: 'Plus Jakarta Sans', 'Inter', 'Noto Sans', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             resize: vertical;
         }
 
-        .el-md-editor:focus-within { border-color: var(--el-accent); box-shadow: 0 0 0 3px var(--el-accent-soft), var(--el-shadow-sm); }
+        .el-md-editor:focus-within { border-color: var(--el-accent-border); background: var(--el-surface); box-shadow: 0 0 0 3px var(--el-accent-soft); }
 
         .el-md-preview-panel { background: var(--el-surface); border: 1px solid var(--el-border); border-radius: var(--el-radius-md); margin-top: 12px; overflow: hidden; }
         .el-md-preview-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: var(--el-bg-subtle); border-bottom: 1px solid var(--el-border); }
-        .el-md-preview-badge { font-size: 12px; font-weight: 600; color: var(--el-text-muted); display: flex; align-items: center; gap: 5px; }
-        .el-md-preview-badge svg { width: 14px; height: 14px; stroke: var(--el-text-muted); stroke-width: 1.5; fill: none; }
-        .el-md-preview-close { width: 24px; height: 24px; border: none; background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--el-text-muted); transition: all var(--el-transition); }
-        .el-md-preview-close:hover { background: var(--el-surface-hover); color: var(--el-text); }
+        .el-md-preview-badge { font-size: 0.75rem; font-weight: 600; color: var(--el-text-muted); display: flex; align-items: center; gap: 5px; letter-spacing: 0.04em; }
+        .el-md-preview-badge svg { width: 14px; height: 14px; stroke: var(--el-text-muted); stroke-width: 1.8; fill: none; }
+        .el-md-preview-close { width: 24px; height: 24px; border: none; background: transparent; border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--el-text-muted); transition: all var(--el-transition); }
+        .el-md-preview-close:hover { background: var(--red-a08); color: var(--red); }
         .el-md-preview-close svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; }
-        .el-md-preview-content { padding: 16px; max-height: 300px; overflow-y: auto; font-size: 15px; line-height: 1.7; }
+        .el-md-preview-content { padding: 15px 17px; max-height: 300px; overflow-y: auto; font-size: 0.92rem; line-height: 1.7; }
 
-        .el-pronunciation-panel { background: var(--el-bg-subtle); border: 1px solid var(--el-border); border-radius: var(--el-radius-md); padding: var(--el-space-lg); margin-top: var(--el-space-md); display: none; }
-        .el-pronunciation-title { font-size: 16px; font-weight: 600; color: var(--el-text); margin-bottom: var(--el-space-md); display: flex; align-items: center; gap: 8px; }
-        .el-pronunciation-title svg { width: 20px; height: 20px; stroke: var(--el-accent); stroke-width: 1.5; fill: none; }
+        /* ---------- 发音面板 ---------- */
+        .el-pronunciation-panel { background: var(--el-bg-subtle); border: 1px solid var(--el-border); border-radius: var(--el-radius-md); padding: 18px 20px; margin-top: 14px; display: none; }
+        .el-pronunciation-title { font-size: 0.95rem; font-weight: 700; color: var(--el-text); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .el-pronunciation-title svg { width: 18px; height: 18px; stroke: var(--el-accent); stroke-width: 1.8; fill: none; }
 
+        /* ---------- 加载态 ---------- */
         .el-loading { text-align: center; padding: var(--el-space-2xl); color: var(--el-text-muted); }
-        .el-spinner { width: 40px; height: 40px; border: 2px solid var(--el-border); border-top: 3px solid var(--el-accent); border-radius: 50%; animation: elSpin 0.8s linear infinite; margin: 0 auto 16px; }
+        .el-spinner { width: 38px; height: 38px; border: 2px solid var(--el-border); border-top: 3px solid var(--el-accent); border-radius: 50%; animation: elSpin 0.8s linear infinite; margin: 0 auto 15px; }
         @keyframes elSpin { to { transform: rotate(360deg); } }
-        .el-loading-text { font-size: 15px; font-weight: 500; color: var(--el-text-secondary); }
+        .el-loading-text { font-size: 0.92rem; font-weight: 500; color: var(--el-text-secondary); }
 
-        .el-result-card { background: var(--el-gradient-card); padding: var(--el-space-lg); border-radius: var(--el-radius-md); margin-bottom: var(--el-space-md); box-shadow: var(--el-shadow-md); border: 1px solid var(--el-border); transition: all var(--el-transition); }
-        .el-result-card:hover { box-shadow: var(--el-shadow-hover); transform: translateY(-1px); }
-        .el-result-card-title { font-size: 17px; font-weight: 600; color: var(--el-text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--el-border); }
-        .el-result-card-title svg { width: 20px; height: 20px; stroke: var(--el-accent); stroke-width: 1.5; fill: none; flex-shrink: 0; }
-        .el-result-card p { color: var(--el-text-secondary); line-height: 1.8; margin-bottom: 8px; font-size: 15px; }
+        /* ---------- 学习结果卡片 ---------- */
+        .el-result-card {
+            background-color: var(--el-surface);
+            background-image: linear-gradient(180deg, var(--white-a08) 0%, transparent 32%);
+            padding: 18px 20px;
+            border-radius: var(--el-radius-md);
+            margin-bottom: 12px;
+            border: 1px solid var(--el-border);
+            box-shadow: var(--el-shadow-sm), 0 6px 18px var(--primary-a06);
+            transition: border-color var(--el-transition), box-shadow var(--el-transition);
+        }
+        .el-result-card:hover {
+            border-color: var(--el-border-strong);
+            box-shadow: var(--el-shadow-md), 0 8px 22px var(--primary-a10);
+        }
+        .el-result-card-title {
+            font-size: 1rem; font-weight: 700; color: var(--el-text);
+            margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+            padding-bottom: 10px; border-bottom: 1px solid var(--el-border);
+        }
+        .el-result-card-title svg { width: 17px; height: 17px; stroke: var(--el-accent); stroke-width: 1.8; fill: none; flex-shrink: 0; }
+        .el-result-card p { color: var(--el-text-secondary); line-height: 1.8; margin-bottom: 8px; font-size: 0.92rem; }
         .el-result-card p:last-child { margin-bottom: 0; }
         .el-result-card strong { color: var(--el-text); font-weight: 600; }
 
-        .el-result-word-header { background: var(--el-gradient-header); color: #FFFFFF; border: none; }
-        .el-result-word-header .el-result-card-title { color: #FFFFFF; border-bottom-color: rgba(255,255,255,0.15); }
-        .el-result-word-header .el-result-card-title svg { stroke: var(--el-accent); }
-        .el-result-word-header p { color: rgba(255, 255, 255, 0.8); }
+        /* 词头卡：品牌渐变底 + 白字（修复浅色主题下白字对比度问题） */
+        .el-result-word-header {
+            background: var(--btn-gradient);
+            background-size: 150% 130%;
+            background-position: 0% 50%;
+            border: none;
+            box-shadow: 0 4px 16px var(--primary-a20);
+        }
+        .el-result-word-header .el-result-card-title {
+            color: #FFFFFF; font-size: 1.2rem; letter-spacing: 0.01em;
+            border-bottom-color: rgba(255, 255, 255, 0.22);
+        }
+        .el-result-word-header .el-result-card-title svg { stroke: #FFFFFF; }
+        .el-result-word-header p { color: rgba(255, 255, 255, 0.85); }
         .el-result-word-header strong { color: #FFFFFF; }
         .el-phonetic-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
-        .el-phonetic-item { background: rgba(255,255,255,0.08); border-radius: var(--el-radius-sm); padding: 10px 14px; }
-        .el-phonetic-label { font-size: 12px; color: rgba(255,255,255,0.5); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-        .el-phonetic-value { font-size: 18px; font-weight: 600; color: #FFFFFF; }
+        .el-phonetic-item { background: rgba(255,255,255,0.14); border-radius: 9px; padding: 10px 14px; }
+        .el-phonetic-label { font-size: 0.72rem; color: rgba(255,255,255,0.65); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+        .el-phonetic-value { font-size: 1.05rem; font-weight: 700; color: #FFFFFF; }
 
-        .el-history-list { display: grid; gap: 10px; }
-        .el-history-item { background: var(--el-surface); padding: 16px var(--el-space-lg); border-radius: var(--el-radius-md); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all var(--el-transition); border: 1px solid var(--el-border); box-shadow: var(--el-shadow-sm); }
-        .el-history-item:hover { box-shadow: var(--el-shadow-md); border-color: var(--el-border-strong); transform: translateX(4px); }
-        .el-history-word { font-weight: 600; font-size: 15px; color: var(--el-text); margin-bottom: 2px; }
-        .el-history-time { color: var(--el-text-faint); font-size: 13px; }
-        .el-history-actions { display: flex; gap: 8px; flex-shrink: 0; }
-
-        .el-btn-delete-sm { padding: 6px 12px; border: 1px solid rgba(220, 38, 38, 0.2); border-radius: var(--el-radius-sm); background: rgba(220, 38, 38, 0.06); color: #DC2626; font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer; transition: all var(--el-transition); display: flex; align-items: center; gap: 4px; }
-        .el-btn-delete-sm:hover { background: rgba(220, 38, 38, 0.12); border-color: rgba(220, 38, 38, 0.3); }
-        .el-btn-delete-sm svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 1.5; fill: none; }
-
-        .el-empty-state { text-align: center; padding: var(--el-space-2xl); color: var(--el-text-faint); }
-        .el-empty-state svg { width: 48px; height: 48px; stroke: var(--el-text-faint); stroke-width: 1; fill: none; margin-bottom: 16px; opacity: 0.5; }
-        .el-empty-state-title { font-size: 16px; font-weight: 500; color: var(--el-text-muted); margin-bottom: 4px; }
-        .el-empty-state-desc { font-size: 14px; color: var(--el-text-faint); }
-
-        .el-error-message { background: rgba(220, 38, 38, 0.06); color: #DC2626; padding: 14px 18px; border-radius: var(--el-radius-md); margin-top: 12px; display: none; border: 1px solid rgba(220, 38, 38, 0.15); font-size: 14px; }
-        .el-error-message.active { display: block; animation: elSlideIn 0.2s ease; }
-
-        .el-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 13px; font-weight: 600; }
-        .el-badge-accent { background: var(--el-accent-soft); color: var(--el-accent-hover); border: 1px solid var(--el-accent-border); }
-
-        .el-range-input { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; background: var(--el-border-strong); border-radius: 3px; outline: none; margin: 8px 0; }
-        .el-range-input::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--el-accent); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.15); transition: transform var(--el-transition); }
-        .el-range-input::-webkit-slider-thumb:hover { transform: scale(1.1); }
-
-        .el-result-card .md-rendered { font-size: 15px; line-height: 1.7; color: var(--el-text-secondary); }
+        .el-result-card .md-rendered { font-size: 0.92rem; line-height: 1.7; color: var(--el-text-secondary); }
         .el-result-card .md-rendered strong { color: var(--el-text); }
 
-        @media (max-width: 768px) {
-            .el-header { padding: var(--el-space-xl) var(--el-space-lg); margin-bottom: var(--el-space-2xl); }
-            .el-header-title { font-size: 28px; }
-            .el-section { padding: var(--el-space-lg) var(--el-space-md); margin-bottom: var(--el-space-2xl); }
-            .el-section-title { font-size: 19px; }
-            .el-button-group { flex-direction: column; }
-            .el-btn { width: 100%; }
-            .el-preset-grid { grid-template-columns: repeat(2, 1fr); }
-            .el-history-item { flex-direction: column; align-items: flex-start; gap: 10px; }
-            .el-phonetic-grid { grid-template-columns: 1fr; }
+        /* ---------- 学习历史 ---------- */
+        .el-history-list { display: grid; gap: 8px; }
+        .el-history-item {
+            background-color: var(--el-surface);
+            background-image: linear-gradient(180deg, var(--white-a08) 0%, transparent 32%);
+            padding: 13px 18px; border-radius: var(--el-radius-md);
+            display: flex; justify-content: space-between; align-items: center; gap: 12px;
+            cursor: pointer; transition: all var(--el-transition);
+            border: 1px solid var(--el-border);
+            box-shadow: var(--el-shadow-sm), 0 4px 12px var(--primary-a06);
         }
-
-        /* Side Panel 模式 */
-        @media (max-width: 480px) {
-            .el-header { border-radius: 0; margin-bottom: var(--el-space-lg); padding: var(--el-space-lg) var(--el-space-md); }
-            .el-header-title { font-size: 24px; }
-            .el-section { border-radius: 0; border-left: none; border-right: none; margin-bottom: var(--el-space-lg); padding: var(--el-space-md); }
-            .el-section-title { font-size: 18px; }
-            .el-button-group { flex-direction: column; }
-            .el-btn { width: 100%; }
-            .el-preset-grid { grid-template-columns: repeat(2, 1fr); }
-            .el-history-item { flex-direction: column; align-items: flex-start; gap: 10px; }
-            .el-phonetic-grid { grid-template-columns: 1fr; }
-            .el-pronunciation-panel { border-radius: 0; margin-left: 0; margin-right: 0; }
-            .el-result-card { border-radius: 0; }
-            .el-md-editor { border-radius: var(--el-radius-sm); }
-            .el-form-input { border-radius: var(--el-radius-sm); }
-            .el-form-select { border-radius: var(--el-radius-sm); }
+        .el-history-item:hover {
+            box-shadow: var(--el-shadow-md), 0 8px 20px var(--primary-a10);
+            border-color: var(--el-border-strong);
+            transform: translateY(-1px);
         }
+        .el-history-word { font-weight: 600; font-size: 0.92rem; color: var(--el-text); }
+        .el-history-time { color: var(--el-text-faint); font-size: 0.78rem; margin-top: 2px; }
+        .el-history-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-        @media (max-width: 375px) {
-            .el-header-title { font-size: 22px; }
-            .el-preset-grid { grid-template-columns: 1fr; }
+        .el-btn-delete-sm {
+            height: 30px; padding: 0 12px;
+            border: 1px solid var(--red-a12); border-radius: 8px;
+            background: var(--red-a08); color: #DC2626;
+            font-size: 0.78rem; font-weight: 600; font-family: inherit;
+            cursor: pointer; transition: all var(--el-transition);
+            display: flex; align-items: center; gap: 4px;
         }
+        .el-btn-delete-sm:hover { background: var(--red-a12); border-color: var(--red-a12); }
+        .el-btn-delete-sm svg { width: 13px; height: 13px; stroke: currentColor; stroke-width: 2; fill: none; }
+        html[data-mode="dark"] .el-btn-delete-sm { color: var(--red); }
 
-        html, body { background: var(--el-bg) !important; padding: 0 !important; margin: 0 !important; overflow-x: hidden !important; }
-        body:has(.el-wrapper) { background: var(--el-bg) !important; padding: 0 !important; }
-        body:has(.el-wrapper) .bg-canvas { display: none !important; }
+        /* ---------- 空状态 ---------- */
+        .el-empty-state { text-align: center; padding: var(--el-space-2xl); color: var(--el-text-faint); }
+        .el-empty-state svg { width: 46px; height: 46px; stroke: var(--el-text-faint); stroke-width: 1.2; fill: none; margin-bottom: 14px; opacity: 0.55; }
+        .el-empty-state-title { font-size: 0.95rem; font-weight: 600; color: var(--el-text-muted); margin-bottom: 4px; }
+        .el-empty-state-desc { font-size: 0.85rem; color: var(--el-text-faint); }
 
-        /* 滚动条颜色跟随主题，避免暗色模式下出现白色滚动条 */
+        /* ---------- 徽章 / 滑杆 ---------- */
+        .el-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+        .el-badge-accent { background: var(--el-accent-soft); color: var(--el-accent-hover); border: 1px solid var(--el-accent-border); }
+
+        .el-range-input { width: 100%; height: 5px; -webkit-appearance: none; appearance: none; background: var(--el-border-strong); border-radius: 3px; outline: none; margin: 10px 0 6px; }
+        .el-range-input::-webkit-slider-thumb { -webkit-appearance: none; width: 17px; height: 17px; border-radius: 50%; background: var(--el-accent); cursor: pointer; box-shadow: 0 1px 5px var(--primary-a25); transition: transform var(--el-transition); }
+        .el-range-input::-webkit-slider-thumb:hover { transform: scale(1.12); }
+
+        /* ---------- 滚动条跟随主题 ---------- */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--el-bg); }
         ::-webkit-scrollbar-thumb { background: var(--el-border-strong); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--el-text-faint); }
+
+        /* ---------- 响应式 ---------- */
+        @media (max-width: 768px) {
+            .el-container { padding: 0 16px; }
+            .el-header { padding: 20px 18px; }
+            .el-header-title { font-size: 21px; }
+            .el-section { padding: 18px 16px; }
+            .el-section-title { font-size: 0.95rem; }
+            .el-button-group { flex-direction: column; }
+            .el-btn { width: 100%; }
+            .el-history-item { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .el-phonetic-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 480px) {
+            .el-container { padding: 0 12px; }
+            .el-header { margin: 14px 0 16px; padding: 18px 16px; }
+            .el-header-title { font-size: 19px; }
+            .el-header-title svg { width: 20px; height: 20px; }
+            .el-section { padding: 16px 14px; margin-bottom: 14px; }
+            .el-preset-card { padding: 7px 12px 7px 10px; }
+            .el-pronunciation-panel { padding: 15px; }
+        }
     </style>
 </head>
 <body>
@@ -454,28 +551,38 @@
                     <div class="el-preset-grid">
                         <div class="el-preset-card" data-preset="deepseek">
                             <svg class="el-preset-icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                            <div class="el-preset-name">DeepSeek</div>
-                            <div class="el-preset-desc">api.deepseek.com</div>
+                            <div>
+                                <div class="el-preset-name">DeepSeek</div>
+                                <div class="el-preset-desc">api.deepseek.com</div>
+                            </div>
                         </div>
                         <div class="el-preset-card" data-preset="openai">
                             <svg class="el-preset-icon" viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10A10 10 0 0 1 2 12 10 10 0 0 1 12 2z"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-                            <div class="el-preset-name">OpenAI</div>
-                            <div class="el-preset-desc">api.openai.com</div>
+                            <div>
+                                <div class="el-preset-name">OpenAI</div>
+                                <div class="el-preset-desc">api.openai.com</div>
+                            </div>
                         </div>
                         <div class="el-preset-card" data-preset="ollama">
                             <svg class="el-preset-icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                            <div class="el-preset-name">Ollama</div>
-                            <div class="el-preset-desc">本地部署</div>
+                            <div>
+                                <div class="el-preset-name">Ollama</div>
+                                <div class="el-preset-desc">本地部署</div>
+                            </div>
                         </div>
                         <div class="el-preset-card" data-preset="siliconflow">
                             <svg class="el-preset-icon" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                            <div class="el-preset-name">硅基流动</div>
-                            <div class="el-preset-desc">api.siliconflow.cn</div>
+                            <div>
+                                <div class="el-preset-name">硅基流动</div>
+                                <div class="el-preset-desc">api.siliconflow.cn</div>
+                            </div>
                         </div>
                         <div class="el-preset-card" data-preset="custom">
                             <svg class="el-preset-icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                            <div class="el-preset-name">自定义</div>
-                            <div class="el-preset-desc">手动配置</div>
+                            <div>
+                                <div class="el-preset-name">自定义</div>
+                                <div class="el-preset-desc">手动配置</div>
+                            </div>
                         </div>
                     </div>
                     <div class="el-form-group">
@@ -636,7 +743,7 @@
                         学习历史
                     </h2>
                     <button class="el-btn el-btn-sm el-btn-danger" id="clearAllHistoryBtn">
-                        <svg viewBox="0 0 24 24" style="width:14px;height:14px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        <svg viewBox="0 0 24 24" style="width:13px;height:13px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         清空全部
                     </button>
                 </div>

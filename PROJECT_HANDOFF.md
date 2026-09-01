@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.18.0 · 2026-08-28
+> **当前版本**：v0.21.0 · 2026-09-01
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -15,7 +15,7 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 - **Chrome 扩展** `chrome_extension/` — Popup 翻译弹窗 + Side Panel 侧边栏（同 7 个模块）+ 划词翻译 + 右键菜单
 
 所有页面共用：
-- `theme.css` / `theme.js` — 12 款 Catppuccin 主题 + 玻璃拟态/星空/噪点质感
+- `theme.css` / `theme.js` — 6 款极简高级感主题（低饱和苹果风）+ 玻璃拟态/噪点质感
 - `ai-service.js`（网页版根目录 & `chrome_extension/ai-service.js`）— AI 配置读写 + chat 调用 + 任务抽取 + 提示词生成
 
 ## 2. 当前功能矩阵
@@ -47,15 +47,34 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 - 扩展的 Side Panel 通过 `chrome.storage.local` + `postMessage` 同步到各 iframe
 - `theme.js` 在 sidepanel.html 内会**跳过**自己的 FAB 注入逻辑（避免与侧边栏自带主题按钮冲突）— 这是 v0.16.1 修复
 
-### 3.4 Side Panel 现代极简 UI（v0.18.0）
+### 3.4 主题系统架构（v0.19.x 全新重做，v0.20.0 增补）
+`theme.css` / `theme.js` 由「12 款 Catppuccin」重做为 **6 款极简高级感主题（低饱和苹果风）**：
+- **浅色 3 款**：纸感白 `lf-paper` / 雾霭 `lf-mist` / 奶油 `lf-cream`；**深色 3 款**：石墨 `lf-graphite`（默认）/ 板岩 `lf-slate` / **夜曲 `lf-midnight`（v0.20.0 重设计：深海靛背景 × 电子蓝 #6E7BFF 主色，替代原暖调紫罗兰）**
+- 每款主题在 `html[data-theme]` 块内**自洽定义全部变量**（81 个），不再依赖旧版全局深色/浅色覆盖
+- **明暗分组改为 `html[data-mode="light|dark"]`**：`theme.js` 的 `applyTheme()` 在设置主题同时设置 `data-mode`；页面/质感层选择器统一按 `data-mode` 分组，替代旧版 `html[data-theme^="cat-latte"]` 前缀判断 → 未来新增主题无需再改选择器
+- **旧主题自动迁移**：`getSavedTheme()` 内置 12 个 `cat-*` → 新主题映射，老用户保存的主题自动落到同明暗的新主题
+- ⚠️ **改动主题时注意**：`theme.css` / `theme.js` 根目录与 `chrome_extension/` 下各有一份副本（`theme.css` 完全相同、`theme.js` 仅 side panel 注释差异），必须同步修改
+
+### 3.5 Side Panel 现代极简 UI（v0.18.0）
 `sidepanel.css` 完全重写：
 - 浅灰白背景 `#F8F9FA` / 深色 `#121212` / 主色 `#4F46E5`
 - 12px 圆角卡片 + 微阴影 + 1px 极细边框
 - 顶部栏 `backdrop-filter: blur(12px)` 毛玻璃
 - 系统无衬线字体（移除了 Google Fonts 依赖）
-- 暗色模式自动适配 Catppuccin Frappé / Macchiato / Mocha
+- 暗色模式通过 `html[data-mode="dark"]` 自动适配
 
-### 3.5 AI 服务层（`ai-service.js`）
+### 3.6 品牌命名：UI 文案 vs 代码标识（重要 ⚠️）
+产品**界面可见标题已统一改为 `AI Tool Box`**（index.html 主标题/footer、扩展 Popup、Side Panel、fullpage、各子页面 `<title>`/footer、`manifest.json` name、`_locales` appName、右键菜单、划词翻译浮窗 brand）。
+
+但以下**代码标识符仍保留 `LinguaFlow`，不可改名**（改了会破坏用户已有数据或跨页面契约）：
+- `localStorage` 键 `linguaflow_theme`（主题持久化）
+- `window.LinguaFlowTheme`（theme.js 对外 API，被各页面调用）
+- DOM id / class：`#linguaflow-tooltip`、`.lf-*`（划词翻译浮窗）
+- `todolist.js` 中 iCalendar `PRODID:-//LinguaFlow//TodoList//EN`
+
+主标题字体为 **Sora**（Google Fonts，与 Syne/Jakarta/Inter 一并异步加载）；Side Panel 因 v0.18.0 起刻意移除 Google Fonts 依赖，改用系统级字体栈。
+
+### 3.7 AI 服务层（`ai-service.js`）
 507 行（网页版）/ 524 行（扩展版），IIFE 封装暴露 `window.AiService`：
 - `initConfigSync()` — 配置读写 + 监听插件广播
 - `chat({messages, options})` — OpenAI 兼容 chat/completions（reasoning 模型自动省略 temperature）
@@ -65,10 +84,33 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 - `extractPromptBody(fullText)` — 从 AI 输出中提取纯提示词正文
 - `writeTodoItems(items)` — 把 AI 解析出的任务写入待办（`todo_items` + chrome.storage 双通道）
 
+### 3.8 页面 UI 精修层架构（v0.20.0，⚠️ v0.21.0 已被单一连贯样式层取代）
+
+> **v0.21.0 变更**：todolist（两份）/ english_learning（两份）的「基础层 + UI 精修层 v1/v2 覆盖块」架构已废弃——三个页面的 `<style>` 全部重写为**单一连贯样式层**（变量直接取自 theme.css 全局主题变量），sidepanel.css 同样重写为单层（`--sp-*` 全量映射主题变量）。**修改这些页面样式时直接改 `<style>` 内对应规则即可，不再存在覆盖层级问题。** 以下 v0.20.0 记录仅作历史参考。
+
+v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构采用**「追加覆盖层」**方式实现：在各页面 `<style>` 末尾（或 sidepanel.css 末尾）追加了标记为 **`UI 精修层（v0.19.9）`** 与 **`UI 精修层 v2`** 的覆盖样式块。
+
+- **workreport**（两份）：精修层把 `btn-save/btn-record` 等从绿色硬渐变改为 `--btn-gradient`，`.header h1` 用 `--header-gradient` 渐变文字，lang-bar/summary-section 主色底
+- **todolist**（两份）：v1 层改配色/hover/任务项卡片化；v2 层加双层阴影、进度环发光+渐变百分比、空状态渐变 emoji、滚动条主题化，并新增 `@media (max-width: 900px/480px)` 响应式（窄容器侧栏折行——Side Panel 适配的关键）
+- **english_learning**（两份）：v1 层把 `--el-accent*` / `--el-gradient-accent` 从橙黄映射到主题主色；v2 层把 `--el-bg/surface/text/border` 全部桥接到全局主题变量，`--el-gradient-header` 改为主色光晕带，`.el-header-title` 改 28px 渐变文字（替代 36px 白字深色横幅）
+- **sidepanel.css**：v1 层映射 `--sp-primary` 到全局主题、header 渐变细线/渐变 logo；v2 层修复 tab 溢出（`sp-tab` 恢复竖排——7 个 tab 横排在 ~350px 边栏会溢出）+ active 渐变胶囊 + header 氛围光
+
+⚠️ **修改这些页面样式时的规则（v0.21.0 起）**：
+1. todolist / english_learning / sidepanel 已是单一连贯样式层，直接改对应规则即可；workreport 仍保留 v0.20 覆盖层结构（改覆盖层优先）
+2. 页面引用了大量全局主题变量（`--primary`/`--btn-gradient`/`--header-gradient` 等），配色调整优先改 `theme.css` 主题块
+3. 根目录与 `chrome_extension/` 的页面副本必须同步修改：todolist 保留 3 处 CSP 差异（扩展版 Google Fonts 异步 + 2 处无 inline onclick），english_learning 保留 2 处差异（扩展版字体异步 + 外部 JS 引用，根目录为内联 JS）
+4. english_learning 根目录版的内联 JS = `chrome_extension/english_learning.js` 内容逐字一致（v0.21.0 消除分叉），改动任一侧需同步另一侧
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.21.0 | todolist Dashboard 重设计 + english_learning 重设计（两份副本 CSS 统一 + JS 分叉消除 + 玻璃立体感补齐）+ 容器宽度统一 1400px + sidepanel.css 单层重写（令牌全量映射主题）+ README_EN 同步至 v0.21.0 |
+| v0.20.0 | 品牌升级为 AI Tool Box + Sora 字体 + Midnight 夜曲重设计 + workreport/todolist/english_learning/sidepanel 视觉重构 |
+| v0.19.8 | 划词浮窗与右键菜单细节修复 |
+| v0.19.7 | 英语学习输入区边框/拉伸修复 |
+| v0.19.5 | 英语学习宽度统一与暗色边缘修复 |
+| v0.19.0–0.19.4 | 6 款极简主题体系落地（`lf-*` + data-mode 明暗分组） |
 | v0.18.0 | Side Panel 现代极简重设计 + 配置同步修复 |
 | v0.17.0 | 新增 AI 解析 / AI 提示词，集成 TaskFlow 功能 |
 | v0.16.1 | 修复侧边栏无法设置主题（theme.js 放开 sidepanel 排除） |
@@ -115,7 +157,7 @@ node -e "JSON.parse(require('fs').readFileSync('chrome_extension/manifest.json',
 
 ## 6. 已知问题 / 待办
 
-- [ ] **README_EN.md 未同步** — 中文版已更新到 v0.18.0 和 AI 解析/AI 提示词，英文版仍停留在 v0.16.1
+- [x] **README_EN.md 已同步** — 2026-09-01 更新至 v0.21.0（品牌 AI Tool Box、6 主题体系、7 模块、项目结构、更新日志 v0.17–v0.21）
 - [ ] **`web_accessible_resources` 未包含新页面** — `manifest.json` 的 `web_accessible_resources` 目前只列出 `fullpage/workreport/todolist/english_learning`，未加 `ai_parse.html` / `ai_prompts.html`（因为 sidepanel 直接用相对路径访问扩展内部文件不需要此声明，但若未来需要从外部网页嵌入则需补充）
 - [ ] **`ai-service.js` 双副本维护** — 网页版（507 行）与扩展版（524 行）略有差异，长期看应该考虑构建流程自动同步或抽成共享模块
 - [ ] **PDF 解析仍依赖 pdf.js 本地打包**（~1.3MB），每个 iframe 首次打开都会加载，可考虑按需动态 `import()`
@@ -138,5 +180,5 @@ node -e "JSON.parse(require('fs').readFileSync('chrome_extension/manifest.json',
 
 ---
 
-**最后更新**：2026-08-28 by Mika (agent)
-**参考文档**：`README.md` · `README_EN.md` · `ai_summary_prompt.md` · `translate_tool_prompts.txt`
+**最后更新**：2026-09-01 by Mika (agent) · v0.21.0（todolist Dashboard / english_learning / sidepanel 外壳重设计详见 §3.8）
+**参考文档**：`README.md` · `README_EN.md`（已同步至 v0.21.0） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`
