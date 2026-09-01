@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.22.2-blue)
+![Version](https://img.shields.io/badge/version-0.22.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -235,6 +235,12 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.22.3 (2026-09-01)
+- **热点雷达适配阿里云 Token Plan 等专有网关**：
+  - API 配置区新增「**获取模型列表**」按钮：自动请求 `{Base URL}/models`，模型输入框变为自动补全下拉（Token Plan 网关仅支持特定模型 ID 如 `qwen3.6-flash` / `qwen3.7-plus` / `glm-5.2`，填经典名 `qwen-plus` 会报 Model not exist）
+  - 错误提示针对性引导：模型不存在 / Key 无效 / 网络失败（含跨域说明）分别给出对应解决路径
+  - ⚠️ 已知限制：阿里云 Token Plan 网关未开放浏览器跨域（无 CORS 头、预检 401），**网页版无法直连，请在 Chrome 扩展内使用**（扩展经 host_permissions 免跨域）；DeepSeek / 智谱等开放跨域的端点网页版不受影响
 
 ### v0.22.2 (2026-09-01)
 - **热点雷达新增内置 API 配置区** — 独立打开页面（file:// 等）时读不到插件配置也能直接使用：页首新增「API 配置」折叠卡（Base URL / API Key / 模型 + 保存/清除），复用 `AiService.saveConfig` 写入 translate_config / chrome.storage，与插件弹窗及其他页面实时互通；未配置时自动展开引导，保存后自动重试此前因未配置而失败的卡片；卡片错误提示同步指引导语

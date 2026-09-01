@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.22.2-blue)
+![Version](https://img.shields.io/badge/version-0.22.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,12 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.22.3 (2026-09-01)
+- **Hot News Radar adapts to Alibaba Cloud Token Plan and similar gateways**:
+  - The API config card gains a "**Fetch model list**" button: it requests `{Base URL}/models` and turns the model input into an autocomplete dropdown (the Token Plan gateway only serves specific model IDs like `qwen3.6-flash` / `qwen3.7-plus` / `glm-5.2`; classic names such as `qwen-plus` return "Model not exist")
+  - Error messages now give targeted guidance for model-not-exist / invalid key / network failure (with CORS explanation)
+  - ⚠️ Known limitation: the Token Plan gateway does not enable browser CORS (no ACAO header, preflight 401) — **the web version cannot reach it directly; use it inside the Chrome extension** (which bypasses CORS via host_permissions). CORS-enabled endpoints like DeepSeek / Zhipu are unaffected in the web version
 
 ### v0.22.2 (2026-09-01)
 - **Built-in API config for Hot News Radar** — when the page is opened standalone (e.g. file://) the extension config isn't reachable; the page now has a collapsible "API 配置" card at the top (Base URL / API Key / Model + save/clear) that writes through `AiService.saveConfig` (translate_config / chrome.storage), staying in sync with the popup and every other page; auto-expands as onboarding when unconfigured, and saving auto-retries cards that failed for lack of config

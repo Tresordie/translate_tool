@@ -350,12 +350,14 @@
         <div class="hn-api-grid">
           <input id="hnApiUrl" type="text" placeholder="Base URL，如：https://api.deepseek.com">
           <input id="hnApiKey" type="password" placeholder="API Key（sk-...）">
-          <input id="hnApiModel" type="text" placeholder="模型名称，如：deepseek-chat">
+          <input id="hnApiModel" type="text" placeholder="模型名称，如：deepseek-chat" list="hnApiModelList">
+          <datalist id="hnApiModelList"></datalist>
         </div>
         <div class="hn-api-actions">
           <button class="btn-api-save" id="hnApiSave">保存配置</button>
           <button class="btn-api-clear" id="hnApiClear">清除</button>
-          <span class="hn-api-hint">与插件弹窗 / 其他页面实时互通；独立打开本页时在此配置即可</span>
+          <button class="btn-api-clear" id="hnApiFetchModels" title="从 {Base URL}/models 拉取该端点支持的模型">获取模型列表</button>
+          <span class="hn-api-hint">与插件弹窗 / 其他页面实时互通；部分端点（如阿里云 Token Plan）未开放浏览器跨域，仅可在 Chrome 扩展内使用</span>
         </div>
       </div>
     </section>

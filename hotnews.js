@@ -97,7 +97,7 @@
   }
 
   // ===== 底层请求（超时 + 文本返回） =====
-  function fetchText(url, timeout) {
+  function fetchText(url, timeout, headers) {
     var ms = timeout || FETCH_TIMEOUT;
     return new Promise(function (resolve, reject) {
       var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -105,7 +105,7 @@
         if (ctrl) ctrl.abort();
         reject(new Error('请求超时'));
       }, ms);
-      fetch(url, { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+      fetch(url, { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined, headers: headers || undefined })
         .then(function (r) {
           clearTimeout(timer);
           if (!r.ok) { reject(new Error('HTTP ' + r.status)); return; }
@@ -352,8 +352,46 @@
       window.AiService.saveConfig({ baseUrl: '', apiKey: '', model: '' });
     }
     $('hnApiUrl').value = ''; $('hnApiKey').value = ''; $('hnApiModel').value = '';
+    $('hnApiModelList').innerHTML = '';
     toggleApiPanel(true);
     showToast('API 配置已清除', 'info');
+  }
+
+  // ===== 模型列表获取（GET {baseUrl}/models → datalist 自动补全） =====
+  // 阿里云 Token Plan 等网关仅支持特定模型 ID（如 qwen3.6-flash，经典名 qwen-plus 会报 Model not exist）
+  function fetchModels() {
+    var baseUrl = $('hnApiUrl').value.trim().replace(/\/+$/, '');
+    var apiKey = $('hnApiKey').value.trim();
+    if (!baseUrl || !apiKey) {
+      var cfg = (window.AiService && window.AiService.getConfig) ? window.AiService.getConfig() : {};
+      baseUrl = baseUrl || String(cfg.baseUrl || '').replace(/\/+$/, '');
+      apiKey = apiKey || String(cfg.apiKey || '');
+    }
+    if (!baseUrl || !apiKey) { showToast('请先填写 Base URL 与 API Key', 'error'); return; }
+    if (!/^https?:\/\//i.test(baseUrl)) { showToast('Base URL 需以 http(s):// 开头', 'error'); return; }
+
+    var btn = $('hnApiFetchModels');
+    btn.disabled = true; btn.textContent = '获取中…';
+    fetchText(baseUrl + '/models', 15000, { 'Authorization': 'Bearer ' + apiKey }).then(function (text) {
+      var j = parseJsonLoose(text);
+      var arr = j && Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+      var ids = arr.map(function (m) { return m && (m.id || m.model || m.name); }).filter(Boolean).map(String);
+      if (!ids.length) throw new Error('端点未返回模型列表');
+      $('hnApiModelList').innerHTML = ids.map(function (id) {
+        return '<option value="' + escapeHtml(id) + '"></option>';
+      }).join('');
+      toggleApiPanel(true);
+      showToast('已获取 ' + ids.length + ' 个模型，点击「模型名称」输入框选择（如 ' + ids.slice(0, 3).join(' / ') + '）', 'success');
+    }).catch(function (e) {
+      var msg = e && e.message ? e.message : '未知错误';
+      if (/HTTP 401|HTTP 403/.test(msg)) {
+        showToast('获取失败：Key 无效或无权限（' + msg + '）', 'error');
+      } else {
+        showToast('获取失败：该端点可能未开放浏览器跨域（如阿里云 Token Plan），请在 Chrome 扩展内使用本功能', 'error');
+      }
+    }).then(function () {
+      btn.disabled = false; btn.textContent = '获取模型列表';
+    });
   }
 
   // ===== 卡片刷新（抓取 + AI 筛选；AI 异常自动重试一次） =====
@@ -378,10 +416,15 @@
       }
       card.loading = false;
       card.error = msg;
-      // 未配置 API → 自动展开配置区并引导
+      // 常见失败场景 → 针对性引导
       if (/请先配置/.test(msg)) {
         card.error = '请先在上方「API 配置」中填写 Base URL / API Key / 模型';
         toggleApiPanel(true);
+      } else if (/Model not exist|model_not_found/i.test(msg)) {
+        card.error = '模型名不存在：该端点仅支持特定模型 ID，请点击「获取模型列表」查看并重新填写保存';
+        toggleApiPanel(true);
+      } else if (/网络请求失败/.test(msg)) {
+        card.error = msg + '（若使用阿里云 Token Plan 等未开放跨域的端点，网页版无法直连，请在 Chrome 扩展内使用）';
       }
       render();
     });
@@ -540,6 +583,7 @@
     bind('hnApiHeader', 'click', function () { toggleApiPanel(!apiOpenState()); });
     bind('hnApiSave', 'click', saveApiConfig);
     bind('hnApiClear', 'click', clearApiConfig);
+    bind('hnApiFetchModels', 'click', fetchModels);
 
     var grid = $('hnGrid');
     if (grid) {

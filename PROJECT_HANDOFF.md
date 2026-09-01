@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.22.2 · 2026-09-01
+> **当前版本**：v0.22.3 · 2026-09-01
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -116,6 +116,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.22.3 | 热点雷达适配阿里云 Token Plan 等专有网关：「获取模型列表」自动补全（/models）+ 分场景错误引导；确认 Token Plan 无 CORS 头（网页版不可直连，仅扩展可用），模型 ID 需用网关专属名（qwen3.6-flash 等） |
 | v0.22.2 | 热点雷达内置 API 配置区（独立打开可用，AiService.saveConfig 双写 translate_config/chrome.storage 全页互通；未配置自动展开 + 保存后自动重试失败卡片） |
 | v0.22.1 | 修复网页版热榜抓取失败（vvhan 失效）：数据源重建为回退链（60s 分板块热榜 CORS 直连 → UApi 直连/代理 → 60s 日报兜底） |
 | v0.22.0 | 新增「热点雷达」模块：卡片式全网热点 Top 10（热榜聚合真实数据 + AI 按提示词筛选归类），网页 Tab 8 / Side Panel Tab 8 / Popup 入口 |
