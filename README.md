@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.22.1-blue)
+![Version](https://img.shields.io/badge/version-0.22.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -235,6 +235,9 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.22.2 (2026-09-01)
+- **热点雷达新增内置 API 配置区** — 独立打开页面（file:// 等）时读不到插件配置也能直接使用：页首新增「API 配置」折叠卡（Base URL / API Key / 模型 + 保存/清除），复用 `AiService.saveConfig` 写入 translate_config / chrome.storage，与插件弹窗及其他页面实时互通；未配置时自动展开引导，保存后自动重试此前因未配置而失败的卡片；卡片错误提示同步指引导语
 
 ### v0.22.1 (2026-09-01)
 - **修复网页版热榜抓取失败** — 原 vvhan 聚合接口已失效（跨域/不可达），热点雷达数据源重建为多级回退链：

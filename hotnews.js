@@ -310,6 +310,52 @@
     });
   }
 
+  // ===== API 配置（复用 AiService 配置体系：localStorage translate_config + chrome.storage config，全页互通） =====
+  function apiOpenState() { return $('hnApiContent').classList.contains('open'); }
+
+  function toggleApiPanel(open) {
+    $('hnApiContent').classList.toggle('open', open);
+    $('hnApiIcon').classList.toggle('collapsed', !open);
+  }
+
+  function initConfigUi() {
+    var cfg = { baseUrl: '', apiKey: '', model: '' };
+    if (window.AiService && typeof window.AiService.getConfig === 'function') {
+      cfg = window.AiService.getConfig();
+    }
+    $('hnApiUrl').value = cfg.baseUrl || '';
+    $('hnApiKey').value = cfg.apiKey || '';
+    $('hnApiModel').value = cfg.model || '';
+    // 未配置 → 自动展开引导；已配置 → 收起
+    toggleApiPanel(!cfg.baseUrl);
+  }
+
+  function saveApiConfig() {
+    var baseUrl = $('hnApiUrl').value.trim().replace(/\/+$/, '');
+    var apiKey = $('hnApiKey').value.trim();
+    var model = $('hnApiModel').value.trim();
+    if (!baseUrl || !apiKey || !model) { showToast('Base URL / API Key / 模型 均必填', 'error'); return; }
+    if (!/^https?:\/\//i.test(baseUrl)) { showToast('Base URL 需以 http(s):// 开头', 'error'); return; }
+    if (window.AiService && typeof window.AiService.saveConfig === 'function') {
+      window.AiService.saveConfig({ baseUrl: baseUrl, apiKey: apiKey, model: model });
+    }
+    toggleApiPanel(false);
+    showToast('API 配置已保存', 'success');
+    // 自动重试此前因未配置而失败的卡片
+    cards.forEach(function (c) {
+      if (c.error && /请先配置/.test(c.error) && !c.loading) refreshCard(c);
+    });
+  }
+
+  function clearApiConfig() {
+    if (window.AiService && typeof window.AiService.saveConfig === 'function') {
+      window.AiService.saveConfig({ baseUrl: '', apiKey: '', model: '' });
+    }
+    $('hnApiUrl').value = ''; $('hnApiKey').value = ''; $('hnApiModel').value = '';
+    toggleApiPanel(true);
+    showToast('API 配置已清除', 'info');
+  }
+
   // ===== 卡片刷新（抓取 + AI 筛选；AI 异常自动重试一次） =====
   function refreshCard(card, isRetry) {
     card.error = '';
@@ -332,6 +378,11 @@
       }
       card.loading = false;
       card.error = msg;
+      // 未配置 API → 自动展开配置区并引导
+      if (/请先配置/.test(msg)) {
+        card.error = '请先在上方「API 配置」中填写 Base URL / API Key / 模型';
+        toggleApiPanel(true);
+      }
       render();
     });
   }
@@ -486,6 +537,9 @@
     bind('hnRefreshAllBtn', 'click', refreshAll);
     bind('hnName', 'keydown', function (e) { if (e.key === 'Enter') addOrUpdate(); });
     bind('hnPrompt', 'keydown', function (e) { if (e.key === 'Enter') addOrUpdate(); });
+    bind('hnApiHeader', 'click', function () { toggleApiPanel(!apiOpenState()); });
+    bind('hnApiSave', 'click', saveApiConfig);
+    bind('hnApiClear', 'click', clearApiConfig);
 
     var grid = $('hnGrid');
     if (grid) {
@@ -529,8 +583,12 @@
   }
 
   // ===== Init =====
-  reload().then(bindEvents).catch(function (e) {
+  reload().then(function () {
+    bindEvents();
+    initConfigUi();
+  }).catch(function (e) {
     console.error('[HotNews] init failed:', e);
     bindEvents();
+    initConfigUi();
   });
 })();

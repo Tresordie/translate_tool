@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.22.1-blue)
+![Version](https://img.shields.io/badge/version-0.22.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,9 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.22.2 (2026-09-01)
+- **Built-in API config for Hot News Radar** — when the page is opened standalone (e.g. file://) the extension config isn't reachable; the page now has a collapsible "API 配置" card at the top (Base URL / API Key / Model + save/clear) that writes through `AiService.saveConfig` (translate_config / chrome.storage), staying in sync with the popup and every other page; auto-expands as onboarding when unconfigured, and saving auto-retries cards that failed for lack of config
 
 ### v0.22.1 (2026-09-01)
 - **Fix: hot-list fetch failing in the web version** — the original vvhan aggregation API became unreachable (CORS/down); the Hot News Radar data source was rebuilt as a multi-level fallback chain:

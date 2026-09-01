@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.22.1 · 2026-09-01
+> **当前版本**：v0.22.2 · 2026-09-01
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -109,13 +109,14 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
   2. **UApi 热榜** `https://uapis.cn/api/v1/misc/hotboard?type={weibo|zhihu|baidu|douyin|bilibili|toutiao|ithome|36kr|sspai|qq-news}` —— 无 CORS 头：扩展内 host_permissions 免跨域直连；网页版经公共 CORS 代理回退（codetabs / allorigins / r.jina.ai / allorigins-get，不同网络可用性不同）
   3. **60s 日报** `https://60s.viki.moe/v2/60s` —— CORS 开放稳定可用，真实每日新闻（无热度/链接）
   - 任一源拿到 ≥20 条候选池即返回（`parse60sBoard`/`parseJsonLoose` 均为防御性解析）；全部失败才显示错误态，控制台按源分级输出失败原因。更换/追加数据源只需增改 `hotnews.js` 的源 runner 数组。
-- **AI 归类**：候选池（每板块前 12 条）+ 卡片提示词 → `AiService.chat()`，要求严格输出 JSON 数组（`extractJsonItems()` 容错解析，AI 异常自动重试一次）。配置复用 ai-service.js 同步机制，页面无独立配置 UI。
+- **AI 归类**：候选池（每板块前 12 条）+ 卡片提示词 → `AiService.chat()`，要求严格输出 JSON 数组（`extractJsonItems()` 容错解析，AI 异常自动重试一次）。配置复用 ai-service.js 同步机制；v0.22.2 起页面自带「API 配置」折叠卡（经 `AiService.saveConfig` 双写 localStorage translate_config 与 chrome.storage config，与插件弹窗/其他页面互通），未配置时自动展开，保存后自动重试失败卡片。
 - **存储键**：`hn_cards`（扩展 chrome.storage.local / 网页 localStorage，含 id/name/prompt/items/updatedAt）；跨页同步监听同 todolist 模式。
 
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.22.2 | 热点雷达内置 API 配置区（独立打开可用，AiService.saveConfig 双写 translate_config/chrome.storage 全页互通；未配置自动展开 + 保存后自动重试失败卡片） |
 | v0.22.1 | 修复网页版热榜抓取失败（vvhan 失效）：数据源重建为回退链（60s 分板块热榜 CORS 直连 → UApi 直连/代理 → 60s 日报兜底） |
 | v0.22.0 | 新增「热点雷达」模块：卡片式全网热点 Top 10（热榜聚合真实数据 + AI 按提示词筛选归类），网页 Tab 8 / Side Panel Tab 8 / Popup 入口 |
 | v0.21.0 | todolist Dashboard 重设计 + english_learning 重设计（两份副本 CSS 统一 + JS 分叉消除 + 玻璃立体感补齐）+ 容器宽度统一 1400px + sidepanel.css 单层重写（令牌全量映射主题）+ README_EN 同步至 v0.21.0 |

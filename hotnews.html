@@ -67,6 +67,52 @@
     }
     .panel-title svg { width: 16px; height: 16px; color: var(--primary); flex-shrink: 0; }
 
+    /* ---------- API 配置区 ---------- */
+    .hn-api-content { max-height: 0; opacity: 0; overflow: hidden; transition: max-height 0.35s ease, opacity 0.3s ease, margin-top 0.35s ease; }
+    .hn-api-content.open { max-height: 420px; opacity: 1; margin-bottom: 4px; }
+    .hn-api-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .hn-api-grid input {
+      height: 42px; padding: 0 14px; width: 100%;
+      background: var(--bg-card2);
+      border: 1px solid transparent; border-radius: 11px;
+      color: var(--text); font-size: 0.9rem; font-family: inherit;
+      outline: none; min-width: 0;
+      transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+    }
+    .hn-api-grid input::placeholder { color: var(--text-dim); }
+    .hn-api-grid input:focus {
+      background: var(--bg-card);
+      border-color: var(--primary-a25);
+      box-shadow: var(--focus-ring);
+    }
+    .hn-api-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .btn-api-save {
+      height: 36px; padding: 0 20px; border: none; border-radius: 9px;
+      background: var(--btn-gradient); background-size: 150% 130%; background-position: 0% 50%;
+      color: #fff; font-size: 0.84rem; font-weight: 600; cursor: pointer;
+      box-shadow: 0 3px 10px var(--primary-a20);
+      transition: background-position 0.35s ease, transform 0.08s ease;
+    }
+    .btn-api-save:hover { background-position: 100% 50%; }
+    .btn-api-save:active { transform: scale(0.97); }
+    .btn-api-clear {
+      height: 36px; padding: 0 16px; border-radius: 9px;
+      border: 1px solid var(--glass-border); background: transparent;
+      color: var(--text-secondary); font-size: 0.84rem; cursor: pointer; transition: var(--transition);
+    }
+    .btn-api-clear:hover { border-color: var(--red-a12); background: var(--red-a08); color: var(--red); }
+    .hn-api-hint { font-size: 0.76rem; color: var(--text-dim); margin-left: auto; }
+    .hn-toggle-btn {
+      width: 30px; height: 30px; border-radius: 9px;
+      border: 1px solid var(--glass-border); background: transparent;
+      color: var(--text-dim); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: var(--transition); flex-shrink: 0;
+    }
+    .hn-toggle-btn:hover { border-color: var(--primary-a25); background: var(--primary-a06); color: var(--primary); }
+    .hn-toggle-btn svg { width: 15px; height: 15px; transition: transform var(--transition); }
+    .hn-toggle-btn.collapsed svg { transform: rotate(-90deg); }
+
     /* ---------- 创建卡 ---------- */
     .input-bar { display: flex; flex-wrap: wrap; gap: 10px; }
     #hnName { flex: 0 0 190px; }
@@ -288,6 +334,31 @@
   </div>
 
   <div class="container">
+
+    <!-- API 配置 -->
+    <section class="panel glass-card fade-up" id="hnApiPanel">
+      <div class="panel-head" id="hnApiHeader" style="cursor: pointer;">
+        <h2 class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          API 配置
+        </h2>
+        <button class="hn-toggle-btn" id="hnApiIcon" title="展开 / 收起">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <div class="hn-api-content" id="hnApiContent">
+        <div class="hn-api-grid">
+          <input id="hnApiUrl" type="text" placeholder="Base URL，如：https://api.deepseek.com">
+          <input id="hnApiKey" type="password" placeholder="API Key（sk-...）">
+          <input id="hnApiModel" type="text" placeholder="模型名称，如：deepseek-chat">
+        </div>
+        <div class="hn-api-actions">
+          <button class="btn-api-save" id="hnApiSave">保存配置</button>
+          <button class="btn-api-clear" id="hnApiClear">清除</button>
+          <span class="hn-api-hint">与插件弹窗 / 其他页面实时互通；独立打开本页时在此配置即可</span>
+        </div>
+      </div>
+    </section>
 
     <!-- 创建卡 -->
     <section class="panel glass-card fade-up" id="hnCreatePanel">
