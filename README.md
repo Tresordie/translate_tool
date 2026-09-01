@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.22.3-blue)
+![Version](https://img.shields.io/badge/version-0.23.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -235,6 +235,12 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.23.0 (2026-09-01)
+- **配置全端双向同步** — 修复反向缺口：网页版（index.html 设置面板 / 热点雷达配置区）保存配置后，经扩展 content script 中继写入 chrome.storage，弹窗/侧边栏实时同步；此前仅扩展→网页单向同步。任一端保存，网页版全部页面 + 扩展弹窗 + 侧边栏即刻生效
+- **网页版跨域代理桥** — 无 CORS 头的端点（如阿里云 Token Plan）网页版从此可用：页面请求失败时自动经扩展 background（host_permissions 免跨域）代理转发，AI 调用、模型列表获取、热榜抓取全链路打通（需扩展已安装且允许访问对应页面，file:// 页面需开启「允许访问文件网址」）
+- **热点雷达设置卡合并** — 「API 配置」与「创建卡片」合并为一张「雷达设置」卡（子区标题 + 配置状态 chip + 分隔线），消除两卡堆叠的拥挤感；配置状态一眼可见（已配置显示 模型@主机）
+- **热点相关性强化** — AI 筛选改为「宁缺毋滥」：只保留与提示词强相关的条目，不足 10 条时返回实际数量而非硬凑；每条附入选理由（显示于标题下方），相关条目较少时卡片底部明确提示
 
 ### v0.22.3 (2026-09-01)
 - **热点雷达适配阿里云 Token Plan 等专有网关**：

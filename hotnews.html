@@ -113,6 +113,24 @@
     .hn-toggle-btn svg { width: 15px; height: 15px; transition: transform var(--transition); }
     .hn-toggle-btn.collapsed svg { transform: rotate(-90deg); }
 
+    /* 子区标题行（合并设置卡内部分区） */
+    .hn-sub-head {
+      display: flex; align-items: center; gap: 10px;
+      margin: 4px 0 14px; min-width: 0;
+    }
+    #hnApiHeader { cursor: pointer; }
+    .hn-sub-title { font-size: 0.88rem; font-weight: 700; color: var(--text); }
+    .hn-api-status {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 10px; border-radius: 999px;
+      background: var(--bg-card2); font-size: 0.72rem; color: var(--text-dim);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .hn-api-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+    .hn-api-status.ok .dot { background: var(--neon-green); }
+    .hn-api-status.ok { color: var(--text-secondary); }
+    .hn-divider { border-top: 1px solid var(--glass-border); margin: 18px 0; }
+
     /* ---------- 创建卡 ---------- */
     .input-bar { display: flex; flex-wrap: wrap; gap: 10px; }
     #hnName { flex: 0 0 190px; }
@@ -222,9 +240,19 @@
       transition: color var(--transition);
     }
     a.hn-item-title:hover { color: var(--primary); }
+    .hn-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .hn-item-reason {
+      font-size: 0.68rem; color: var(--text-dim); opacity: 0.85;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     .hn-item-hot {
       flex-shrink: 0; min-width: 40px; text-align: right;
       font-size: 0.73rem; color: var(--text-dim); font-variant-numeric: tabular-nums;
+    }
+    .hn-lownote {
+      margin: 4px 0 0; padding-top: 8px;
+      border-top: 1px dashed var(--glass-border);
+      font-size: 0.72rem; color: var(--text-dim); opacity: 0.8;
     }
 
     /* 卡脚 */
@@ -335,13 +363,23 @@
 
   <div class="container">
 
-    <!-- API 配置 -->
-    <section class="panel glass-card fade-up" id="hnApiPanel">
-      <div class="panel-head" id="hnApiHeader" style="cursor: pointer;">
+    <!-- 雷达设置（大模型接口 + 创建卡片） -->
+    <section class="panel glass-card fade-up" id="hnSettingsPanel">
+      <div class="panel-head">
         <h2 class="panel-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          API 配置
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          雷达设置
         </h2>
+        <button class="btn-refresh-all" id="hnRefreshAllBtn" title="重新检索全部卡片">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          全部刷新
+        </button>
+      </div>
+
+      <!-- 大模型接口 -->
+      <div class="hn-sub-head" id="hnApiHeader">
+        <span class="hn-sub-title">大模型接口</span>
+        <span class="hn-api-status" id="hnApiStatus"><span class="dot"></span><span id="hnApiStatusText">未配置</span></span>
         <button class="hn-toggle-btn" id="hnApiIcon" title="展开 / 收起">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
@@ -357,31 +395,23 @@
           <button class="btn-api-save" id="hnApiSave">保存配置</button>
           <button class="btn-api-clear" id="hnApiClear">清除</button>
           <button class="btn-api-clear" id="hnApiFetchModels" title="从 {Base URL}/models 拉取该端点支持的模型">获取模型列表</button>
-          <span class="hn-api-hint">与插件弹窗 / 其他页面实时互通；部分端点（如阿里云 Token Plan）未开放浏览器跨域，仅可在 Chrome 扩展内使用</span>
+          <span class="hn-api-hint">与插件弹窗 / 其他页面实时互通；部分端点（如阿里云 Token Plan）未开放浏览器跨域，网页版需安装扩展（经其代理直连）</span>
         </div>
       </div>
-    </section>
 
-    <!-- 创建卡 -->
-    <section class="panel glass-card fade-up" id="hnCreatePanel">
-      <div class="panel-head">
-        <h2 class="panel-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-          创建热点卡片
-        </h2>
-        <button class="btn-refresh-all" id="hnRefreshAllBtn" title="重新检索全部卡片">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          全部刷新
-        </button>
+      <div class="hn-divider"></div>
+
+      <!-- 快速创建 -->
+      <div class="hn-sub-head">
+        <span class="hn-sub-title">创建热点卡片</span>
       </div>
-
       <div class="input-bar">
         <input id="hnName" type="text" placeholder="卡片名称，如：科技前沿">
         <input id="hnPrompt" type="text" placeholder="提示词，用于 AI 归类筛选，如：关注 AI 与大模型相关的热点">
         <button class="btn-add" id="hnAddBtn">＋ 添加卡片</button>
       </div>
 
-      <p class="hn-hint">AI 会实时抓取微博 / 知乎 / 百度 / 抖音 / B站 / IT之家 / 36氪 等全网热榜，按提示词筛选出最相关的 <code>Top 10</code>；点击卡片右下角 <code>刷新</code> 可随时重新检索。</p>
+      <p class="hn-hint">AI 会实时抓取微博 / 知乎 / 百度 / 抖音 / B站 / IT之家 / 36氪 等全网热榜，只保留与提示词强相关的条目（宁缺毋滥），并标注入选理由；点击卡片右下角 <code>刷新</code> 可随时重新检索。</p>
     </section>
 
     <!-- 卡片网格 -->

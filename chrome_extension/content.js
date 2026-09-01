@@ -49,6 +49,50 @@
     }
   });
 
+  // ===== 网页跨域代理桥 + 配置反向同步（v0.23.0） =====
+  // 页面（index.html / hotnews.html 等）→ postMessage → 此处 → chrome.runtime → background
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.source !== 'linguaflow-page') return;
+
+    // 桥可用性探测
+    if (d.type === 'bridge-ping' && d.bridgeId) {
+      try { window.postMessage({ source: 'linguaflow-extension', bridgeId: d.bridgeId }, '*'); } catch (err) { /* ignore */ }
+      return;
+    }
+
+    // 代理请求：background fetch（host_permissions 免跨域）后原路返回
+    if (d.type === 'bridge-fetch' && d.bridgeId && d.url) {
+      try {
+        chrome.runtime.sendMessage(
+          { action: 'linguaflow:proxyFetch', url: d.url, method: d.method, headers: d.headers, body: d.body },
+          (res) => {
+            try {
+              window.postMessage({
+                source: 'linguaflow-extension', bridgeId: d.bridgeId,
+                ok: !!(res && res.ok), status: (res && res.status) || 0,
+                text: (res && res.text) || '', error: (res && res.error) || ''
+              }, '*');
+            } catch (err) { /* ignore */ }
+          }
+        );
+      } catch (err) {
+        try { window.postMessage({ source: 'linguaflow-extension', bridgeId: d.bridgeId, ok: false, status: 0, text: '', error: 'bridge unavailable' }, '*'); } catch (e2) { /* ignore */ }
+      }
+      return;
+    }
+
+    // 网页保存配置 → 写 chrome.storage（扩展弹窗/侧边栏同步）
+    if (d.type === 'save-config' && d.config && d.config.baseUrl) {
+      try {
+        chrome.runtime.sendMessage({
+          action: 'linguaflow:saveConfig',
+          config: { baseUrl: d.config.baseUrl, apiKey: d.config.apiKey, model: d.config.model }
+        }, () => {});
+      } catch (err) { /* ignore */ }
+    }
+  });
+
   // ===== Text Selection =====
   document.addEventListener('mouseup', (e) => {
     // Ignore clicks inside our own elements

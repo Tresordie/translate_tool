@@ -62,6 +62,33 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // Handle messages from content script or popup
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // 网页版跨域代理桥（v0.23.0）：无 CORS 端点的请求经 background（host_permissions 免跨域）转发
+  if (msg.action === 'linguaflow:proxyFetch') {
+    (async () => {
+      try {
+        const r = await fetch(msg.url, {
+          method: msg.method || 'GET',
+          headers: msg.headers || {},
+          body: msg.method && msg.method !== 'GET' ? msg.body : undefined,
+        });
+        const text = await r.text();
+        sendResponse({ ok: r.ok, status: r.status, text });
+      } catch (e) {
+        sendResponse({ ok: false, status: 0, error: (e && e.message) || 'fetch failed' });
+      }
+    })();
+    return true; // async response
+  }
+
+  // 网页保存配置反向同步（v0.23.0）：content.js 中继 → 写 chrome.storage → 扩展弹窗/侧边栏实时同步
+  if (msg.action === 'linguaflow:saveConfig') {
+    if (msg.config && msg.config.baseUrl) {
+      chrome.storage.local.set({ config: { baseUrl: msg.config.baseUrl, apiKey: msg.config.apiKey, model: msg.config.model } }, () => {});
+    }
+    sendResponse({ ok: true });
+    return;
+  }
+
   if (msg.action === 'translate') {
     // Save translation task to storage so it persists even if popup closes
     const taskId = Date.now().toString();

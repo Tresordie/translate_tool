@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.22.3-blue)
+![Version](https://img.shields.io/badge/version-0.23.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,12 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.23.0 (2026-09-01)
+- **Two-way config sync across all surfaces** — fixes the reverse gap: saving the API config in the web version (index.html settings / Hot News Radar config card) now relays through the extension content script into chrome.storage, so the popup and side panel sync instantly; previously only extension→web was synced. Saving on any surface now reaches every web page, the popup and the side panel in real time
+- **CORS proxy bridge for the web version** — endpoints without CORS headers (e.g. Alibaba Cloud Token Plan) now work in the web version too: when a direct request fails, it is automatically relayed through the extension background (host_permissions bypasses CORS). AI calls, model-list fetching and hot-list retrieval all use this bridge (requires the extension installed and allowed to access the page; file:// pages need "Allow access to file URLs")
+- **Merged Hot News Radar settings card** — "API config" and "create card" are now one "雷达设置" card (subsection titles + config status chip + divider), removing the cramped stacked cards; the config status is visible at a glance (model @ host when configured)
+- **Stronger relevance filtering** — AI curation now prefers precision over volume: only entries strongly relevant to the prompt are kept, returning fewer than 10 when necessary instead of padding; each entry carries a short selection reason (shown under the title), and the card footer notes when fewer entries were returned
 
 ### v0.22.3 (2026-09-01)
 - **Hot News Radar adapts to Alibaba Cloud Token Plan and similar gateways**:

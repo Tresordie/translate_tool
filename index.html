@@ -1455,6 +1455,8 @@
       config.apiKey = document.getElementById('apiKey').value.trim();
       config.model = document.getElementById('modelName').value.trim();
       localStorage.setItem('translate_config', JSON.stringify(config));
+      // 反向同步：经扩展 content script 写 chrome.storage（弹窗/侧边栏实时同步）
+      try { window.postMessage({ source: 'linguaflow-page', type: 'save-config', config: { baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model } }, '*'); } catch (e) {}
       showToast('配置已保存', 'success');
       setTimeout(() => document.getElementById('settingsPanel').classList.remove('open'), 600);
     }

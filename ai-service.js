@@ -29,6 +29,9 @@
     try { localStorage.setItem('translate_config', JSON.stringify(cfg)); } catch (e) {}
     if (isExtension()) {
       try { chrome.storage.local.set({ config: cfg }, function () {}); } catch (e) {}
+    } else {
+      // 网页保存 → content.js 中继 → background 写 chrome.storage（扩展弹窗/侧边栏同步）
+      try { window.postMessage({ source: 'linguaflow-page', type: 'save-config', config: cfg }, '*'); } catch (e) {}
     }
   }
 
@@ -105,6 +108,73 @@
     return u + "/chat/completions";
   }
 
+  /* ================= 网页版跨域代理桥（v0.23.0） =================
+   * 无 CORS 头的端点（如阿里云 Token Plan）在网页版会被浏览器拦截；
+   * 若用户安装了一工具箱扩展（content script 已注入页面），可将请求经
+   * background（host_permissions 免跨域）代理发出。
+   * 链路：页面 postMessage → content.js → chrome.runtime → background fetch
+   * → 原路返回。扩展页面自身直连，不走桥。 */
+  var _bridge = { available: null, seq: 0, pending: {} };
+
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || d.source !== 'linguaflow-extension' || !d.bridgeId) return;
+    var cb = _bridge.pending[d.bridgeId];
+    if (cb) { delete _bridge.pending[d.bridgeId]; cb(d); }
+  });
+
+  function bridgePing() {
+    return new Promise(function (resolve) {
+      var id = 'ping' + (++_bridge.seq);
+      var timer = setTimeout(function () { delete _bridge.pending[id]; resolve(false); }, 1200);
+      _bridge.pending[id] = function () { clearTimeout(timer); resolve(true); };
+      try { window.postMessage({ source: 'linguaflow-page', type: 'bridge-ping', bridgeId: id }, '*'); }
+      catch (e) { clearTimeout(timer); resolve(false); }
+    });
+  }
+
+  function bridgeFetch(url, options) {
+    return new Promise(function (resolve, reject) {
+      var id = 'req' + (++_bridge.seq) + '_' + Date.now();
+      var timer = setTimeout(function () { delete _bridge.pending[id]; reject(new Error('桥接请求超时')); }, 120000);
+      _bridge.pending[id] = function (res) {
+        clearTimeout(timer); delete _bridge.pending[id];
+        if (res.error) reject(new Error('代理请求失败：' + res.error));
+        else resolve({ ok: !!res.ok, status: res.status || 0, text: res.text || '' });
+      };
+      try {
+        window.postMessage({
+          source: 'linguaflow-page', type: 'bridge-fetch', bridgeId: id,
+          url: url, method: options.method || 'GET', headers: options.headers || {}, body: options.body || ''
+        }, '*');
+      } catch (e) { clearTimeout(timer); delete _bridge.pending[id]; reject(new Error('桥接不可用')); }
+    });
+  }
+
+  /**
+   * 跨域请求通道（导出供各页面复用）：
+   * 扩展页面直连（host_permissions 免跨域）；网页先直连，
+   * 网络层失败（CORS/断网）时自动尝试扩展代理桥。返回 { ok, status, text }。
+   */
+  async function proxyFetch(url, options) {
+    options = options || {};
+    var ext = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+    if (ext) {
+      var r0 = await fetch(url, options);
+      var t0 = await r0.text();
+      return { ok: r0.ok, status: r0.status, text: t0 };
+    }
+    try {
+      var r = await fetch(url, options);
+      var t = await r.text();
+      return { ok: r.ok, status: r.status, text: t };
+    } catch (e) {
+      if (_bridge.available === null) _bridge.available = await bridgePing();
+      if (!_bridge.available) throw new Error('网络请求失败，请检查 Base URL 与网络连接');
+      return await bridgeFetch(url, options);
+    }
+  }
+
   /**
    * 发送一次 chat-completions 请求，返回 assistant 正文。
    * 参数: { messages, temperature, maxTokens, extraBody }
@@ -127,9 +197,9 @@
       }
       if (opts.extraBody) Object.assign(body, opts.extraBody);
 
-      var response;
+      var pr;
       try {
-        response = await fetch(url, {
+        pr = await proxyFetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json; charset=utf-8',
@@ -138,16 +208,15 @@
           body: JSON.stringify(body),
         });
       } catch (e) {
-        throw new Error('网络请求失败，请检查 Base URL 与网络连接');
+        throw new Error(/网络请求失败|桥接/.test(e.message) ? e.message : '网络请求失败，请检查 Base URL 与网络连接');
       }
-      var text = await response.text();
-      if (!response.ok) {
+      if (!pr.ok) {
         var detail = '';
-        try { var j = JSON.parse(text); detail = (j.error && j.error.message) || ''; } catch (e) { detail = text; }
-        throw new Error('API 错误 ' + response.status + (detail ? ': ' + detail.slice(0, 200) : ''));
+        try { var j = JSON.parse(pr.text); detail = (j.error && j.error.message) || ''; } catch (e) { detail = pr.text; }
+        throw new Error('API 错误 ' + pr.status + (detail ? ': ' + detail.slice(0, 200) : ''));
       }
       var data;
-      try { data = JSON.parse(text); } catch (e) { throw new Error('API 返回无法解析的 JSON'); }
+      try { data = JSON.parse(pr.text); } catch (e) { throw new Error('API 返回无法解析的 JSON'); }
       var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
       if (typeof content !== 'string' || !content.trim()) {
         throw new Error('AI 返回为空，请检查模型配置');
@@ -565,6 +634,7 @@
     loadState: loadState,
     saveState: saveState,
     chat: chat,
+    proxyFetch: proxyFetch,
     isReasoningModel: isReasoningModel,
     OUTPUT_LANGS: OUTPUT_LANGS,
     getOutputLang: getOutputLang,

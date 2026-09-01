@@ -187,10 +187,24 @@
     });
   }
 
-  // 源 2：UApi 直连（扩展 host_permissions 免跨域；网页版该通道会被 CORS 拦截，自动落入代理通道）
+  // 源 2：UApi 直连（扩展 host_permissions 免跨域；网页版该通道会被 CORS 拦截，自动落入桥接/代理通道）
   var DIRECT_STRATEGY = { name: 'UApi直连', timeout: FETCH_TIMEOUT, wrap: function (u) { return u; }, parse: parseJsonLoose };
 
-  // 源 3-5：公共 CORS 代理 → UApi（网页版回退通道；不同代理在不同网络环境下可用性不同）
+  // 源 3：UApi 经扩展代理桥（网页版装有扩展时可用——background 免跨代抓取，无需公共代理）
+  var BRIDGE_STRATEGY = {
+    name: 'UApi桥接',
+    fetchFn: function (url) {
+      if (!window.AiService || typeof window.AiService.proxyFetch !== 'function') {
+        return Promise.reject(new Error('桥接不可用'));
+      }
+      return window.AiService.proxyFetch(url, { cache: 'no-store' }).then(function (pr) {
+        if (!pr.ok) throw new Error('HTTP ' + pr.status);
+        return pr.text;
+      });
+    }
+  };
+
+  // 源 4-7：公共 CORS 代理 → UApi（桥接不可用时的网页版回退）
   function buildProxyStrategies() {
     return [
       { name: '代理A', timeout: 15000, wrap: function (u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); }, parse: parseJsonLoose },
@@ -203,7 +217,10 @@
   // 经指定通道抓取全部板块（并行，个别板块失败可容忍）
   function fetchBoardsVia(st) {
     return Promise.all(BOARDS.map(function (b) {
-      return fetchText(st.wrap(UAPIS_BASE + encodeURIComponent(b.type)), st.timeout)
+      var req = st.fetchFn
+        ? st.fetchFn(UAPIS_BASE + encodeURIComponent(b.type))
+        : fetchText(st.wrap(UAPIS_BASE + encodeURIComponent(b.type)), st.timeout);
+      return req
         .then(function (text) {
           var json = st.parse(text);
           var list = json && Array.isArray(json.list) ? json.list : [];
@@ -246,7 +263,8 @@
 
     var runners = [
       { name: '60s热榜', run: fetch60sBoards },
-      { name: 'UApi直连', run: function () { return fetchBoardsVia(DIRECT_STRATEGY); } }
+      { name: 'UApi直连', run: function () { return fetchBoardsVia(DIRECT_STRATEGY); } },
+      { name: 'UApi桥接', run: function () { return fetchBoardsVia(BRIDGE_STRATEGY); } }
     ];
     buildProxyStrategies().forEach(function (st) {
       runners.push({ name: st.name, run: function () { return fetchBoardsVia(st); } });
@@ -279,10 +297,13 @@
       return { title: it.title, source: it.source, hot: it.hot, url: it.url };
     });
     var system = '你是全网热点新闻筛选助手。用户给出主题提示词与一组来自各平台热榜的候选条目（JSON 数组）。'
-      + '请筛选出与主题最相关的条目并排序：相关性优先，相关性相近时按热度从高到低；恰好输出 ' + TOP_N + ' 条，若相关条目不足 ' + TOP_N + ' 条，用候选池中综合热度最高的其他条目补足；'
-      + '标题、来源、热度、链接必须保持候选条目原文，不得改写或编造；hot 为空的条目保持为空。'
+      + '筛选规则：'
+      + '1. 只保留与主题提示词语义确实相关的条目，宁缺毋滥，禁止为了凑数而保留无关条目；'
+      + '2. 相关性优先，相关性相近时按热度从高到低；最多输出 ' + TOP_N + ' 条，若确实相关的不足 ' + TOP_N + ' 条，只输出实际相关的条数；'
+      + '3. 每条输出 reason 字段：不超过 18 个字，说明该条目与主题的相关点；'
+      + '4. title/source/hot/url 必须保持候选条目原文，不得改写或编造；hot 为空保持为空。'
       + '只输出 JSON 数组，禁止输出任何解释、前后缀或 markdown 代码块标记。输出格式：'
-      + '[{"title":"原文标题","source":"来源平台","hot":"热度值","url":"原文链接"}]';
+      + '[{"title":"原文标题","source":"来源平台","hot":"热度值","url":"原文链接","reason":"相关点"}]';
     var user = '主题提示词：' + prompt + '\n\n候选条目：\n' + JSON.stringify(payload);
     return window.AiService.chat({
       messages: [
@@ -306,7 +327,7 @@
     try { arr = JSON.parse(t.slice(start, end + 1)); } catch (e) { return []; }
     if (!Array.isArray(arr)) return [];
     return arr.filter(function (it) { return it && it.title; }).map(function (it) {
-      return { title: String(it.title), source: String(it.source || ''), hot: it.hot, url: String(it.url || '') };
+      return { title: String(it.title), source: String(it.source || ''), hot: it.hot, url: String(it.url || ''), reason: String(it.reason || '') };
     });
   }
 
@@ -318,16 +339,38 @@
     $('hnApiIcon').classList.toggle('collapsed', !open);
   }
 
+  function setApiStatus(cfg) {
+    var chip = $('hnApiStatus'), text = $('hnApiStatusText');
+    if (!chip || !text) return;
+    if (cfg && cfg.baseUrl) {
+      var host = String(cfg.baseUrl).replace(/^https?:\/\//, '').split('/')[0];
+      text.textContent = (cfg.model || '已配置') + ' @ ' + host;
+      chip.classList.add('ok');
+    } else {
+      text.textContent = '未配置';
+      chip.classList.remove('ok');
+    }
+  }
+
+  function fillConfigInputs(cfg) {
+    $('hnApiUrl').value = (cfg && cfg.baseUrl) || '';
+    $('hnApiKey').value = (cfg && cfg.apiKey) || '';
+    $('hnApiModel').value = (cfg && cfg.model) || '';
+    setApiStatus(cfg);
+  }
+
   function initConfigUi() {
     var cfg = { baseUrl: '', apiKey: '', model: '' };
     if (window.AiService && typeof window.AiService.getConfig === 'function') {
       cfg = window.AiService.getConfig();
     }
-    $('hnApiUrl').value = cfg.baseUrl || '';
-    $('hnApiKey').value = cfg.apiKey || '';
-    $('hnApiModel').value = cfg.model || '';
+    fillConfigInputs(cfg);
     // 未配置 → 自动展开引导；已配置 → 收起
     toggleApiPanel(!cfg.baseUrl);
+    // 其他页面 / 插件弹窗保存配置后，本页状态与表单实时回填
+    if (window.AiService && typeof window.AiService.initConfigSync === 'function') {
+      window.AiService.initConfigSync(function (c) { fillConfigInputs(c); });
+    }
   }
 
   function saveApiConfig() {
@@ -339,6 +382,7 @@
     if (window.AiService && typeof window.AiService.saveConfig === 'function') {
       window.AiService.saveConfig({ baseUrl: baseUrl, apiKey: apiKey, model: model });
     }
+    setApiStatus({ baseUrl: baseUrl, model: model });
     toggleApiPanel(false);
     showToast('API 配置已保存', 'success');
     // 自动重试此前因未配置而失败的卡片
@@ -353,6 +397,7 @@
     }
     $('hnApiUrl').value = ''; $('hnApiKey').value = ''; $('hnApiModel').value = '';
     $('hnApiModelList').innerHTML = '';
+    setApiStatus(null);
     toggleApiPanel(true);
     showToast('API 配置已清除', 'info');
   }
@@ -372,8 +417,18 @@
 
     var btn = $('hnApiFetchModels');
     btn.disabled = true; btn.textContent = '获取中…';
-    fetchText(baseUrl + '/models', 15000, { 'Authorization': 'Bearer ' + apiKey }).then(function (text) {
-      var j = parseJsonLoose(text);
+    var url = baseUrl + '/models';
+    var opts = { headers: { 'Authorization': 'Bearer ' + apiKey } };
+    var req;
+    // 经 AiService.proxyFetch：网页直连失败时自动走扩展代理桥（Token Plan 等无 CORS 端点网页版也可用）
+    if (window.AiService && typeof window.AiService.proxyFetch === 'function') {
+      req = window.AiService.proxyFetch(url, opts);
+    } else {
+      req = fetchText(url, 15000, opts.headers).then(function (t) { return { ok: true, status: 200, text: t }; });
+    }
+    req.then(function (pr) {
+      if (!pr.ok) throw new Error('HTTP ' + pr.status);
+      var j = parseJsonLoose(pr.text);
       var arr = j && Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
       var ids = arr.map(function (m) { return m && (m.id || m.model || m.name); }).filter(Boolean).map(String);
       if (!ids.length) throw new Error('端点未返回模型列表');
@@ -386,8 +441,10 @@
       var msg = e && e.message ? e.message : '未知错误';
       if (/HTTP 401|HTTP 403/.test(msg)) {
         showToast('获取失败：Key 无效或无权限（' + msg + '）', 'error');
+      } else if (/桥接/.test(msg)) {
+        showToast('获取失败：该端点未开放跨域且扩展代理桥不可用，请在 Chrome 扩展内操作', 'error');
       } else {
-        showToast('获取失败：该端点可能未开放浏览器跨域（如阿里云 Token Plan），请在 Chrome 扩展内使用本功能', 'error');
+        showToast('获取失败：该端点可能未开放浏览器跨域（如阿里云 Token Plan），请安装并启用扩展后重试', 'error');
       }
     }).then(function () {
       btn.disabled = false; btn.textContent = '获取模型列表';
@@ -480,7 +537,7 @@
     var btn = $('hnAddBtn');
     btn.textContent = '✓ 更新卡片';
     btn.classList.add('editing');
-    var bar = $('hnCreatePanel');
+    var bar = $('hnSettingsPanel');
     if (bar && bar.scrollIntoView) bar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     $('hnName').focus();
   }
@@ -543,25 +600,32 @@
       html += '<button class="hn-btn-retry" data-action="retry" data-id="' + c.id + '">↻ 重试</button></div>';
     } else if (!c.items || !c.items.length) {
       html += '<div class="hn-none"><p>暂无数据，点击下方刷新按钮检索</p></div>';
-    } else {
-      html += '<ol class="hn-list">';
-      c.items.forEach(function (it, idx) {
-        var rank = idx + 1;
-        var hot = formatHot(it.hot);
-        var title = escapeHtml(it.title);
-        html += '<li class="hn-item">';
-        html += '<span class="hn-rank r' + rank + '">' + rank + '</span>';
-        if (it.source) html += '<span class="hn-src">' + escapeHtml(it.source) + '</span>';
-        if (it.url) {
-          html += '<a class="hn-item-title" href="' + escapeHtml(it.url) + '" target="_blank" rel="noopener noreferrer" title="' + title + '">' + title + '</a>';
-        } else {
-          html += '<span class="hn-item-title" title="' + title + '">' + title + '</span>';
+      } else {
+        html += '<ol class="hn-list">';
+        c.items.forEach(function (it, idx) {
+          var rank = idx + 1;
+          var hot = formatHot(it.hot);
+          var title = escapeHtml(it.title);
+          var tip = title + (it.reason ? '（' + escapeHtml(it.reason) + '）' : '');
+          html += '<li class="hn-item">';
+          html += '<span class="hn-rank r' + rank + '">' + rank + '</span>';
+          if (it.source) html += '<span class="hn-src">' + escapeHtml(it.source) + '</span>';
+          html += '<div class="hn-item-main">';
+          if (it.url) {
+            html += '<a class="hn-item-title" href="' + escapeHtml(it.url) + '" target="_blank" rel="noopener noreferrer" title="' + tip + '">' + title + '</a>';
+          } else {
+            html += '<span class="hn-item-title" title="' + tip + '">' + title + '</span>';
+          }
+          if (it.reason) html += '<span class="hn-item-reason">' + escapeHtml(it.reason) + '</span>';
+          html += '</div>';
+          if (hot) html += '<span class="hn-item-hot">' + escapeHtml(hot) + '</span>';
+          html += '</li>';
+        });
+        html += '</ol>';
+        if (c.items.length < TOP_N) {
+          html += '<p class="hn-lownote">与提示词强相关的条目较少，本次仅返回 ' + c.items.length + ' 条（宁缺毋滥）</p>';
         }
-        if (hot) html += '<span class="hn-item-hot">' + escapeHtml(hot) + '</span>';
-        html += '</li>';
-      });
-      html += '</ol>';
-    }
+      }
 
     html += '<div class="hn-card-foot">';
     html += '<span class="hn-time">' + (c.loading ? '检索中…' : escapeHtml(timeAgo(c.updatedAt))) + '</span>';
