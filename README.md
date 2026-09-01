@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.23.1-blue)
+![Version](https://img.shields.io/badge/version-0.23.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -235,6 +235,12 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.23.2 (2026-09-01)
+- **修复热点雷达「AI 返回格式异常 / 筛选结果为空」** — 两处根因：
+  - 候选池缺垂直板块：原回退链「首个源成功即返回」导致池里只有微博/知乎等综合热榜，几乎没有科技条目，科技类提示词必然筛出空数组。现改为**多源并行合并**：60s 综合榜 + UApi 全板块（IT之家/36氪/B站/百度等，经直连/扩展桥/公共代理任一可用通道）合并去重，实测 124 条、10 个板块
+  - 空结果被误报为错误：模型严格输出 `[]`（无强相关条目）属正常结果，现优雅呈现「AI 未在候选热榜中发现与提示词强相关的条目，可放宽提示词重试」，不再报格式异常；JSON 解析增加尾逗号容错，解析失败时原始返回输出到控制台便于排查
+- 端到端实测（qwen3.7-max + 124 条合并池）：「关注 AI 与大模型」提示词筛出 5 条强相关热点并附理由，宁缺毋滥生效
 
 ### v0.23.1 (2026-09-01)
 - **修复：iframe 中的页面（如 index.html 的热点雷达 Tab）代理桥不可用** — content script 默认只注入顶层帧（manifest 未开 all_frames），桥消息发往 iframe 自身 window 时无人应答。现改为：桥请求发往 **window.top**（content script 必在顶层），content.js 用 **e.source**（发起请求的帧）精准回包——嵌在 index.html 里的热点雷达等 iframe 页面经桥直连无 CORS 端点（Token Plan）恢复可用。已用「iframe + 模拟 content script + 真实 HTTPS 请求」端到端验证协议全通

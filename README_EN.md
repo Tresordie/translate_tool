@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.23.1-blue)
+![Version](https://img.shields.io/badge/version-0.23.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,12 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.23.2 (2026-09-01)
+- **Fix: Hot News Radar "AI 返回格式异常 / empty results"** — two root causes:
+  - The candidate pool lacked vertical boards: the old "first successful source wins" chain meant the pool only contained general hot lists (Weibo/Zhihu/Douyin/Toutiao) with almost no tech items, so tech prompts inevitably curated an empty array. The pool is now a **parallel multi-source merge**: 60s general boards + UApi full boards (IT之家/36Kr/Bilibili/Baidu etc., via direct / extension bridge / public proxies), deduplicated — 124 items across 10 boards in testing
+  - An empty result was misreported as an error: a strict model returning `[]` (no strongly relevant entries) is a normal outcome, now gracefully presented as "no strongly relevant entries found; try a broader prompt or refresh"; JSON parsing gains trailing-comma tolerance and raw AI output is logged to console when parsing fails
+- End-to-end verified (qwen3.7-max + 124-item merged pool): the "AI & LLM" prompt curated 5 strongly relevant items with reasons — precision over volume works
 
 ### v0.23.1 (2026-09-01)
 - **Fix: CORS bridge unavailable for pages inside iframes (e.g. the Hot News Radar tab of index.html)** — content scripts only inject into the top frame by default (manifest lacks all_frames), so bridge messages posted to the iframe's own window went unanswered. Bridge requests now go to **window.top** (where the content script lives) and content.js replies to **e.source** (the exact frame that asked). Verified end-to-end with an iframe + mock content script + real HTTPS request. The Token Plan endpoint is reachable again from the radar tab inside index.html

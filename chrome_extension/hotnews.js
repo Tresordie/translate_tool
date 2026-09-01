@@ -256,35 +256,53 @@
     });
   }
 
-  // ===== 候选池抓取（数据源回退链） =====
+  // UApi 全通道：直连 → 扩展桥接 → 公共代理（逐个尝试，首个成功者胜出）
+  function fetchUapisAny() {
+    var strategies = [DIRECT_STRATEGY, BRIDGE_STRATEGY].concat(buildProxyStrategies());
+    var i = 0;
+    function attempt() {
+      if (i >= strategies.length) throw new Error('UApi 各通道均不可用');
+      var s = strategies[i++];
+      return fetchBoardsVia(s).catch(function () { return attempt(); });
+    }
+    return attempt();
+  }
+
+  // ===== 候选池抓取（多源合并：综合榜 + 科技等垂直板块，给 AI 更丰富的归类空间） =====
+  // v0.23.2：由「首个源成功即返回」改为「并行抓取 + 合并去重」——
+  // 综合热榜（微博/知乎/抖音/头条）几乎不含科技条目，纯综合池会让垂直主题提示词筛出空结果
+  function mergePools(groups) {
+    var items = [], seen = {};
+    groups.forEach(function (g) {
+      (g || []).forEach(function (it) {
+        var k = it.source + '|' + it.title;
+        if (!seen[k]) { seen[k] = 1; items.push(it); }
+      });
+    });
+    return items;
+  }
+
   function fetchPool(force) {
     if (pool && !force && Date.now() - pool.fetchedAt < POOL_TTL) return Promise.resolve(pool);
     if (poolPromise && !force) return poolPromise;
 
-    var runners = [
-      { name: '60s热榜', run: fetch60sBoards },
-      { name: 'UApi直连', run: function () { return fetchBoardsVia(DIRECT_STRATEGY); } },
-      { name: 'UApi桥接', run: function () { return fetchBoardsVia(BRIDGE_STRATEGY); } }
-    ];
-    buildProxyStrategies().forEach(function (st) {
-      runners.push({ name: st.name, run: function () { return fetchBoardsVia(st); } });
+    poolPromise = Promise.allSettled([fetch60sBoards(), fetchUapisAny()]).then(function (rs) {
+      var items = mergePools(rs.map(function (r) { return r.status === 'fulfilled' ? r.value : null; }));
+      if (items.length < MIN_POOL) {
+        // 全部失败 → 60s 日报兜底（真实每日新闻，无热度/链接）
+        return fetch60sDaily().then(function (items2) {
+          pool = { items: items2, fetchedAt: Date.now(), source: '60s日报' };
+          poolPromise = null;
+          return pool;
+        });
+      }
+      pool = { items: items, fetchedAt: Date.now(), source: '合并源' };
+      poolPromise = null;
+      return pool;
+    }).catch(function () {
+      poolPromise = null;
+      throw new Error('所有数据源暂不可用（接口限制或网络异常），请稍后重试');
     });
-    runners.push({ name: '60s日报', run: fetch60sDaily });
-
-    var idx = 0;
-    function attempt() {
-      if (idx >= runners.length) throw new Error('所有数据源暂不可用（接口限制或网络异常），请稍后重试');
-      var r = runners[idx++];
-      return r.run().then(function (items) {
-        pool = { items: items, fetchedAt: Date.now(), source: r.name };
-        poolPromise = null;
-        return pool;
-      }).catch(function (e) {
-        console.warn('[HotNews] 数据源 ' + r.name + ' 失败:', e && e.message);
-        return attempt();
-      });
-    }
-    poolPromise = attempt();
     return poolPromise;
   }
 
@@ -299,7 +317,7 @@
     var system = '你是全网热点新闻筛选助手。用户给出主题提示词与一组来自各平台热榜的候选条目（JSON 数组）。'
       + '筛选规则：'
       + '1. 只保留与主题提示词语义确实相关的条目，宁缺毋滥，禁止为了凑数而保留无关条目；'
-      + '2. 相关性优先，相关性相近时按热度从高到低；最多输出 ' + TOP_N + ' 条，若确实相关的不足 ' + TOP_N + ' 条，只输出实际相关的条数；'
+      + '2. 相关性优先，相关性相近时按热度从高到低；最多输出 ' + TOP_N + ' 条，若确实相关的不足 ' + TOP_N + ' 条，只输出实际相关的条数（可以为 0 条，输出 [] 即可）；'
       + '3. 每条输出 reason 字段：不超过 18 个字，说明该条目与主题的相关点；'
       + '4. title/source/hot/url 必须保持候选条目原文，不得改写或编造；hot 为空保持为空。'
       + '只输出 JSON 数组，禁止输出任何解释、前后缀或 markdown 代码块标记。输出格式：'
@@ -313,8 +331,10 @@
       temperature: 0.2
     }).then(function (text) {
       var items = extractJsonItems(text);
-      if (!items.length) throw new Error('AI 返回格式异常，未解析到条目');
-      return items.slice(0, TOP_N);
+      if (!items.length && !/^\s*\[\s*\]\s*$/.test(String(text || ''))) {
+        console.warn('[HotNews] AI 原始返回（解析失败）:', text);
+      }
+      return items.slice(0, TOP_N); // 空数组 = 无强相关条目，属正常结果
     });
   }
 
@@ -323,8 +343,12 @@
     t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
     var start = t.indexOf('['), end = t.lastIndexOf(']');
     if (start === -1 || end === -1 || end <= start) return [];
-    var arr;
-    try { arr = JSON.parse(t.slice(start, end + 1)); } catch (e) { return []; }
+    var slice = t.slice(start, end + 1);
+    var arr = null;
+    try { arr = JSON.parse(slice); } catch (e) {
+      // 容错修复：去除对象/数组尾逗号后重试
+      try { arr = JSON.parse(slice.replace(/,\s*([\]}])/g, '$1')); } catch (e2) { arr = null; }
+    }
     if (!Array.isArray(arr)) return [];
     return arr.filter(function (it) { return it && it.title; }).map(function (it) {
       return { title: String(it.title), source: String(it.source || ''), hot: it.hot, url: String(it.url || ''), reason: String(it.reason || '') };
@@ -599,8 +623,8 @@
       html += '<div class="hn-error"><p class="hn-error-text">' + escapeHtml(c.error) + '</p>';
       html += '<button class="hn-btn-retry" data-action="retry" data-id="' + c.id + '">↻ 重试</button></div>';
     } else if (!c.items || !c.items.length) {
-      html += '<div class="hn-none"><p>暂无数据，点击下方刷新按钮检索</p></div>';
-      } else {
+      html += '<div class="hn-none"><p>AI 未在候选热榜中发现与提示词强相关的条目</p><p style="margin-top:6px">可尝试放宽提示词范围，或点击刷新重新检索</p></div>';
+    } else {
         html += '<ol class="hn-list">';
         c.items.forEach(function (it, idx) {
           var rank = idx + 1;
