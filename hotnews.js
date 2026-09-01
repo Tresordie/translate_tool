@@ -1,7 +1,8 @@
 /* ================================================================
-   AI Tool Box — 热点雷达（Hot News Radar）v0.22.1
-   两段式：真实热榜聚合数据（无需密钥）+ AI 按卡片提示词筛选 Top 10
-   数据源回退链：60s 分板块热榜（CORS 开放）→ UApi 热榜（直连/代理）→ 60s 日报
+   AI Tool Box — 热点雷达（Hot News Radar）v0.24.0
+   全网两层候选：① 14+ 板块热榜（60s + UApi 多源合并）
+                ② 必应搜索层（按卡片提示词实时搜索，经扩展桥免跨域）
+   再由 AI 按提示词筛选 Top 10（宁缺毋滥 + 理由）
    存储遵循项目惯例：扩展 chrome.storage.local / 网页 localStorage('hn_*')
    ================================================================ */
 
@@ -26,11 +27,17 @@
     { type: 'ithome',   name: 'IT之家' },
     { type: '36kr',     name: '36氪' },
     { type: 'sspai',    name: '少数派' },
-    { type: 'qq-news',  name: '腾讯新闻' }
+    { type: 'qq-news',  name: '腾讯新闻' },
+    { type: 'hupu',     name: '虎扑' },
+    { type: 'weread',   name: '微信读书' },
+    { type: 'juejin',   name: '掘金' },
+    { type: 'thepaper', name: '澎湃新闻' }
   ];
   // 兜底数据源：60s 日报（CORS 开放，稳定可用；真实每日新闻，无热度值）
   var FALLBACK_60S = 'https://60s.viki.moe/v2/60s';
   var FETCH_TIMEOUT = 12000;
+  var BING_SEARCH_TTL = 5 * 60 * 1000; // 必应搜索层缓存（同提示词 5 分钟内复用）
+  var searchCache = {};
 
   // ===== Storage（扩展 chrome.storage.local / 网页 localStorage，键名 hn_*）=====
   var isExtension = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
@@ -306,16 +313,74 @@
     return poolPromise;
   }
 
+  // ===== 必应搜索层（v0.24.0）：按卡片提示词实时搜索全网 =====
+  // www.bing.com/search?q=..&format=rss 返回标准 RSS（10 条，含直链与摘要）；
+  // 该端点无 CORS 头：扩展内直连，网页版经 AiService.proxyFetch 自动走扩展桥。
+  // 搜索失败可容忍（返回 []，仅用热榜候选池）。
+  function parseRssItems(xml) {
+    var items = [];
+    try {
+      var doc = new DOMParser().parseFromString(String(xml || ''), 'text/xml');
+      if (doc.querySelector('parsererror')) return [];
+      var nodes = doc.querySelectorAll('item');
+      for (var i = 0; i < nodes.length; i++) {
+        var g = function (n, tag) {
+          var el = n.querySelector(tag);
+          return el ? el.textContent.trim() : '';
+        };
+        var title = g(nodes[i], 'title');
+        if (!title) continue;
+        items.push({ title: title, url: g(nodes[i], 'link'), desc: g(nodes[i], 'description') });
+      }
+    } catch (e) { /* 解析失败返回空 */ }
+    return items;
+  }
+
+  function fetchBingSearch(prompt) {
+    var q = String(prompt || '').trim().slice(0, 60);
+    if (!q) return Promise.resolve([]);
+    var key = q.toLowerCase();
+    var c = searchCache[key];
+    if (c && Date.now() - c.ts < BING_SEARCH_TTL) return Promise.resolve(c.items);
+    var url = 'https://www.bing.com/search?q=' + encodeURIComponent(q) + '&format=rss&setmkt=zh-CN';
+    function attemptFn() {
+      if (window.AiService && typeof window.AiService.proxyFetch === 'function') {
+        return window.AiService.proxyFetch(url, { cache: 'no-store' });
+      }
+      return fetchText(url, 15000).then(function (t) { return { ok: true, status: 200, text: t }; });
+    }
+    // 偶发挑战/抖动重试一次（仅失败时）
+    var req = attemptFn().catch(function (e) {
+      return delay(600).then(attemptFn);
+    });
+    return req.then(function (pr) {
+      if (!pr.ok) throw new Error('HTTP ' + pr.status);
+      var items = parseRssItems(pr.text).slice(0, 12).map(function (it) {
+        return { title: it.title, source: '必应搜索', hot: '', url: it.url, desc: it.desc };
+      });
+      if (!items.length) throw new Error('搜索结果为空');
+      searchCache[key] = { items: items, ts: Date.now() };
+      return items;
+    }).catch(function (e) {
+      console.warn('[HotNews] 必应搜索层失败（本次仅用热榜候选池）:', e && e.message);
+      return [];
+    });
+  }
+
   // ===== AI 筛选 =====
   function aiSelect(prompt, poolItems) {
     if (!window.AiService || typeof window.AiService.chat !== 'function') {
       return Promise.reject(new Error('AiService 未加载，请刷新页面'));
     }
     var payload = poolItems.map(function (it) {
-      return { title: it.title, source: it.source, hot: it.hot, url: it.url };
+      var o = { title: it.title, source: it.source, hot: it.hot, url: it.url };
+      if (it.desc) o.desc = it.desc; // 必应搜索结果附摘要，辅助 AI 判断相关性
+      return o;
     });
-    var system = '你是全网热点新闻筛选助手。用户给出主题提示词与一组来自各平台热榜的候选条目（JSON 数组）。'
-      + '筛选规则：'
+    var system = '你是全网热点新闻筛选助手。用户给出主题提示词与一组候选条目（JSON 数组），条目分两类：'
+      + '① source 为「必应搜索」的条目：按主题实时搜索得到的全网结果（desc 为网页摘要），与主题直接相关，只要标题/摘要确实切题即优先保留；'
+      + '② 其余条目：来自各平台热榜，需按语义相关性筛选。'
+      + '规则：'
       + '1. 只保留与主题提示词语义确实相关的条目，宁缺毋滥，禁止为了凑数而保留无关条目；'
       + '2. 相关性优先，相关性相近时按热度从高到低；最多输出 ' + TOP_N + ' 条，若确实相关的不足 ' + TOP_N + ' 条，只输出实际相关的条数（可以为 0 条，输出 [] 即可）；'
       + '3. 每条输出 reason 字段：不超过 18 个字，说明该条目与主题的相关点；'
@@ -475,13 +540,16 @@
     });
   }
 
-  // ===== 卡片刷新（抓取 + AI 筛选；AI 异常自动重试一次） =====
+  // ===== 卡片刷新（热榜池 + 必应搜索层并行 → AI 筛选；AI 异常自动重试一次） =====
   function refreshCard(card, isRetry) {
     card.error = '';
     card.loading = true;
     render();
-    return fetchPool().then(function (p) {
-      return aiSelect(card.prompt, p.items);
+    return Promise.all([fetchPool(), fetchBingSearch(card.prompt)]).then(function (rs) {
+      // 搜索结果（与提示词直接匹配）排在热榜条目之前，合并去重
+      var candidates = mergePools([rs[1], rs[0]]);
+      if (!candidates.length) throw new Error('所有数据源暂不可用（接口限制或网络异常），请稍后重试');
+      return aiSelect(card.prompt, candidates);
     }).then(function (items) {
       card.items = items;
       card.updatedAt = Date.now();

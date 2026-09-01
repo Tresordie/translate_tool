@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.23.2-blue)
+![Version](https://img.shields.io/badge/version-0.24.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,13 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.24.0 (2026-09-02)
+- **Hot News Radar upgraded to true whole-web search** — candidate sources expanded from "10 hot-list boards" to a two-layer structure:
+  - **Hot-list layer (14+ boards)**: adds Hupu / WeRead / Juejin / ThePaper (14 UApi boards + 6 from 60s, merged and deduplicated)
+  - **Search layer (per-card prompt search)**: each card refresh now also queries **Bing web search RSS** with the card's prompt (10 real whole-web results with direct links and page summaries), relayed through the extension bridge to bypass CORS; search results are merged with hot-list entries before AI curation
+  - The AI prompt distinguishes the two candidate classes: Bing search results are prompt-matched by construction and kept first; hot-list entries are filtered by semantic relevance; search-layer failure gracefully degrades to hot-list-only mode
+- End-to-end verified: 169 hot-list entries across 14 boards + Bing search layer → qwen3.7-max curated 10 strongly relevant AI items with reasons
 
 ### v0.23.2 (2026-09-01)
 - **Fix: Hot News Radar "AI 返回格式异常 / empty results"** — two root causes:

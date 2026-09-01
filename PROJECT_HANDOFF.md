@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.23.2 · 2026-09-01
+> **当前版本**：v0.24.0 · 2026-09-02
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -104,7 +104,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 ### 3.9 热点雷达两段式检索（v0.22.0，数据源 v0.22.1 重建）
 `hotnews.html/js`（两份副本，JS 逐字一致、HTML 仅字体加载差异）：
-- **数据源回退链（v0.23.2 合并式）**：候选池 = **60s 分板块综合榜**（weibo/zhihu/douyin/toutiao/ithome/36kr，CORS 开放，串行+429 退避）**∪ UApi 全板块**（10 板块，通道依次：直连 → 扩展桥 → 公共代理），`Promise.allSettled` 并行 + 按板块名去重，任一源达标即并入；两者皆败 → 60s 日报兜底。⚠️ 综合热榜几乎不含科技条目，**不要退回「首个源成功即返回」策略**（垂直主题提示词会筛出空结果）。60s 官方限速严格（并行会 429）。
+- **候选来源（v0.24.0 双层）**：① 热榜层 = 60s 综合榜（6 板块）∪ UApi 全板块（**14 板块**：weibo/zhihu/baidu/douyin/bilibili/toutiao/ithome/36kr/sspai/qq-news/hupu/weread/juejin/thepaper），并行合并去重；② **必应搜索层** = 每张卡片刷新时以提示词为查询词请求 `https://www.bing.com/search?q={prompt}&format=rss&setmkt=zh-CN`（标准 RSS 10 条，无 CORS 头 → 扩展内直连、网页经 proxyFetch 走桥；5 分钟按提示词缓存，失败重试一次后降级为纯热榜模式）。两层合并（搜索结果在前）→ AI 筛选。
 - **AI 归类**：候选池（每板块前 12 条）+ 卡片提示词 → `AiService.chat()`，严格筛选（宁缺毋滥，不足 10 条返回实际数量，每条附 reason）+ `extractJsonItems()` 容错解析（AI 异常自动重试一次）。配置复用 ai-service.js 同步机制；页面自带「大模型接口」配置子区（经 `AiService.saveConfig` 双写 localStorage translate_config 与 chrome.storage config，v0.23.0 起网页保存还会经 content.js 中继写 chrome.storage 实现全端双向同步），未配置时自动展开，保存后自动重试失败卡片。
 - **跨域代理桥（v0.23.0/v0.23.1）**：`AiService.proxyFetch()` —— 扩展页面直连；网页直连失败时经 postMessage → content.js → background（host_permissions 免跨域）转发。⚠️ **桥消息必须发往 `window.top`**（content script 默认不注入 iframe，manifest 未开 all_frames），content.js 回包用 **e.source**（发起帧）——嵌在 index.html 里的 iframe 页面（热点雷达等）依赖此路由。chat / 热点雷达模型列表 / UApi 热榜（「UApi桥接」通道）均已接入。
 - **存储键**：`hn_cards`（扩展 chrome.storage.local / 网页 localStorage，含 id/name/prompt/items/updatedAt）；跨页同步监听同 todolist 模式。
@@ -113,6 +113,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.24.0 | 热点雷达「全网搜索」升级：UApi 板块扩至 14（+虎扑/微信读书/掘金/澎湃）+ 新增必应搜索层（按提示词实时搜索 www.bing.com/search?format=rss，经扩展桥免跨域，失败降级纯热榜） |
 | v0.23.2 | 修复热点筛选空结果：候选池改为 60s 综合榜 + UApi 全板块并行合并（含 IT之家/36氪 垂直板块，实测 124 条/10 板块）；空数组优雅呈现（不再报格式异常）；JSON 尾逗号容错 |
 | v0.23.1 | 修复 iframe 内页面代理桥不可用：桥消息改发 window.top（content script 默认仅注入顶层），content.js 以 e.source 精准回包；端到端验证通过 |
 | v0.23.0 | 配置全端双向同步（网页保存经 content script 中继写 chrome.storage）+ 网页版跨域代理桥（无 CORS 端点经扩展 background 代理，Token Plan 网页版可用）+ 热点雷达设置卡合并 + 热点相关性强化（宁缺毋滥 + reason 字段） |
