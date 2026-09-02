@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.24.2-blue)
+![Version](https://img.shields.io/badge/version-0.25.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,13 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.25.0 (2026-09-02)
+- **Two-way record sync between web and extension** — user records (previously stored separately on each surface) are now fully shared: task list, Hot News Radar cards, Smart Translation history/draft, work report records & summaries, email summary history, English learning history & content, AI Parse / AI Prompts state
+  - Mechanism: web writes → content.js relays into chrome.storage (extension side syncs); extension writes → background broadcasts to every tab's content.js which writes the matching localStorage key (web side syncs, automatically triggering the pages' existing storage listeners for live UI refresh)
+  - Live refresh: task list, Hot News Radar and Smart Translation history update on-screen instantly; other modules are write-through synced (data shared, visible after a page refresh)
+  - The chrome.storage ↔ localStorage key mapping lives in one table in background.js (covering td_/wr_ prefixes and popup's history/draft naming); adding a new synced record is a one-line change
+- Requires the extension installed and allowed to access the page (file:// pages need "Allow access to file URLs")
 
 ### v0.24.2 (2026-09-02)
 - **Proxy bridge now covers every AI module** — fixes the Smart Translation tab of index.html failing with "无法连接 API（CORS）" on Token Plan: the bridge previously only covered ai-service callers (AI Parse / AI Prompts / Hot News Radar), while Smart Translation, Work Report, Email Summary and English Learning used their own fetch calls. All are now wired through:

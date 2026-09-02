@@ -1,3 +1,14 @@
+// 记录反向同步（v0.25.0）：localStorage 写入 → chrome.storage（扩展侧同步，映射表见 background.js）
+        function elRelayRecord(key, value) {
+            try {
+                if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+                    chrome.runtime.sendMessage({ action: 'linguaflow:saveRecord', key: key, value: value }, function () {});
+                } else {
+                    window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: key, value: value }, '*');
+                }
+            } catch (e) {}
+        }
+
 // ===== Chrome Extension Storage Adapter =====
         // Safely bridge localStorage <-> chrome.storage.local
         // If anything fails, fall back to native localStorage (page still works)
@@ -350,6 +361,7 @@
                 resultSectionVisible: document.getElementById('resultSection').style.display !== 'none'
             };
             localStorage.setItem('englishLearningData', JSON.stringify(data));
+            elRelayRecord('englishLearningData', data);
         }
 
         function loadFromStorage() {
@@ -372,6 +384,7 @@
             history.unshift(item);
             if (history.length > 50) history.pop();
             localStorage.setItem('learningHistory', JSON.stringify(history));
+            elRelayRecord('learningHistory', history);
             displayHistory();
         }
 
@@ -381,6 +394,7 @@
                 const history = getHistory();
                 history.splice(index, 1);
                 localStorage.setItem('learningHistory', JSON.stringify(history));
+            elRelayRecord('learningHistory', history);
                 displayHistory();
             }
         }

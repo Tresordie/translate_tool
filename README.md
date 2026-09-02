@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.24.2-blue)
+![Version](https://img.shields.io/badge/version-0.25.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -235,6 +235,13 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.25.0 (2026-09-02)
+- **记录全端双向同步** — 网页版与扩展的记录（此前各存各的）现全量互通：任务清单、热点雷达卡片、智能翻译历史/草稿、工作报告记录与总结、邮件总结历史、英语学习历史与内容、AI 解析/AI 提示词状态
+  - 机制：网页写入记录 → content.js 中继写 chrome.storage（扩展侧同步）；扩展写入记录 → background 广播各标签页 content.js 写入对应 localStorage（网页侧同步，自动触发页面既有 storage 监听刷新）
+  - 实时刷新：任务清单、热点雷达、智能翻译历史（跨端变更即时上屏）；其余模块为落盘同步（数据已互通，刷新页面即可见）
+  - 映射表集中于 background.js（chrome.storage 键 ↔ localStorage 键，含 td_/wr_ 前缀差异与 popup 的 history/draft 键名差异），新增需同步的记录只需在表中加一行
+- 依赖：网页版记录同步需扩展已安装且允许访问对应页面（file:// 需开启「允许访问文件网址」）
 
 ### v0.24.2 (2026-09-02)
 - **Token Plan 等无跨域端点全面接入代理桥（全模块覆盖）** — 修复 index.html 智能翻译 Tab 使用 Token Plan 报「无法连接 API（CORS）」：此前代理桥仅覆盖 ai-service 调用方（AI 解析/提示词/热点雷达），智能翻译及工作报告/邮件总结/英语学习页仍用各自独立的 fetch。现全部接入：

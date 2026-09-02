@@ -1618,6 +1618,8 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
       });
       if (history.length > 20) history = history.slice(0, 20);
       localStorage.setItem('translate_history', JSON.stringify(history));
+      // 网页 → 扩展反向同步（content.js 中继，映射表见 background.js）
+      try { window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: 'history', value: history }, '*'); } catch (e) {}
       renderHistory();
     }
 
@@ -1685,8 +1687,19 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
     function deleteHistoryItem(index) {
       history.splice(index, 1);
       localStorage.setItem('translate_history', JSON.stringify(history));
+      try { window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: 'history', value: history }, '*'); } catch (e) {}
       renderHistory();
     }
+
+    // 记录双向同步（v0.25.0）：扩展写入的翻译历史 → 本页实时刷新
+    window.addEventListener('storage', function (e) {
+      if (e.key === 'translate_history') {
+        try {
+          history = JSON.parse(localStorage.getItem('translate_history') || '[]');
+          renderHistory();
+        } catch (err) { /* ignore */ }
+      }
+    });
 
     // ===== Utility =====
     let _draftTimer = null;
@@ -1706,6 +1719,7 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
         targetLang: document.getElementById('targetLang').value,
       };
       localStorage.setItem('translate_draft', JSON.stringify(draft));
+      try { window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: 'draft', value: draft }, '*'); } catch (e) {}
     }
 
     function clearSource() {

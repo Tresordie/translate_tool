@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.24.2 · 2026-09-02
+> **当前版本**：v0.25.0 · 2026-09-02
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -108,11 +108,13 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **AI 归类**：候选池（每板块前 12 条）+ 卡片提示词 → `AiService.chat()`，严格筛选（宁缺毋滥，不足 10 条返回实际数量，每条附 reason）+ `extractJsonItems()` 容错解析（AI 异常自动重试一次）。配置复用 ai-service.js 同步机制；页面自带「大模型接口」配置子区（经 `AiService.saveConfig` 双写 localStorage translate_config 与 chrome.storage config，v0.23.0 起网页保存还会经 content.js 中继写 chrome.storage 实现全端双向同步），未配置时自动展开，保存后自动重试失败卡片。
 - **跨域代理桥（v0.23.0/v0.23.1）**：`AiService.proxyFetch()` —— 扩展页面直连；网页直连失败时经 postMessage → content.js → background（host_permissions 免跨域）转发。⚠️ **桥消息必须发往 `window.top`**（content script 默认不注入 iframe，manifest 未开 all_frames），content.js 回包用 **e.source**（发起帧）——嵌在 index.html 里的 iframe 页面（热点雷达等）依赖此路由。chat / 热点雷达模型列表 / UApi 热榜（「UApi桥接」通道）均已接入。
 - **存储键**：`hn_cards`（扩展 chrome.storage.local / 网页 localStorage，含 id/name/prompt/items/updatedAt）；跨页同步监听同 todolist 模式。
+- **记录全端双向同步（v0.25.0）**：映射表 `RECORD_SYNC_KEYS` 在 background.js（chrome.storage 键 ↔ 网页 localStorage 键，覆盖 td_/wr_ 前缀及 popup 的 history/draft 命名差异）。网页适配器写入后 postMessage `save-record` → content.js → background 写 chrome.storage；扩展写入 → background onChanged 广播 `linguaflow:syncRecord` → 各标签页 content.js 写对应 localStorage → 页面既有 storage 监听自动刷新。**新增需同步的记录：在映射表加一行 + 适配器写入处加一条 postMessage 即可。** 实时刷新仅覆盖已有 storage 监听的页面（任务清单/热点雷达/智能翻译历史），其余模块为落盘同步（刷新可见）。
 
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.25.0 | 记录全端双向同步：background 映射表（chrome.storage↔localStorage 键）+ content.js 中继 + 各适配器反向汇报；任务清单/热点雷达/翻译历史实时刷新，其余模块落盘同步 |
 | v0.24.2 | 代理桥全模块覆盖：index.html 智能翻译 / 工作报告 / 邮件总结 / 英语学习的独立 fetch 全部接入 AiService.proxyFetch（返回值 Response 兼容 ok/status/text()/json()），Token Plan 等无 CORS 端点在网页版全模块可用 |
 | v0.24.1 | 修复卡片刷新报错：refreshCard 误将 fetchPool 返回的池对象传入 mergePools（已改用 .items 并加 Array.isArray 防御） |
 | v0.24.0 | 热点雷达「全网搜索」升级：UApi 板块扩至 14（+虎扑/微信读书/掘金/澎湃）+ 新增必应搜索层（按提示词实时搜索 www.bing.com/search?format=rss，经扩展桥免跨域，失败降级纯热榜） |

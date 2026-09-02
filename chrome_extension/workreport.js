@@ -58,6 +58,8 @@
         } else {
           for (const [k, v] of Object.entries(obj)) {
             localStorage.setItem('wr_' + k, JSON.stringify(v));
+            // 网页 → 扩展反向同步（content.js 中继，映射表见 background.js）
+            try { window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: k, value: v }, '*'); } catch (e) {}
           }
           resolve();
         }

@@ -104,6 +104,17 @@
   /* ==================== State ==================== */
   let config = JSON.parse(localStorage.getItem('email_summary_config') || 'null') || {};
   let history = JSON.parse(localStorage.getItem('email_summary_history') || '[]');
+
+  // 记录反向同步（v0.25.0）：localStorage 写入 → chrome.storage（扩展侧同步，映射表见 background.js）
+  function relayRecord(key, value) {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+        chrome.runtime.sendMessage({ action: 'linguaflow:saveRecord', key: key, value: value }, function () {});
+      } else {
+        window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: key, value: value }, '*');
+      }
+    } catch (e) {}
+  }
   let editingIndex = -1;
   let loadedFileName = '';
 
@@ -170,6 +181,7 @@
     config.apiKey = $('apiKey').value.trim();
     config.model = $('modelName').value.trim();
     localStorage.setItem('email_summary_config', JSON.stringify(config));
+    relayRecord('email_summary_config', config);
     showToast('配置已保存', 'success');
     $('settingsPanel').classList.remove('open');
   });
@@ -640,6 +652,7 @@
 
   function persistHistory() {
     localStorage.setItem('email_summary_history', JSON.stringify(history));
+    relayRecord('email_summary_history', history);
     renderHistory();
   }
 

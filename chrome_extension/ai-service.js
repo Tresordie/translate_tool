@@ -107,6 +107,8 @@
       } catch (e) {}
     } else {
       try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+      // 网页 → 扩展反向同步（v0.25.0：content.js 中继，映射表见 background.js）
+      try { window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: key, value: value }, '*'); } catch (e) {}
     }
   }
 

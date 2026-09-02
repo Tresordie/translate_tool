@@ -49,16 +49,54 @@ chrome.commands.onCommand.addListener((command) => {
 // 网页无法直接访问 chrome.storage，由各页面注入的 content script 接收
 // 本消息，写入 localStorage('translate_config') 并通知页面 JS。
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'local' || !changes.config) return;
-  const config = changes.config.newValue;
-  if (!config || !config.baseUrl) return;
-  chrome.tabs.query({}, (tabs) => {
-    for (const tab of tabs) {
-      if (tab.id == null) continue;
-      chrome.tabs.sendMessage(tab.id, { action: 'linguaflow:syncConfig', config }).catch(() => {});
+  if (area !== 'local') return;
+
+  // API 配置同步（v0.23.0）
+  if (changes.config) {
+    const config = changes.config.newValue;
+    if (config && config.baseUrl) {
+      chrome.tabs.query({}, (tabs) => {
+        for (const tab of tabs) {
+          if (tab.id == null) continue;
+          chrome.tabs.sendMessage(tab.id, { action: 'linguaflow:syncConfig', config }).catch(() => {});
+        }
+      });
     }
-  });
+  }
+
+  // 记录双向同步（v0.25.0）：chrome.storage 键 → 各网页标签页的 localStorage 键
+  // （content.js 写入 localStorage 后，页面既有的 storage 事件监听会自动刷新 UI）
+  for (const sk of Object.keys(RECORD_SYNC_KEYS)) {
+    const ch = changes[sk];
+    if (!ch || ch.newValue === undefined) continue;
+    const lsKey = RECORD_SYNC_KEYS[sk];
+    chrome.tabs.query({}, (tabs) => {
+      for (const tab of tabs) {
+        if (tab.id == null) continue;
+        chrome.tabs.sendMessage(tab.id, { action: 'linguaflow:syncRecord', lsKey, value: ch.newValue }).catch(() => {});
+      }
+    });
+  }
 });
+
+// ===== 记录双向同步映射表（v0.25.0）：chrome.storage 键 → 网页 localStorage 键 =====
+const RECORD_SYNC_KEYS = {
+  todo_items: 'td_todo_items',              // 任务清单
+  todo_cal_config: 'td_todo_cal_config',    // 任务清单日历配置
+  hn_cards: 'hn_cards',                     // 热点雷达卡片
+  history: 'translate_history',             // 智能翻译历史（popup/fullpage ↔ index）
+  draft: 'translate_draft',                 // 智能翻译草稿（popup/fullpage ↔ index）
+  work_records: 'wr_work_records',          // 工作报告记录
+  work_summaries: 'wr_work_summaries',      // 工作报告 AI 总结
+  work_config: 'wr_work_config',            // 工作报告配置
+  work_draft: 'wr_work_draft',              // 工作报告草稿
+  email_summary_history: 'email_summary_history', // 邮件总结历史
+  email_summary_config: 'email_summary_config',   // 邮件总结配置
+  learningHistory: 'learningHistory',       // 英语学习历史
+  englishLearningData: 'englishLearningData',     // 英语学习内容
+  ai_parse_state: 'ai_parse_state',         // AI 解析状态
+  ai_prompts_state: 'ai_prompts_state',     // AI 提示词状态
+};
 
 // Handle messages from content script or popup
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -84,6 +122,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'linguaflow:saveConfig') {
     if (msg.config && msg.config.baseUrl) {
       chrome.storage.local.set({ config: { baseUrl: msg.config.baseUrl, apiKey: msg.config.apiKey, model: msg.config.model } }, () => {});
+    }
+    sendResponse({ ok: true });
+    return;
+  }
+
+  // 网页记录反向同步（v0.25.0）：content.js 中继 → 写 chrome.storage → 扩展侧同步
+  if (msg.action === 'linguaflow:saveRecord') {
+    if (msg.key && RECORD_SYNC_KEYS[msg.key] && msg.value !== undefined) {
+      const patch = {};
+      patch[msg.key] = msg.value;
+      chrome.storage.local.set(patch, () => {});
     }
     sendResponse({ ok: true });
     return;

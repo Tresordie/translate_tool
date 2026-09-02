@@ -47,6 +47,11 @@
       config = msg.config;
       syncConfigToPage(msg.config);
     }
+    // 记录双向同步（v0.25.0）：扩展写入的记录 → 页面 localStorage
+    // （localStorage 写入会触发页面既有的 storage 事件监听，自动刷新 UI）
+    if (msg.action === 'linguaflow:syncRecord' && msg.lsKey && msg.value !== undefined) {
+      try { localStorage.setItem(msg.lsKey, JSON.stringify(msg.value)); } catch (err) { /* ignore */ }
+    }
   });
 
   // ===== 网页跨域代理桥 + 配置反向同步（v0.23.0） =====
@@ -91,6 +96,13 @@
           action: 'linguaflow:saveConfig',
           config: { baseUrl: d.config.baseUrl, apiKey: d.config.apiKey, model: d.config.model }
         }, () => {});
+      } catch (err) { /* ignore */ }
+    }
+
+    // 网页记录保存 → 写 chrome.storage（v0.25.0：扩展侧同步，映射表见 background.js）
+    if (d.type === 'save-record' && d.key && d.value !== undefined) {
+      try {
+        chrome.runtime.sendMessage({ action: 'linguaflow:saveRecord', key: d.key, value: d.value }, () => {});
       } catch (err) { /* ignore */ }
     }
   });

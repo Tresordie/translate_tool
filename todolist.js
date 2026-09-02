@@ -19,7 +19,14 @@ var storage = {
   set: function(obj) {
     return new Promise(function(resolve) {
       if (isExtension) { chrome.storage.local.set(obj, resolve); }
-      else { for (var k in obj) { localStorage.setItem('td_' + k, JSON.stringify(obj[k])); } resolve(); }
+      else {
+        for (var k in obj) {
+          localStorage.setItem('td_' + k, JSON.stringify(obj[k]));
+          // 网页 → 扩展反向同步（content.js 中继，映射表见 background.js）
+          try { window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: k, value: obj[k] }, '*'); } catch (e) {}
+        }
+        resolve();
+      }
     });
   }
 };

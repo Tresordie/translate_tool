@@ -656,6 +656,10 @@
     var plain = cards.map(function (c) {
       return { id: c.id, name: c.name, prompt: c.prompt, items: c.items || [], updatedAt: c.updatedAt || 0 };
     });
+    // 网页 → 扩展反向同步（content.js 中继，映射表见 background.js）
+    if (!isExtension) {
+      try { window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: 'hn_cards', value: plain }, '*'); } catch (e) {}
+    }
     return storage.set({ hn_cards: plain });
   }
 
