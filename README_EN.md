@@ -27,6 +27,8 @@
 - **Keyboard Shortcut** — `Ctrl + Enter` to translate instantly
 - **Privacy First** — All settings and history stored locally in browser localStorage
 - **Responsive Design** — Works seamlessly on desktop and mobile devices
+- **Cross-surface record sync** — tasks, cards and every history are shared live between the web app, the extension popup and the side panel (changes on one surface appear instantly on the others and survive refreshes); the AI config syncs everywhere from a single save
+- **History export** — Smart Translation history, Work Report records, Email Summary history, English Learning history and Hot News Radar cards can each be exported to a local JSON file with one click
 - **Work Report** — Built-in work report generator with AI one-click summary, history management, and date filtering
 - **Task List** — Built-in task manager with add/complete/delete, priority levels, progress tracking, Markdown batch import/export (with checkbox syntax), Apple Reminders one-click import (URL Scheme + AppleScript file fallback), Google Calendar sync, and .ics calendar download
 - **English Learning Assistant** — Built-in English learning module with word study, AI definitions, text-to-speech, learning history, and note export
@@ -50,6 +52,7 @@
 - **Uninterrupted Translation** — Translation continues in background Service Worker even if popup closes; results auto-restored on reopen
 - **Translation History** — Auto-saves up to 20 recent translations with individual deletion and clear-all
 - **Original Format Preservation** — Supports Markdown, HTML format input with auto-formatting
+- **Records & config shared across surfaces** — the popup, side panel and web version share all records and config: data created on any surface (including every module's history) syncs to the others in real time, and histories can be exported to local JSON files
 - **Toggle Switch** — Enable/disable text selection translation in settings
 - **Language Preference Memory** — Automatically saves source and target language choices
 - **Email Summary Entry** — New envelope icon in popup header opens the Email Summary page in a new tab (full parity with web version, including PDF upload and 30-language output)
@@ -108,7 +111,7 @@
 
 ```
 translation_tool/
-├── index.html              # Web app (translation main page, 7 tabs: Translate / Report / Todos / English / Email / AI Parse / AI Prompts)
+├── index.html              # Web app (translation main page, 8 tabs: Translate / Report / Todos / English / Email / AI Parse / AI Prompts / Hot News Radar)
 ├── workreport.html         # Work report page (standalone, shared with extension)
 ├── workreport.js           # Work report core logic (IIFE encapsulated)
 ├── english_learning.html    # English learning assistant page (standalone, shared)
@@ -137,7 +140,7 @@ translation_tool/
 │   ├── popup.html          # Popup UI
 │   ├── popup.css           # Popup styles
 │   ├── popup.js            # Popup logic
-│   ├── sidepanel.html      # Side Panel UI (Chrome 114+, 7 tabs)
+│   ├── sidepanel.html      # Side Panel UI (Chrome 114+, 8 tabs)
 │   ├── sidepanel.css       # Side Panel styles (single-layer, theme-token driven)
 │   ├── sidepanel.js        # Side Panel logic (tab switching / lazy load / config sync)
 │   ├── ai-service.js       # AI Parse / AI Prompts shared service (shared with web version)
@@ -208,7 +211,7 @@ In addition to the web version, this project includes a **Chrome browser extensi
 ### How to Use the Side Panel (Chrome 114+)
 
 1. Click the AI Tool Box toolbar icon, then click the **Side Panel** button in the popup header (or press `Alt+Shift+L`, or right-click → "Open AI Tool Box in Side Panel")
-2. The side panel opens on the right edge of the window with 7 tabs: **Smart Translation / Work Report / Task List / English Learning / Email Summary / AI Parse / AI Prompts**
+2. The side panel opens on the right edge of the window with 8 tabs: **Smart Translation / Work Report / Task List / English Learning / Email Summary / AI Parse / AI Prompts / Hot News Radar**
 3. Click any tab to switch modules instantly — each module is lazily loaded on first open to keep startup fast
 4. Configure your API in the side panel's **Settings** panel (gear icon) — the config syncs to the popup, fullscreen page and every module in real time
 5. Click the circular theme button in the bottom-right corner to switch between the 6 themes directly inside the side panel — changes sync to every module in real time
