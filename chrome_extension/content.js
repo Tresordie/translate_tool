@@ -8,6 +8,26 @@
   let tooltipEl = null;
   let selectedText = '';
 
+  // ===== 记录启动拉取（v0.25.3）=====
+  // content script 以 document_start 注入（先于页面脚本执行）；把 chrome.storage 中的
+  // 全部同步记录键预先写入 localStorage，保证页面初始化读到的是最新数据——
+  // 页面关闭期间在扩展/其他端产生的记录，刷新后依然存在（扩展为权威源）。
+  // 键列表须与 background.js 的 RECORD_SYNC_KEYS 值保持一致。
+  try {
+    const RECORD_LS_KEYS = [
+      'td_todo_items', 'td_todo_cal_config', 'hn_cards', 'translate_history', 'translate_draft',
+      'wr_work_records', 'wr_work_summaries', 'wr_work_config', 'wr_work_draft',
+      'email_summary_history', 'email_summary_config',
+      'learningHistory', 'englishLearningData', 'ai_parse_state', 'ai_prompts_state'
+    ];
+    chrome.storage.local.get(RECORD_LS_KEYS, (res) => {
+      Object.keys(res || {}).forEach((k) => {
+        if (res[k] === undefined) return;
+        try { localStorage.setItem(k, JSON.stringify(res[k])); } catch (e) { /* ignore */ }
+      });
+    });
+  } catch (e) { /* ignore */ }
+
   // ===== Load config =====
   chrome.storage.local.get(['config'], ({ config: c }) => {
     config = c || {};

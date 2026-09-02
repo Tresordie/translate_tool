@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.25.2-blue)
+![Version](https://img.shields.io/badge/version-0.25.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -235,6 +235,13 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.25.3 (2026-09-02)
+- **修复：刷新页面后同步的记录消失** — content script 原为 `document_idle` 注入（页面脚本可能先读取了过期的 localStorage），且页面关闭期间在另一端产生的记录不会到达本页。修复：
+  - content script 改为 **`document_start` 注入**（先于页面任何脚本执行）
+  - 注入时**启动拉取**：把 chrome.storage 中的全部 15 个同步记录键预先写入 localStorage（扩展为权威源），页面初始化读到的必然是最新数据——跨端产生的记录刷新后依然存在
+  - 同时根除英语学习页「初始化拷贝用空数据反向清空共享记录」的数据丢失路径
+- 智能翻译历史归一化：扩展弹窗来源的条目自动回填旗帜/时间字段（按语言代码查询），跨端显示一致
 
 ### v0.25.2 (2026-09-02)
 - **三端（网页 / 扩展弹窗+后台 / 侧边栏）记录实时相互同步补全** — v0.25.0 管道已通数据层，本版补齐全部页面的**实时刷新监听**：

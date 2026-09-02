@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.25.2-blue)
+![Version](https://img.shields.io/badge/version-0.25.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,13 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.25.3 (2026-09-02)
+- **Fix: synced records disappearing after page refresh** — the content script was injected at `document_idle` (page scripts could read a stale localStorage first), and records created on the other surface while this page was closed never reached it. Fixes:
+  - content script now injects at **`document_start`** (before any page script runs)
+  - On injection it **pre-pulls** all 15 synced record keys from chrome.storage into localStorage (the extension is the authoritative source), so page initialization always reads the latest data — records created cross-surface survive refreshes
+  - Also eliminates a data-loss path where the English Learning page's init copy could wipe shared records with empty/stale local data
+- Smart Translation history normalization: entries from the extension popup get their flag/time fields backfilled by language code for consistent display
 
 ### v0.25.2 (2026-09-02)
 - **Live three-way record sync completed (web / extension / side panel)** — the v0.25.0 pipeline already shared data; this release adds the missing live-refresh listeners everywhere:

@@ -1706,7 +1706,19 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
     window.addEventListener('storage', function (e) {
       if (e.key === 'translate_history') {
         try {
-          history = JSON.parse(localStorage.getItem('translate_history') || '[]');
+          // 归一化：扩展弹窗来源的条目缺 flag/time 字段，按 code 从语言表回填
+          history = (JSON.parse(localStorage.getItem('translate_history') || '[]') || []).map(function (h) {
+            if (h && !h.srcFlag && h.srcCode) {
+              const s = (typeof LANGUAGES !== 'undefined' ? LANGUAGES : []).find(function (l) { return l.code === h.srcCode; });
+              if (s) h.srcFlag = s.flag;
+            }
+            if (h && !h.tgtFlag && h.tgtCode) {
+              const t = (typeof LANGUAGES !== 'undefined' ? LANGUAGES : []).find(function (l) { return l.code === h.tgtCode; });
+              if (t) h.tgtFlag = t.flag;
+            }
+            if (h && !h.time) h.time = new Date().toLocaleString('zh-CN');
+            return h;
+          });
           renderHistory();
         } catch (err) { /* ignore */ }
       }

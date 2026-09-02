@@ -44,15 +44,33 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["content.css"]
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["fullpage.html", "fullpage.js", "workreport.html", "workreport.js", "todolist.html", "todolist.js", "english_learning.html", "english_learning.js"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "fullpage.html",
+        "fullpage.js",
+        "workreport.html",
+        "workreport.js",
+        "todolist.html",
+        "todolist.js",
+        "english_learning.html",
+        "english_learning.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }
