@@ -73,7 +73,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     chrome.tabs.query({}, (tabs) => {
       for (const tab of tabs) {
         if (tab.id == null) continue;
-        chrome.tabs.sendMessage(tab.id, { action: 'linguaflow:syncRecord', lsKey, value: ch.newValue }).catch(() => {});
+        chrome.tabs.sendMessage(tab.id, { action: 'linguaflow:syncRecord', lsKey, key: sk, value: ch.newValue }).catch(() => {});
       }
     });
   }

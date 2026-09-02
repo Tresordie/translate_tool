@@ -51,6 +51,8 @@
     // （localStorage 写入会触发页面既有的 storage 事件监听，自动刷新 UI）
     if (msg.action === 'linguaflow:syncRecord' && msg.lsKey && msg.value !== undefined) {
       try { localStorage.setItem(msg.lsKey, JSON.stringify(msg.value)); } catch (err) { /* ignore */ }
+      // 同步通知页面 JS（AiService.onRecordSync 监听此消息做实时 UI 刷新）
+      try { window.postMessage({ source: 'linguaflow-extension', type: 'record-sync', key: msg.key || msg.lsKey, value: msg.value }, '*'); } catch (err) { /* ignore */ }
     }
   });
 

@@ -905,6 +905,12 @@
       const fname = 'ai-toolbox-workreport-records-' + new Date().toISOString().slice(0, 10) + '.json';
       if (window.AiService && window.AiService.downloadText) AiService.downloadText(fname, JSON.stringify(payload, null, 2), 'application/json');
     });
+
+    // 记录跨端实时同步（v0.25.0）：他端写入时刷新列表
+    if (window.AiService && window.AiService.onRecordSync) {
+      window.AiService.onRecordSync('work_records', function (v) { records = Array.isArray(v) ? v : []; renderRecords(); });
+      window.AiService.onRecordSync('work_summaries', function (v) { summaries = Array.isArray(v) ? v : []; renderSummaryHistory(); });
+    }
     btn = $('cancelEditBtn');
     if (btn) btn.addEventListener('click', cancelEdit);
     btn = $('toggleSelectAllBtn');

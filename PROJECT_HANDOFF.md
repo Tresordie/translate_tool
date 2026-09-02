@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.25.1 · 2026-09-02
+> **当前版本**：v0.25.2 · 2026-09-02
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -114,6 +114,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.25.2 | 三端实时同步补全：AiService.onRecordSync 统一监听 API + 工作报告/邮件总结/英语学习/AI 解析/AI 提示词全部接入实时刷新 |
 | v0.25.1 | 修复 iframe 页面记录反向同步（14 处中继改发 window.top）+ 各模块历史记录「导出」按钮（JSON 下载） |
 | v0.25.0 | 记录全端双向同步：background 映射表（chrome.storage↔localStorage 键）+ content.js 中继 + 各适配器反向汇报；任务清单/热点雷达/翻译历史实时刷新，其余模块落盘同步 |
 | v0.24.2 | 代理桥全模块覆盖：index.html 智能翻译 / 工作报告 / 邮件总结 / 英语学习的独立 fetch 全部接入 AiService.proxyFetch（返回值 Response 兼容 ok/status/text()/json()），Token Plan 等无 CORS 端点在网页版全模块可用 |

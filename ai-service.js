@@ -169,6 +169,29 @@
     };
   }
 
+  /** 记录跨端同步监听：任一端写入该记录键（chrome.storage 键名）时触发 cb(newValue)
+   *  网页：content.js 写 localStorage 后 postMessage record-sync；同时兜底 storage 事件
+   *  扩展：chrome.storage.onChanged */
+  function onRecordSync(key, cb) {
+    window.addEventListener('message', function (e) {
+      var d = e.data;
+      if (d && d.source === 'linguaflow-extension' && d.type === 'record-sync' && d.key === key && d.value !== undefined) cb(d.value);
+    });
+    if (isExtension() && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+      try {
+        chrome.storage.onChanged.addListener(function (changes, area) {
+          if (area === 'local' && changes[key] && changes[key].newValue !== undefined) cb(changes[key].newValue);
+        });
+      } catch (e) {}
+    } else {
+      window.addEventListener('storage', function (e) {
+        if (e.key === key && e.newValue !== null) {
+          try { cb(JSON.parse(e.newValue)); } catch (err) {}
+        }
+      });
+    }
+  }
+
   /**
    * 跨域请求通道（导出供各页面复用）：
    * 扩展页面直连（host_permissions 免跨域）；网页先直连，
@@ -654,6 +677,7 @@
     saveState: saveState,
     chat: chat,
     proxyFetch: proxyFetch,
+    onRecordSync: onRecordSync,
     isReasoningModel: isReasoningModel,
     OUTPUT_LANGS: OUTPUT_LANGS,
     getOutputLang: getOutputLang,

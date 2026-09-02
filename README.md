@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.25.1-blue)
+![Version](https://img.shields.io/badge/version-0.25.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -235,6 +235,12 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.25.2 (2026-09-02)
+- **三端（网页 / 扩展弹窗+后台 / 侧边栏）记录实时相互同步补全** — v0.25.0 管道已通数据层，本版补齐全部页面的**实时刷新监听**：
+  - 新增 `AiService.onRecordSync(key, cb)` 统一监听 API（网页经 content.js 的 record-sync 消息 + storage 事件兜底；扩展经 chrome.storage.onChanged）
+  - 接入：工作报告（记录+总结列表）、邮件总结（历史列表）、英语学习（历史列表）、AI 解析与 AI 提示词（历史列表，不覆盖编辑中的草稿）
+  - 此前已实时：任务清单、热点雷达、智能翻译历史 —— 至此所有记录模块在三个端均为跨端实时同步
 
 ### v0.25.1 (2026-09-02)
 - **修复：iframe 页面的记录反向同步不生效** — content script 默认只注入顶层帧，热点雷达/任务清单等 iframe 页面发出的反向同步消息无人接收（仅顶层页面的智能翻译同步正常）。现所有反向汇报消息统一改发 **window.top**，14 处中继点全部修复——任务清单/热点雷达等嵌套页面在网页版的记录变更可同步到扩展侧

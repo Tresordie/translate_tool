@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.25.1-blue)
+![Version](https://img.shields.io/badge/version-0.25.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,12 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.25.2 (2026-09-02)
+- **Live three-way record sync completed (web / extension / side panel)** — the v0.25.0 pipeline already shared data; this release adds the missing live-refresh listeners everywhere:
+  - New unified `AiService.onRecordSync(key, cb)` API (web: content.js record-sync message + storage event fallback; extension: chrome.storage.onChanged)
+  - Wired into: Work Report (records + summaries lists), Email Summary (history list), English Learning (history list), AI Parse & AI Prompts (history lists, never clobbering an in-progress draft)
+  - Previously live: Task List, Hot News Radar, Smart Translation history — every record module now syncs live across all three surfaces
 
 ### v0.25.1 (2026-09-02)
 - **Fix: record sync not working for pages inside iframes** — content scripts only inject into the top frame, so reverse-sync messages from iframe pages (Hot News Radar, Task List, etc.) went unanswered while the top-level Smart Translation synced fine. All 14 relay points now post to **window.top**

@@ -1655,6 +1655,11 @@
                 if (window.AiService && window.AiService.downloadText) AiService.downloadText(fname, JSON.stringify({ history: history }, null, 2), 'application/json');
             }
 
+            // 记录跨端实时同步（v0.25.0）：他端写入时刷新历史列表
+            if (window.AiService && typeof window.AiService.onRecordSync === 'function') {
+                window.AiService.onRecordSync('learningHistory', function () { displayHistory(); });
+            }
+
         })();
 
         // History event delegation (CSP compliant)

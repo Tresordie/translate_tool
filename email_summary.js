@@ -753,6 +753,14 @@
     if (window.AiService && window.AiService.downloadText) AiService.downloadText(fname, JSON.stringify(history, null, 2), 'application/json');
   });
 
+  // 记录跨端实时同步（v0.25.0）：他端写入时刷新列表
+  if (window.AiService && window.AiService.onRecordSync) {
+    window.AiService.onRecordSync('email_summary_history', (v) => {
+      history = Array.isArray(v) ? v : [];
+      renderHistory();
+    });
+  }
+
   /* ==================== Utils ==================== */
   function escapeHtml(str) {
     const div = document.createElement('div');

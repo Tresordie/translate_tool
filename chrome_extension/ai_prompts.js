@@ -282,6 +282,15 @@
   /* ==================== 状态加载 ==================== */
 
   function loadPersistedState() {
+    // 记录跨端实时同步（v0.25.0）：他端更新历史时刷新列表（不覆盖编辑中的草稿）
+    if (typeof Ai.onRecordSync === 'function') {
+      Ai.onRecordSync(STATE_KEY, function (saved) {
+        if (saved && Array.isArray(saved.history) && JSON.stringify(saved.history) !== JSON.stringify(state.history)) {
+          state.history = saved.history;
+          renderHistory();
+        }
+      });
+    }
     Ai.loadState(STATE_KEY).then((saved) => {
       if (saved && typeof saved === 'object') {
         if (typeof saved.draft === 'string') state.draft = saved.draft;
