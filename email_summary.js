@@ -403,7 +403,9 @@
 
     try {
       const url = config.baseUrl + '/chat/completions';
-      const response = await fetch(url, {
+      // 经 AiService.proxyFetch：网页直连失败时自动走扩展代理桥（Token Plan 等无 CORS 端点也可用）
+      const _pf = (window.AiService && window.AiService.proxyFetch) || fetch;
+      const response = await _pf(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

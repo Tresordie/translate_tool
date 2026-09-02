@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.24.1 · 2026-09-02
+> **当前版本**：v0.24.2 · 2026-09-02
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -113,6 +113,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.24.2 | 代理桥全模块覆盖：index.html 智能翻译 / 工作报告 / 邮件总结 / 英语学习的独立 fetch 全部接入 AiService.proxyFetch（返回值 Response 兼容 ok/status/text()/json()），Token Plan 等无 CORS 端点在网页版全模块可用 |
 | v0.24.1 | 修复卡片刷新报错：refreshCard 误将 fetchPool 返回的池对象传入 mergePools（已改用 .items 并加 Array.isArray 防御） |
 | v0.24.0 | 热点雷达「全网搜索」升级：UApi 板块扩至 14（+虎扑/微信读书/掘金/澎湃）+ 新增必应搜索层（按提示词实时搜索 www.bing.com/search?format=rss，经扩展桥免跨域，失败降级纯热榜） |
 | v0.23.2 | 修复热点筛选空结果：候选池改为 60s 综合榜 + UApi 全板块并行合并（含 IT之家/36氪 垂直板块，实测 124 条/10 板块）；空数组优雅呈现（不再报格式异常）；JSON 尾逗号容错 |

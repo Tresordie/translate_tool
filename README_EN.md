@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.24.1-blue)
+![Version](https://img.shields.io/badge/version-0.24.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -221,6 +221,13 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.24.2 (2026-09-02)
+- **Proxy bridge now covers every AI module** — fixes the Smart Translation tab of index.html failing with "无法连接 API（CORS）" on Token Plan: the bridge previously only covered ai-service callers (AI Parse / AI Prompts / Hot News Radar), while Smart Translation, Work Report, Email Summary and English Learning used their own fetch calls. All are now wired through:
+  - `AiService.proxyFetch` returns a fetch-Response-compatible object (ok/status/text()/json()); every page's AI request goes through it (web direct-first, auto fallback to the extension bridge)
+  - 7 pages wired: index.html, Work Report (×2), Email Summary (×2), English Learning (×2)
+  - DeepSeek and Alibaba Cloud Token Plan now work in **every AI module on both the web and the extension** (web requires the extension installed and allowed to access the page)
+- english_learning inline/external JS copies kept verbatim-identical (verified)
 
 ### v0.24.1 (2026-09-02)
 - **Fix card refresh error "(g || []).forEach is not a function"** — the v0.24.0 search-layer merge mistakenly passed the pool object (returned by fetchPool) into mergePools as if it were an array; call site fixed and mergePools now guards against non-array entries

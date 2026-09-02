@@ -206,7 +206,7 @@
       }
       return window.AiService.proxyFetch(url, { cache: 'no-store' }).then(function (pr) {
         if (!pr.ok) throw new Error('HTTP ' + pr.status);
-        return pr.text;
+        return pr.text();
       });
     }
   };
@@ -357,12 +357,14 @@
     });
     return req.then(function (pr) {
       if (!pr.ok) throw new Error('HTTP ' + pr.status);
-      var items = parseRssItems(pr.text).slice(0, 12).map(function (it) {
-        return { title: it.title, source: '必应搜索', hot: '', url: it.url, desc: it.desc };
+      return pr.text().then(function (body) {
+        var items = parseRssItems(body).slice(0, 12).map(function (it) {
+          return { title: it.title, source: '必应搜索', hot: '', url: it.url, desc: it.desc };
+        });
+        if (!items.length) throw new Error('搜索结果为空');
+        searchCache[key] = { items: items, ts: Date.now() };
+        return items;
       });
-      if (!items.length) throw new Error('搜索结果为空');
-      searchCache[key] = { items: items, ts: Date.now() };
-      return items;
     }).catch(function (e) {
       console.warn('[HotNews] 必应搜索层失败（本次仅用热榜候选池）:', e && e.message);
       return [];
@@ -519,15 +521,17 @@
     }
     req.then(function (pr) {
       if (!pr.ok) throw new Error('HTTP ' + pr.status);
-      var j = parseJsonLoose(pr.text);
-      var arr = j && Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
-      var ids = arr.map(function (m) { return m && (m.id || m.model || m.name); }).filter(Boolean).map(String);
-      if (!ids.length) throw new Error('端点未返回模型列表');
-      $('hnApiModelList').innerHTML = ids.map(function (id) {
-        return '<option value="' + escapeHtml(id) + '"></option>';
-      }).join('');
-      toggleApiPanel(true);
-      showToast('已获取 ' + ids.length + ' 个模型，点击「模型名称」输入框选择（如 ' + ids.slice(0, 3).join(' / ') + '）', 'success');
+      return pr.text().then(function (body) {
+        var j = parseJsonLoose(body);
+        var arr = j && Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+        var ids = arr.map(function (m) { return m && (m.id || m.model || m.name); }).filter(Boolean).map(String);
+        if (!ids.length) throw new Error('端点未返回模型列表');
+        $('hnApiModelList').innerHTML = ids.map(function (id) {
+          return '<option value="' + escapeHtml(id) + '"></option>';
+        }).join('');
+        toggleApiPanel(true);
+        showToast('已获取 ' + ids.length + ' 个模型，点击「模型名称」输入框选择（如 ' + ids.slice(0, 3).join(' / ') + '）', 'success');
+      });
     }).catch(function (e) {
       var msg = e && e.message ? e.message : '未知错误';
       if (/HTTP 401|HTTP 403/.test(msg)) {

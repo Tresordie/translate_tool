@@ -105,9 +105,10 @@
             
             testBtn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;stroke-width:1.5;fill:none;animation:elSpin 0.8s linear infinite"><circle cx="12" cy="12" r="10" stroke-dasharray="30 70"/></svg> 测试中...';
             testBtn.disabled = true;
-            
+
             try {
-                const response = await fetch(`${apiUrl}/chat/completions`, {
+                const _pf = (window.AiService && window.AiService.proxyFetch) || fetch;
+                const response = await _pf(`${apiUrl}/chat/completions`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -121,7 +122,7 @@
                 });
                 
                 if (!response.ok) {
-                    const errorText = await response.text();
+                    const errorText = await response.textAsync();
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
@@ -457,7 +458,8 @@
             document.getElementById('resultSection').style.display = 'none';
 
             try {
-                const response = await fetch(`${apiUrl}/chat/completions`, {
+                const _pf = (window.AiService && window.AiService.proxyFetch) || fetch;
+                const response = await _pf(`${apiUrl}/chat/completions`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

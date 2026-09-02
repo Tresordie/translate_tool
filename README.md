@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.24.1-blue)
+![Version](https://img.shields.io/badge/version-0.24.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -235,6 +235,13 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.24.2 (2026-09-02)
+- **Token Plan 等无跨域端点全面接入代理桥（全模块覆盖）** — 修复 index.html 智能翻译 Tab 使用 Token Plan 报「无法连接 API（CORS）」：此前代理桥仅覆盖 ai-service 调用方（AI 解析/提示词/热点雷达），智能翻译及工作报告/邮件总结/英语学习页仍用各自独立的 fetch。现全部接入：
+  - `AiService.proxyFetch` 返回值改为 fetch Response 兼容（ok/status/text()/json()），各页面 AI 请求统一经 `proxyFetch`（网页直连失败自动走扩展代理桥）
+  - index.html / 工作报告（×2）/ 邮件总结（×2）/ 英语学习（×2）共 7 个页面全部引入 ai-service.js 并完成接入
+  - 至此 DeepSeek 与阿里云 Token Plan 在**网页版与扩展的所有 AI 模块**均可使用（网页版需扩展已安装且允许访问对应页面）
+- english_learning 两份副本内联/外部 JS 保持逐字一致（已校验）
 
 ### v0.24.1 (2026-09-02)
 - **修复卡片刷新报错「(g || []).forEach is not a function」** — v0.24.0 引入的搜索层合并时，误把 fetchPool 返回的候选池对象当数组传入 mergePools；已修正调用点并给 mergePools 增加数组防御（非数组静默跳过）

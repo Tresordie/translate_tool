@@ -163,7 +163,7 @@
       _bridge.pending[id] = function (res) {
         clearTimeout(timer); delete _bridge.pending[id];
         if (res.error) reject(new Error('代理请求失败：' + res.error));
-        else resolve({ ok: !!res.ok, status: res.status || 0, text: res.text || '' });
+        else resolve(pfRes(res.text || '', !!res.ok, res.status || 0));
       };
       try {
         bridgeTarget().postMessage({
@@ -174,10 +174,20 @@
     });
   }
 
+  // 统一响应包装：与 fetch Response 兼容（ok/status/text()/json()），供 proxyFetch 各通道使用
+  // 注意：text 是方法（返回 Promise<string>），不是字符串属性
+  function pfRes(text, ok, status) {
+    return {
+      ok: ok, status: status,
+      text: function () { return Promise.resolve(text); },
+      json: function () { try { return Promise.resolve(JSON.parse(text)); } catch (e) { return Promise.reject(e); } }
+    };
+  }
+
   /**
    * 跨域请求通道（导出供各页面复用）：
    * 扩展页面直连（host_permissions 免跨域）；网页先直连，
-   * 网络层失败（CORS/断网）时自动尝试扩展代理桥。返回 { ok, status, text }。
+   * 网络层失败（CORS/断网）时自动尝试扩展代理桥。返回 { ok, status, text(), json() }。
    */
   async function proxyFetch(url, options) {
     options = options || {};
@@ -185,12 +195,12 @@
     if (ext) {
       var r0 = await fetch(url, options);
       var t0 = await r0.text();
-      return { ok: r0.ok, status: r0.status, text: t0 };
+      return pfRes(t0, r0.ok, r0.status);
     }
     try {
       var r = await fetch(url, options);
       var t = await r.text();
-      return { ok: r.ok, status: r.status, text: t };
+      return pfRes(t, r.ok, r.status);
     } catch (e) {
       if (_bridge.available === null) _bridge.available = await bridgePing();
       if (!_bridge.available) throw new Error('网络请求失败，请检查 Base URL 与网络连接');
@@ -234,12 +244,13 @@
         throw new Error(/网络请求失败|桥接/.test(e.message) ? e.message : '网络请求失败，请检查 Base URL 与网络连接');
       }
       if (!pr.ok) {
+        var prText = await pr.text();
         var detail = '';
-        try { var j = JSON.parse(pr.text); detail = (j.error && j.error.message) || ''; } catch (e) { detail = pr.text; }
+        try { var j = JSON.parse(prText); detail = (j.error && j.error.message) || ''; } catch (e) { detail = prText; }
         throw new Error('API 错误 ' + pr.status + (detail ? ': ' + detail.slice(0, 200) : ''));
       }
       var data;
-      try { data = JSON.parse(pr.text); } catch (e) { throw new Error('API 返回无法解析的 JSON'); }
+      try { data = JSON.parse(await pr.text()); } catch (e) { throw new Error('API 返回无法解析的 JSON'); }
       var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
       if (typeof content !== 'string' || !content.trim()) {
         throw new Error('AI 返回为空，请检查模型配置');
