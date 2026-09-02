@@ -662,11 +662,21 @@
     });
     // 网页 → 扩展反向同步（content.js 中继，映射表见 background.js）
     if (!isExtension) {
-      try { window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: 'hn_cards', value: plain }, '*'); } catch (e) {}
+      try { (window.top || window).postMessage({ source: 'linguaflow-page', type: 'save-record', key: 'hn_cards', value: plain }, '*'); } catch (e) {}
     }
     return storage.set({ hn_cards: plain });
   }
 
+
+  // 导出全部卡片到本地 JSON 文件（v0.24.2）
+  function exportCards() {
+    if (!cards.length) { showToast('还没有卡片', 'info'); return; }
+    var fname = 'ai-toolbox-hotnews-cards-' + new Date().toISOString().slice(0, 10) + '.json';
+    if (window.AiService && window.AiService.downloadText) {
+      window.AiService.downloadText(fname, JSON.stringify(cards, null, 2), 'application/json');
+      showToast('卡片已导出', 'success');
+    }
+  }
   // ===== 渲染 =====
   function render() {
     var grid = $('hnGrid');
@@ -743,7 +753,8 @@
   // ===== 事件绑定（委托，零内联事件，MV3 CSP 兼容） =====
   function bindEvents() {
     bind('hnAddBtn', 'click', addOrUpdate);
-    bind('hnRefreshAllBtn', 'click', refreshAll);
+    bind('hnExportBtn', 'click', exportCards);
+
     bind('hnName', 'keydown', function (e) { if (e.key === 'Enter') addOrUpdate(); });
     bind('hnPrompt', 'keydown', function (e) { if (e.key === 'Enter') addOrUpdate(); });
     bind('hnApiHeader', 'click', function () { toggleApiPanel(!apiOpenState()); });

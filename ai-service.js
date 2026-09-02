@@ -31,7 +31,7 @@
       try { chrome.storage.local.set({ config: cfg }, function () {}); } catch (e) {}
     } else {
       // 网页保存 → content.js 中继 → background 写 chrome.storage（扩展弹窗/侧边栏同步）
-      try { window.postMessage({ source: 'linguaflow-page', type: 'save-config', config: cfg }, '*'); } catch (e) {}
+      try { (window.top || window).postMessage({ source: 'linguaflow-page', type: 'save-config', config: cfg }, '*'); } catch (e) {}
     }
   }
 
@@ -91,7 +91,7 @@
     } else {
       try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
       // 网页 → 扩展反向同步（v0.25.0：content.js 中继，映射表见 background.js）
-      try { window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: key, value: value }, '*'); } catch (e) {}
+      try { (window.top || window).postMessage({ source: 'linguaflow-page', type: 'save-record', key: key, value: value }, '*'); } catch (e) {}
     }
   }
 

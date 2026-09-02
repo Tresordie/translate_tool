@@ -4,7 +4,7 @@
                 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
                     chrome.runtime.sendMessage({ action: 'linguaflow:saveRecord', key: key, value: value }, function () {});
                 } else {
-                    window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: key, value: value }, '*');
+                    (window.top || window).postMessage({ source: 'linguaflow-page', type: 'save-record', key: key, value: value }, '*');
                 }
             } catch (e) {}
         }
@@ -889,6 +889,13 @@
             bind('stopSpeakingBtn', stopSpeaking);
             bind('speakSlowlyBtn', speakSlowly);
             bind('clearAllHistoryBtn', clearAllHistory);
+            bind('exportHistoryBtn', exportHistory);
+            function exportHistory() {
+                if (!history.length) return;
+                const fname = 'ai-toolbox-english-history-' + new Date().toISOString().slice(0, 10) + '.json';
+                if (window.AiService && window.AiService.downloadText) AiService.downloadText(fname, JSON.stringify({ history: history }, null, 2), 'application/json');
+            }
+
         })();
 
         // History event delegation (CSP compliant)

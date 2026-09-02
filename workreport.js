@@ -60,7 +60,7 @@
           for (const [k, v] of Object.entries(obj)) {
             localStorage.setItem('wr_' + k, JSON.stringify(v));
             // 网页 → 扩展反向同步（content.js 中继，映射表见 background.js）
-            try { window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: k, value: v }, '*'); } catch (e) {}
+            try { (window.top || window).postMessage({ source: 'linguaflow-page', type: 'save-record', key: k, value: v }, '*'); } catch (e) {}
           }
           resolve();
         }
@@ -898,6 +898,13 @@
     // Clear all buttons
     btn = $('clearAllRecordsBtn');
     if (btn) btn.addEventListener('click', clearAllRecords);
+    btn = $('exportRecordsBtn');
+    if (btn) btn.addEventListener('click', function () {
+      if (!records.length && !summaries.length) return;
+      const payload = { records: records, summaries: summaries, exportedAt: new Date().toISOString() };
+      const fname = 'ai-toolbox-workreport-records-' + new Date().toISOString().slice(0, 10) + '.json';
+      if (window.AiService && window.AiService.downloadText) AiService.downloadText(fname, JSON.stringify(payload, null, 2), 'application/json');
+    });
     btn = $('cancelEditBtn');
     if (btn) btn.addEventListener('click', cancelEdit);
     btn = $('toggleSelectAllBtn');

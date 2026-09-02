@@ -111,7 +111,7 @@
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
         chrome.runtime.sendMessage({ action: 'linguaflow:saveRecord', key: key, value: value }, function () {});
       } else {
-        window.postMessage({ source: 'linguaflow-page', type: 'save-record', key: key, value: value }, '*');
+        (window.top || window).postMessage({ source: 'linguaflow-page', type: 'save-record', key: key, value: value }, '*');
       }
     } catch (e) {}
   }
@@ -745,6 +745,12 @@
     history = [];
     persistHistory();
     showToast('已清空全部总结历史', 'info');
+  });
+
+  $('exportHistoryBtn').addEventListener('click', () => {
+    if (history.length === 0) { showToast('暂无总结历史', 'info'); return; }
+    const fname = 'ai-toolbox-email-summary-history-' + new Date().toISOString().slice(0, 10) + '.json';
+    if (window.AiService && window.AiService.downloadText) AiService.downloadText(fname, JSON.stringify(history, null, 2), 'application/json');
   });
 
   /* ==================== Utils ==================== */

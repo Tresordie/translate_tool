@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.25.0-blue)
+![Version](https://img.shields.io/badge/version-0.25.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -235,6 +235,10 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.25.1 (2026-09-02)
+- **修复：iframe 页面的记录反向同步不生效** — content script 默认只注入顶层帧，热点雷达/任务清单等 iframe 页面发出的反向同步消息无人接收（仅顶层页面的智能翻译同步正常）。现所有反向汇报消息统一改发 **window.top**，14 处中继点全部修复——任务清单/热点雷达等嵌套页面在网页版的记录变更可同步到扩展侧
+- **所有历史记录支持导出到本地** — 各模块历史区新增「导出」按钮，一键下载 JSON 文件（ai-toolbox-<模块>-<日期>.json）：智能翻译历史、工作报告记录+总结、邮件总结历史、英语学习历史、热点雷达卡片（任务清单原有 Markdown/ics 导出不变）
 
 ### v0.25.0 (2026-09-02)
 - **记录全端双向同步** — 网页版与扩展的记录（此前各存各的）现全量互通：任务清单、热点雷达卡片、智能翻译历史/草稿、工作报告记录与总结、邮件总结历史、英语学习历史与内容、AI 解析/AI 提示词状态
