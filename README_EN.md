@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.25.3-blue)
+![Version](https://img.shields.io/badge/version-0.25.6-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -225,6 +225,15 @@ In addition to the web version, this project includes a **Chrome browser extensi
 
 ## 📝 Changelog
 
+### v0.25.6 (2026-09-03)
+- **Change: Email Summary back to one-shot output** — per user feedback, reverts the v0.25.5 streaming line-by-line rendering: the summary is now a non-streaming request rendered once when complete; while waiting, only elapsed time is shown ("generating… Xs"), the Cancel button remains (works on direct connections). All v0.25.5 compatibility fixes (URL normalization, reasoning-model gating, 400 retry, SW keepalive, error diagnostics) are retained. The streaming infrastructure (proxyFetchStream and the bridge chunk protocol) is kept but dormant — no module uses it, zero impact on the other 7 modules.
+### v0.25.5 (2026-09-03)
+- **Fix: "API service unreachable" when summarizing very long PDFs on the web app** — with no-CORS gateways (e.g. Alibaba Token Plan), the 60k-character **non-streaming** generation often takes 10+ minutes: idle connections get cut by gateways/middleboxes, or the page-side 600s bridge timeout fires first. Email Summary now uses **SSE streaming**: bytes keep flowing (no more idle cuts), a 180s **idle timeout** replaces the total timeout, output renders live (chars received · elapsed) with a **Cancel** button; the bridge gained a chunked transport channel (long port, background streams the response), falling back to the legacy non-streaming path (600s) if the stream channel fails before any chunk; partial output is preserved on mid-stream interruption.
+- **Fix: extension Email Summary unable to load files** — root cause: the English Learning storage adapter wrote chrome.storage **objects** into localStorage without serializing (stored as "[object Object]"), and its change listener covered every synced key, poisoning the localStorage shared by all extension pages; Email Summary unguarded top-level JSON.parse crashed the whole module, disabling every button including "Select local file". Fixed: the writer now serializes; history/config reads in Email Summary / Smart Translation / English Learning are fault-tolerant (dirty data degrades safely instead of crashing the page). **Note: click "Reload" on chrome://extensions after updating**; manifest version bumped 0.20.0 to 0.25.5 so the loaded copy is identifiable.
+- **Model compatibility unified** — URL normalization and reasoning-model parameter adaptation now cover every remaining AI call site: Smart Translation (index.html / popup background / fullpage / selection translate), Work Report (both copies), English Learning (both copies). Uniform behavior: buildUrl normalization (full-width colons/slashes, trailing slashes, duplicated endpoint — multi-level paths like Zhipu / Token Plan are the usual victims); isReasoningModel gating (deepseek-reasoner / qwq / thinking models no longer receive temperature / max_tokens); automatic retry without temperature on 400 errors mentioning it.
+- **Fixed**: English Learning "Test connection" used the non-existent response.textAsync() (always failed); extension Hotnews used the response wrapper text method as a property in 3 places (bridge / Bing search / model list paths); Google Fonts onload inline handlers in 5 extension pages were blocked by MV3 CSP (now switched via JS).
+- **New: "Fetch model list" in the main settings panel** — requests {Base URL}/models to autocomplete model IDs (same pattern as Hotnews Radar); essential for dedicated gateways (Token Plan / Zhipu Coding Plan) that only accept specific model IDs; goes through the proxy bridge so no-CORS endpoints work on the web app too.
+- **New tests**: tests/stream-and-url.test.mjs (URL normalization; SSE chunk splitting / CRLF / [DONE] / reasoning_content; bridge stream chunking / cancel / fallback), tests/pdf-parse.test.mjs (PDF extraction pipeline using the bundled pdf.js).
 ### v0.25.3 (2026-09-02)
 - **Fix: synced records disappearing after page refresh** — the content script was injected at `document_idle` (page scripts could read a stale localStorage first), and records created on the other surface while this page was closed never reached it. Fixes:
   - content script now injects at **`document_start`** (before any page script runs)

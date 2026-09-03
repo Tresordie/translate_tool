@@ -1,3 +1,8 @@
+// Google Fonts 异步启用：MV3 CSP 禁止 inline onload，改由 JS 在字体样式表加载完成后切换 media
+(function () {
+  var gf = document.getElementById('gfAsync');
+  if (gf) gf.addEventListener('load', function () { gf.media = 'all'; });
+})();
 (function() {
 "use strict";
 

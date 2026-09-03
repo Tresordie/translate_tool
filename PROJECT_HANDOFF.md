@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.25.3 · 2026-09-02
+> **当前版本**：v0.25.6 · 2026-09-03
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -82,8 +82,10 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 - `initConfigSync()` — 配置读写 + 监听插件广播
 - `chat({messages, options})` — OpenAI 兼容 chat/completions（内部经 `buildUrl()` 归一化地址、经 `proxyFetch()` 走跨域通道）
 - `proxyFetch(url, options)` — **跨域请求通道，各页面统一入口**（详见 §3.10）；返回值 Response 兼容 `ok/status/text()/json()`
-- `buildUrl(baseUrl)` — **唯一做了地址归一化的地方**：清理控制字符与空白、全角「：」「／」、尾斜杠、以及用户误填的重复 `/chat/completions`。⚠️ 目前只有 `chat()` 用它，其余模块裸拼接（见 §6）
-- `isReasoningModel(model)` — 匹配 `reasoner|reasoning|thinking|qwq|kimi-k3|deepseek-v4|o1/o3/o4`；命中则省略 `temperature`/`max_tokens`，且 400 报错含 temperature 时自动去参重试一次。⚠️ **只有 `chat()` 用得上**（见 §6）
+- `proxyFetchStream(url, options, onChunk)` — **流式跨域请求通道（v0.25.5）**：SSE 解析、直连→桥接分片回落、空闲超时、signal 取消；错误带 `_pfStreamPhase/_pfStreamPartial`（详见 §3.10 流式通道）
+- `buildUrl(baseUrl)` — **唯一做了地址归一化的地方**：清理控制字符与空白、全角「：」「／」、尾斜杠、以及用户误填的重复 `/chat/completions`。v0.25.5 起全模块统一使用
+- `normalizeBaseUrl(baseUrl)` — 归一化纯清理（不追加端点，v0.25.5 拆出），供 `/models` 等其他端点拼接复用（hotnews fetchModels、index.html「获取模型列表」）
+- `isReasoningModel(model)` — 匹配 `reasoner|reasoning|thinking|qwq|kimi-k3|deepseek-v4|o1/o3/o4`；命中则省略 `temperature`/`max_tokens`，且 400 报错含 temperature 时自动去参重试一次。v0.25.5 起全模块统一接入；background.js/content.js 内联了 `lfIsReasoningModel` 副本（SW 无 window.AiService），**扩列正则时需同步两处内联副本**
 - `parseNotes(text, mode)` — AI 解析：经典模式（任务抽取）
 - `analyzeContent(text, opts)` — AI 解析：分析模式（结构化总结，含邮件 playbook）
 - `generatePrompt(text)` — AI 提示词生成
@@ -126,12 +128,16 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **`bridge-ping` 由 content.js 直接应答，不经过 background**。ping 成功只证明 content script 已注入，**不证明 SW 健康**，排查时别被误导。
 - 桥消息发往 `window.top`（content script 默认只注入顶层帧），回包用 `e.source` 定位发起帧，故 index.html 内的 iframe 子页面同样能走桥（v0.23.1）。
 - **超时**：`bridgeFetch` 页面侧定时器 v0.25.4 起为 **600 秒**（原 120 秒）。PDF 邮件线程最多发送 6 万字符（`email_summary.js:376`），慢网关非流式生成常超 120 秒，会在正常返回前被误判「桥接请求超时」。
+- **流式通道（v0.25.5）**：邮件总结主路径改走 `AiService.proxyFetchStream()`（SSE）。链路：页面 postMessage `bridge-fetch-stream` → content.js **立即回 ack**（旧版 content.js 无此逻辑，页面 5 秒收不到 ack 即判定「通道不支持」并降级非流式）→ `chrome.runtime.connect('linguaflow:proxyFetchStream')` 长端口 → background 流式 fetch、reader 循环逐片 postMessage 回端口 → content.js 以 `e.source` 回传。事件：`ack` / `chunk`（SSE 原始分片，页面侧统一解析）/ `json`（网关忽略 stream 的整包 JSON）/ `http-error` / `end` / `error`；取消经 `bridge-abort` → background AbortController。**空闲超时 180 秒**（STREAM_IDLE_TIMEOUT_MS）取代总超时——流式字节持续流动，慢网关长生成不再被掐断/误判。直连错误带 `_pfStreamPhase`（connect/read）标记：只有 connect 阶段失败才回落桥，read 阶段失败带 `_pfStreamPartial`（已收正文）直接抛给调用方保留部分结果。
+- ⚠️ **v0.25.6 起邮件总结改回一次性输出（非流式），流式通道整体休眠**：`proxyFetchStream` 与桥接分片协议保留但无任何模块调用（应需求撤销流式逐行上屏）。若未来重启流式，接入范例可参考 git 历史中 v0.25.5 的 `email_summary.js` summarize()。桥接保活心跳（bridge-ka）仍生效——它保护的是非流式桥接请求。
 - ⚠️ **不要再给 background 加 SW 保活**。排查时曾假设 MV3 service worker 在 30 秒空闲后被终止、`sendResponse` 丢失。实测（`tests/bridge-long-request.e2e.mjs`，真实 Chromium + 真实扩展 + 不回 CORS 头的模拟端点）在途 fetch **45s / 300s / 420s** 三档均完整回传、连接未中断——Chrome 会因在途 fetch 维持 SW 存活。该假设已被证伪，保活代码已撤销。
 
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.25.6 | 邮件总结恢复一次性输出（撤销 v0.25.5 流式逐行上屏，应用户反馈）；非流式请求带耗时提示与直连取消；流式基础设施保留休眠；其余兼容性修复（buildUrl/推理门控/SW 保活/错误诊断）全部保留 |
+| v0.25.5 | 修复邮件总结超长 PDF「API 服务无法访问」：全链路改 SSE 流式（proxyFetchStream + 桥接长端口分片 + 180s 空闲超时 + 取消按钮 + 非流式降级）；**修复扩展端邮件总结无法加载文件**（english_learning storage 适配器把对象裸写 localStorage 毒化共享 origin → 各页面顶层 JSON.parse 崩溃；已改序列化写入 + 各模块容错解析）；全模型兼容统一（buildUrl/isReasoningModel/400 去参重试推广到智能翻译/工作报告/英语学习/扩展弹窗后台/划词/全屏页）；修复 english_learning textAsync、hotnews ext pr.text、5 处扩展页 CSP inline onload；index.html 设置面板新增「获取模型列表」；manifest 版本 0.20.0→0.25.5；新增 tests/stream-and-url.test.mjs、tests/pdf-parse.test.mjs |
 | v0.25.4 | 修复邮件总结超长 PDF「桥接请求超时」：代理桥页面侧超时 120s → 600s（两份 ai-service.js 同步）；真实浏览器实测**证伪**「MV3 SW 30s 空闲被杀」假设（45/300/420s 均存活），未加保活代码；更正「阿里云端点无 CORS」文档错误（仅 Token Plan 网关如此，千问标准 compatible-mode 实测 CORS 开放）；新增 `tests/`（超时守卫 + 长请求 e2e） |
 | v0.25.3 | 修复刷新后同步记录消失：content script 改为 document_start 注入 + 启动拉取 15 个同步键写入 localStorage（扩展为权威源）；智能翻译历史 flag/time 归一化 |
 | v0.25.2 | 三端实时同步补全：AiService.onRecordSync 统一监听 API + 工作报告/邮件总结/英语学习/AI 解析/AI 提示词全部接入实时刷新 |
@@ -199,6 +205,12 @@ node -e "JSON.parse(require('fs').readFileSync('chrome_extension/manifest.json',
 # 代理桥超时守卫（虚拟时钟，毫秒级，无需浏览器）
 node tests/bridge-timeout.test.mjs
 
+# URL 归一化 + 流式通道单测（SSE 分块/桥接分片/取消/降级，虚拟沙箱）
+node tests/stream-and-url.test.mjs
+
+# PDF 解析管线（用页面同一份 pdf.min.js 解析样例 PDF）
+node tests/pdf-parse.test.mjs
+
 # 用 git 旧版对照，确认该测试真能捕获回归（预期报红，exit=1）
 git show HEAD:ai-service.js > /tmp/ai-service-old.js && SVC_PATH=/tmp/ai-service-old.js node tests/bridge-timeout.test.mjs
 
@@ -211,12 +223,12 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 ## 6. 已知问题 / 待办
 
-### 国产模型接入缺口（2026-09-03 排查「桥接请求超时」时发现，均未修）
+### 国产模型接入缺口（2026-09-03 排查「桥接请求超时」时发现）
 
-- [ ] **URL 地址归一化只覆盖 2/7 模块** — `AiService.buildUrl()` 会清理尾斜杠 / 用户误填的重复 `/chat/completions` / 全角「：」「／」（中文输入法下极易误输），但**只有 `chat()`** 用它（AI 解析、AI 提示词）。其余 5 个会调用大模型的模块各有隐患：`email_summary.js:417`、`workreport.js:502`、`hotnews.js:513`（`/models`）、英语学习页（网页版内联于 `english_learning.html:881`，扩展版 `chrome_extension/english_learning.js:122`）均为**完全裸拼接**；`index.html:1560` 是第三种模式——保存配置时用 `replace(/\/+$/, '')` 去了尾斜杠（`index.html:1456`），但仍不处理全角字符与误填的重复 `/chat/completions`。后果：**同一份配置在 AI 解析能用、在邮件总结报 404/网络错误**。智谱 `https://open.bigmodel.cn/api/paas/v4` 这类多级路径最容易踩。修法：统一改调 `AiService.buildUrl()`。
-- [ ] **推理模型参数自适应只覆盖 2/7 模块** — `isReasoningModel()` 虽已导出，但**全仓库无任何模块调用它**，仅 `chat()` 内部使用。`email_summary.js:435`、`workreport.js:517`、`hotnews.js:400` 硬编码 `temperature`，且没有 `chat()` 那套「400 报错含 temperature 则去参重试一次」的兜底。对拒绝 `temperature` 的推理模型（`deepseek-reasoner` / `qwq-*` 等），这三个模块会直接 400。另需注意 `REASONING_RE` 是**按模型名子串匹配**（`reasoner|reasoning|thinking|qwq|kimi-k3|deepseek-v4|o1/o3/o4`）——凡推理能力不体现在名字里的模型（如以参数开启 thinking 的 GLM 系）都会漏判，接入新提供商前应先核对其命名再决定是否扩列。
-- [ ] **「获取模型列表」只有热点雷达有**（`hotnews.js:513`）— 而 Token Plan 网关恰恰最需要它：只认 `qwen3.6-flash` / `qwen3.7-plus` 这类专属 ID，填经典名 `qwen-plus` 报 Model not exist。宜提取为通用设置面板能力。
-- [ ] **Token Plan 专属网关的真实 host 仓库内无记录** — 各处注释与 README 只出现「阿里云 Token Plan」这个名字，从未写出 Base URL，导致无法实测其 CORS 与响应特征（本次排查即受此限）。宜在 README 提供商表补一条真实地址（脱敏 Key）。
+- [x] **URL 地址归一化覆盖全模块** — v0.25.4 给 email_summary 接入 `buildUrl`；v0.25.5 推广到剩余全部 AI 调用点（index.html 智能翻译 / workreport ×2 / english_learning ×2 / fullpage / background / content），另拆出 `normalizeBaseUrl()` 供 `/models` 复用（hotnews fetchModels 与 index.html 设置面板「获取模型列表」均已接入）。
+- [x] **推理模型参数自适应覆盖全模块** — v0.25.4 email_summary 已接入（本条原文「全仓库无任何模块调用」自该提交起过时）；v0.25.5 全部剩余调用点统一接入 `isReasoningModel` 门控 + 「400 报错含 temperature 则去参重试一次」（含 background/content 内联的 `lfIsReasoningModel` 副本——**修改 REASONING_RE 时两处内联副本需同步**）。仍需注意：正则按模型名子串匹配，GLM 系等以参数开思考的模型不在列（它们接受 temperature，不会 400；遇到拒绝 temperature 的新模型靠 400 重试兜底）。
+- [x] **「获取模型列表」进入主设置面板** — v0.25.5 index.html API 设置面板已加（经 proxyFetch，Token Plan 网页版可用）；扩展弹窗/侧边栏设置面板仍未加（低优先）。
+- [ ] **Token Plan 专属网关的真实 host 仓库内无记录** — 各处注释与 README 只出现「阿里云 Token Plan」这个名字，从未写出 Base URL，导致无法实测其 CORS 与响应特征。宜在 README 提供商表补一条真实地址（脱敏 Key）。
 
 ### 测试环境
 
@@ -224,10 +236,14 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 ### 既有待办
 
-- [x] **README_EN.md 已同步** — 2026-09-01 更新至 v0.21.0（品牌 AI Tool Box、6 主题体系、7 模块、项目结构、更新日志 v0.17–v0.21）；⚠️ 现已落后当前版本 4 个小版本
-- [ ] **`web_accessible_resources` 未包含新页面** — `manifest.json` 的 `web_accessible_resources` 目前只列出 `fullpage/workreport/todolist/english_learning`，未加 `ai_parse.html` / `ai_prompts.html`（因为 sidepanel 直接用相对路径访问扩展内部文件不需要此声明，但若未来需要从外部网页嵌入则需补充）
-- [ ] **`manifest.json` 版本号长期未同步** — 仍为 `0.20.0`，而项目已到 v0.25.4
-- [ ] **`ai-service.js` 双副本维护** — 网页版（706 行）与扩展版（723 行）略有差异（扩展版多一个 `applyConfig` 写回 localStorage 的 shim），长期看应该考虑构建流程自动同步或抽成共享模块
+- [ ] **流式通道整体休眠（v0.25.6）** — 邮件总结已改回一次性输出（应用户反馈，撤销 v0.25.5 的逐行上屏），当前无任何模块使用流式；全部模块非流式，经代理桥时受 600s 总超时约束（开放跨域端点直连无此限制）。`proxyFetchStream` 与桥接分片协议保留，重启流式时可直接复用（接入范例见 git 历史 v0.25.5 的 email_summary.js）
+- [ ] **模型兼容性已知边界**（详见 README「模型兼容性说明」）— 仅支持 OpenAI 兼容协议（Anthropic/Gemini 原生协议不支持）；`REASONING_RE` 按模型名匹配，按参数开思考且名字无线索的模型（GLM 系）不命中（它们接受 temperature，正常工作，靠 400 重试兜底）；发送上限 6 万字符；扫描件 PDF 需 OCR
+
+- [x] **README_EN.md 已同步** — 2026-09-01 更新至 v0.21.0，后续版本持续追加 changelog；v0.25.5 已补入（注意 v0.25.4 条目 EN 版缺失，中文 README 为准）
+- [ ] **`web_accessible_resources` 未包含新页面** — `manifest.json` 的 `web_accessible_resources` 目前只列出 `fullpage/workreport/todolist/english_learning`，未加 `ai_parse.html` / `ai_prompts.html` / `email_summary.html`（扩展内部相对路径访问不需要此声明，但若未来需要从外部网页嵌入则需补充）
+- [x] **`manifest.json` 版本号长期未同步** — v0.25.5 起已同步为 0.25.5（后续发版记得一并更新）
+- [ ] **`ai-service.js` 双副本维护** — 网页版与扩展版略有差异（扩展版多一个 `applyConfig` 写回 localStorage 的 shim），长期看应该考虑构建流程自动同步或抽成共享模块
+- [ ] **英语学习 storage 适配器遗留双写** — v0.25.5 修复了它把 chrome.storage 对象裸写 localStorage 的污染 bug，但其「localStorage → chrome.storage 复制 + 双通道监听」与 v0.25 记录同步体系存在职责重叠，长期应收敛到 AiService.loadState/saveState 统一通道
 - [ ] **PDF 解析仍依赖 pdf.js 本地打包**（~1.3MB），每个 iframe 首次打开都会加载，可考虑按需动态 `import()`
 - [ ] **Apple 提醒事项 URL Scheme** 仅 macOS，Windows/Linux 用户无替代方案
 - [ ] **任务清单与 Google Calendar 同步** 仅实现了 .ics 下载，未做 OAuth 直连
@@ -248,5 +264,5 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 ---
 
-**最后更新**：2026-09-03 · v0.25.4（代理桥超时 120s→600s；实测**证伪**「MV3 SW 30s 空闲被杀」假设，见 §3.10；§6 新增三条国产模型接入缺口）
-**参考文档**：`README.md` · `README_EN.md`（⚠️ 仍停留在 v0.21.0，落后 4 个小版本未同步） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`
+**最后更新**：2026-09-03 · v0.25.6（邮件总结恢复一次性输出，流式通道休眠保留；v0.25.5 的兼容性修复——buildUrl/推理门控/SW 保活/错误诊断——全部保留；详见 §3.10 与 §4 版本表）
+**参考文档**：`README.md` · `README_EN.md`（changelog 已补 v0.25.5，正文仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

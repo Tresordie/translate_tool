@@ -8,6 +8,10 @@
 
   const $ = (id) => document.getElementById(id);
 
+  // Google Fonts 异步启用：MV3 CSP 禁止 inline onload，改由 JS 在字体样式表加载完成后切换 media
+  const gfAsyncLink = document.getElementById('gfAsync');
+  if (gfAsyncLink) gfAsyncLink.addEventListener('load', function () { gfAsyncLink.media = 'all'; });
+
   /* ==================== SKILL.md 系统提示词（email-thread-summarizer 正文） ==================== */
   const SKILL_PROMPT = `你是一名面向硬件/项目工程师的项目秘书兼技术助理。用户经常粘贴客户或合作伙伴的邮件线程（通常中英混杂、按倒序引用、夹带签名档与保密声明），你的职责是：
 
@@ -102,8 +106,14 @@
   };
 
   /* ==================== State ==================== */
-  let config = JSON.parse(localStorage.getItem('email_summary_config') || 'null') || {};
-  let history = JSON.parse(localStorage.getItem('email_summary_history') || '[]');
+  // 容错解析：localStorage 历史脏数据（如曾被写成 "[object Object]"）不再炸掉整个模块
+  function safeParse(raw, fallback) {
+    if (raw === null || raw === undefined) return fallback;
+    try { const v = JSON.parse(raw); return v; } catch (e) { return fallback; }
+  }
+  let config = safeParse(localStorage.getItem('email_summary_config'), null) || {};
+  let history = safeParse(localStorage.getItem('email_summary_history'), []);
+  if (!Array.isArray(history)) history = [];
 
   // 记录反向同步（v0.25.0）：localStorage 写入 → chrome.storage（扩展侧同步，映射表见 background.js）
   function relayRecord(key, value) {
@@ -290,7 +300,7 @@
   const PDF_MAX_PAGES = 500;       // 页数上限
   const PDF_TEXT_BUDGET = 120000;  // 文本预算（发送前还会经 autoTruncate 再截取）
   async function extractPdfText(buffer) {
-    if (typeof pdfjsLib === 'undefined') throw new Error('PDF 解析库未加载');
+    if (typeof pdfjsLib === 'undefined') throw new Error('PDF 解析库未加载（pdf.min.js 未生效）——若刚更新过代码，请在 chrome://extensions 点击本扩展的「重新加载」后重试');
     const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
     const totalPages = pdf.numPages;
     const pageCount = Math.min(totalPages, PDF_MAX_PAGES);
@@ -386,6 +396,11 @@
 
   /* ==================== AI 总结 ==================== */
   $('summarizeBtn').addEventListener('click', summarize);
+  // 流式生成取消（v0.25.5）
+  let currentAbortCtrl = null;
+  $('cancelSummaryBtn').addEventListener('click', () => {
+    if (currentAbortCtrl) { try { currentAbortCtrl.abort(); } catch (e) { /* ignore */ } }
+  });
 
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && editingIndex < 0) summarize();
@@ -421,7 +436,7 @@
     // 推理模型（qwq / reasoning 等）拒绝 temperature / max_tokens → 自动去参重试一次。
     const reasoning = _as.isReasoningModel && _as.isReasoningModel(config.model);
 
-    async function sendEmailReq(includeTemp) {
+    function buildBody(includeTemp) {
       const body = { model: config.model, messages: [] };
       if (!reasoning && includeTemp) body.temperature = 0.3;
       body.messages.push({ role: 'system', content: SKILL_PROMPT });
@@ -429,39 +444,57 @@
         role: 'user',
         content: '请使用' + LANG_NAMES[lang] + '输出。以下是邮件内容，请按规范输出四段式详细总结与 To Do List：\n\n' + trunc.text,
       });
-      // 经 AiService.proxyFetch：网页直连失败时自动走扩展代理桥（Token Plan 等无 CORS 端点也可用）
+      return body;
+    }
+
+    function httpErrFrom(res) {
+      return res.text().then((errText) => {
+        const e = new Error(errText.slice(0, 200) || ('HTTP ' + res.status));
+        e.status = res.status;
+        throw e;
+      });
+    }
+
+    // 一次性输出（v0.25.6）：非流式请求，等待完整结果后整体上屏；等待期间仅显示耗时，不逐行渲染。
+    let metaTimer = setInterval(function () {
+      $('summaryMeta').textContent = '生成中… 已用时 ' + Math.round((Date.now() - startedAt) / 1000) + 's';
+    }, 1000);
+
+    async function runSummary(includeTemp) {
+      const ctrl = new AbortController();
+      currentAbortCtrl = ctrl;
       const res = await _pf(buildingUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + config.apiKey,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(buildBody(includeTemp)),
+        signal: ctrl.signal,   // 直连通道（DeepSeek/智谱/千问标准等开放 CORS 端点）可取消；桥接通道不响应 signal
       });
-      if (!res.ok) {
-        const errText = await res.text();
-        const e = new Error(errText.slice(0, 200) || ('HTTP ' + res.status));
-        e.status = res.status;
-        throw e;
+      if (!res.ok) await httpErrFrom(res);
+      const data = await res.json();
+      const content = data.choices && data.choices[0] && data.choices[0].message
+        ? data.choices[0].message.content : null;
+      if (!content) throw new Error('AI 返回内容为空');
+      return content;
+    }
+
+    // 「400 报错含 temperature → 去参重试一次」
+    async function attempt(includeTemp) {
+      try {
+        return await runSummary(includeTemp);
+      } catch (err) {
+        if (!reasoning && /temperature/i.test(String((err && err.message) || ''))) {
+          return await runSummary(false);
+        }
+        throw err;
       }
-      return res;
     }
 
     try {
-      let response;
-      try {
-        response = await sendEmailReq(!reasoning);
-      } catch (err) {
-        // 部分推理模型收到 temperature 仍报 400 → 去 temperature 无参重试一次
-        if (!reasoning && /temperature/i.test(String(err && err.message || ''))) {
-          response = await sendEmailReq(false);
-        } else { throw err; }
-      }
-
-      const data = await response.json();
-      const result = data.choices && data.choices[0] && data.choices[0].message
-        ? data.choices[0].message.content : null;
-      if (!result) throw new Error('AI 返回内容为空');
+      const result = await attempt(!reasoning);
+      clearInterval(metaTimer);
 
       showResult(result);
       // 自动保存到历史（可后续查阅/编辑）
@@ -470,8 +503,17 @@
       $('summaryMeta').textContent = '生成于 ' + formatTime(Date.now()) + ' · 耗时 ' + secs + 's' + (loadedFileName ? ' · 来源 ' + loadedFileName : '') + (trunc.truncated ? ' · 超长已自动截取' : '');
       showToast('总结生成完成，已保存到历史', 'success');
     } catch (err) {
+      clearInterval(metaTimer);
+      if (currentAbortCtrl && currentAbortCtrl.signal.aborted) {
+        $('summaryMeta').textContent = '';
+        showToast('已取消生成', 'info');
+        return;
+      }
+      $('summaryMeta').textContent = '';
       showToast(describeApiError(err), 'error');
     } finally {
+      clearInterval(metaTimer);
+      currentAbortCtrl = null;
       setLoading(false);
     }
   }
@@ -485,13 +527,24 @@
     if (st === 404) return 'API 地址或模型名不存在，请检查 Base URL 与模型名称';
     if (st === 429) return '请求过于频繁或额度不足，请稍后重试或检查账户余额';
     if (st >= 500) return 'API 服务暂时不可用（' + st + '），请稍后重试';
+    // 扩展被重载/更新后，旧页面的桥接上下文失效——刷新页面即恢复
+    if (/Extension context invalidated/i.test(msg)) {
+      return '扩展已更新或重新加载，本页面的桥接已失效：请刷新本页面（F5）后重试';
+    }
     if (/Failed to fetch|NetworkError|Load failed|timeout/i.test(msg)) {
       return '无法连接 API：网络异常，或浏览器拦截了跨域请求（CORS）。可改用 Chrome 扩展版（无跨域限制），或换用支持跨域的 API 服务';
     }
     // status===0 / 「HTTP 0」/ 桥接代理失败 → 请求根本没到达目标服务器
     //（不是 Token Plan 的参数/模型名问题，而是 Base URL 域名连不上、未装扩展、或桥未注入本页）
     if ((st === 0) || /HTTP\s*0\b|代理请求失败|桥接/.test(msg)) {
-      return 'API 服务无法访问：请确认 Base URL 域名正确且网络可达；若为无 CORS 端点（如 Token Plan），需在 Chrome 安装并启用本扩展后重试（网页版必须经扩展代理桥）';
+      const m = msg.match(/(?:代理请求失败|桥接[^：:]*)[:：]\s*(.+)$/);
+      const detail = (m && m[1]) ? ('（底层原因：' + m[1].slice(0, 120) + '）') : '';
+      // 附扩展版本：这是判断「页面新代码 + 旧扩展」错配的最直接证据
+      const ver = (window.AiService && window.AiService.getExtensionVersion && window.AiService.getExtensionVersion()) || '';
+      const verNote = ver
+        ? '。当前扩展版本 ' + ver + '：若低于 0.25.5，请在 chrome://extensions 点击本扩展的「重新加载」并刷新本页面'
+        : '';
+      return 'API 服务无法访问：请确认 Base URL 域名正确且网络可达' + detail + '；若为无 CORS 端点（如 Token Plan），需在 Chrome 安装并启用本扩展后重试（网页版必须经扩展代理桥）' + verNote;
     }
     return msg || '未知错误，请稍后重试';
   }
@@ -499,6 +552,8 @@
   function setLoading(on) {
     $('loadingBar').classList.toggle('active', on);
     $('summarizeBtn').disabled = on;
+    $('cancelSummaryBtn').classList.toggle('visible', on);
+    if (on) $('summaryMeta').textContent = '连接中…';
     $('summarizeBtn').innerHTML = on
       ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 总结中...'
       : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> 生成总结';

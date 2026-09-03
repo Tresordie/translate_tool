@@ -499,30 +499,47 @@
     }
 
     try {
-      const url = config.baseUrl + '/chat/completions';
+      // URL 归一化 + 推理模型参数自适应：与 AiService.chat()/email_summary 同一模式
+      const _as = window.AiService || {};
+      const url = _as.buildUrl ? _as.buildUrl(config.baseUrl) : config.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+      const reasoning = _as.isReasoningModel ? _as.isReasoningModel(config.model) : false;
       // 经 AiService.proxyFetch：网页直连失败时自动走扩展代理桥（Token Plan 等无 CORS 端点也可用）
-      const _pf = (window.AiService && window.AiService.proxyFetch) || fetch;
-      const response = await _pf(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + config.apiKey,
-        },
-        body: JSON.stringify({
+      const _pf = _as.proxyFetch || fetch;
+
+      async function summaryReq(includeTemp) {
+        const body = {
           model: config.model,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userMsgContent }
           ],
-          temperature: 0.1,
-        }),
-      });
+        };
+        if (!reasoning && includeTemp) body.temperature = 0.1;
+        const response = await _pf(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + config.apiKey,
+          },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          const e = new Error(errData.error?.message || 'HTTP ' + response.status);
+          e.status = response.status;
+          throw e;
+        }
+        return response;
+      }
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        const e = new Error(errData.error?.message || 'HTTP ' + response.status);
-        e.status = response.status;
-        throw e;
+      let response;
+      try {
+        response = await summaryReq(!reasoning);
+      } catch (err) {
+        // 部分推理模型收到 temperature 仍报 400 → 去 temperature 无参重试一次
+        if (!reasoning && /temperature/i.test(String(err && err.message || ''))) {
+          response = await summaryReq(false);
+        } else { throw err; }
       }
 
       const data = await response.json();

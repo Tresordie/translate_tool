@@ -1,3 +1,8 @@
+// Google Fonts 异步启用：MV3 CSP 禁止 inline onload，改由 JS 在字体样式表加载完成后切换 media
+(function () {
+  var gf = document.getElementById('gfAsync');
+  if (gf) gf.addEventListener('load', function () { gf.media = 'all'; });
+})();
 /* ================================================================
    AI Tool Box — 热点雷达（Hot News Radar）v0.24.0
    全网两层候选：① 14+ 板块热榜（60s + UApi 多源合并）
@@ -206,7 +211,7 @@
       }
       return window.AiService.proxyFetch(url, { cache: 'no-store' }).then(function (pr) {
         if (!pr.ok) throw new Error('HTTP ' + pr.status);
-        return pr.text;
+        return pr.text();
       });
     }
   };
@@ -357,7 +362,7 @@
     });
     return req.then(function (pr) {
       if (!pr.ok) throw new Error('HTTP ' + pr.status);
-      var items = parseRssItems(pr.text).slice(0, 12).map(function (it) {
+      var items = parseRssItems(pr.text()).slice(0, 12).map(function (it) {
         return { title: it.title, source: '必应搜索', hot: '', url: it.url, desc: it.desc };
       });
       if (!items.length) throw new Error('搜索结果为空');
@@ -496,11 +501,13 @@
   // ===== 模型列表获取（GET {baseUrl}/models → datalist 自动补全） =====
   // 阿里云 Token Plan 等网关仅支持特定模型 ID（如 qwen3.6-flash，经典名 qwen-plus 会报 Model not exist）
   function fetchModels() {
-    var baseUrl = $('hnApiUrl').value.trim().replace(/\/+$/, '');
+    // 归一化复用 AiService.normalizeBaseUrl（清理全角「：／」/ 空白 / 误填重复端点），无 AiService 时退化为仅去尾斜杠
+    var _nb = (window.AiService && window.AiService.normalizeBaseUrl) ? window.AiService.normalizeBaseUrl : function (u) { return String(u || '').trim().replace(/\/+$/, ''); };
+    var baseUrl = _nb($('hnApiUrl').value);
     var apiKey = $('hnApiKey').value.trim();
     if (!baseUrl || !apiKey) {
       var cfg = (window.AiService && window.AiService.getConfig) ? window.AiService.getConfig() : {};
-      baseUrl = baseUrl || String(cfg.baseUrl || '').replace(/\/+$/, '');
+      baseUrl = baseUrl || _nb(cfg.baseUrl);
       apiKey = apiKey || String(cfg.apiKey || '');
     }
     if (!baseUrl || !apiKey) { showToast('请先填写 Base URL 与 API Key', 'error'); return; }
@@ -519,7 +526,7 @@
     }
     req.then(function (pr) {
       if (!pr.ok) throw new Error('HTTP ' + pr.status);
-      var j = parseJsonLoose(pr.text);
+      var j = parseJsonLoose(pr.text());
       var arr = j && Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
       var ids = arr.map(function (m) { return m && (m.id || m.model || m.name); }).filter(Boolean).map(String);
       if (!ids.length) throw new Error('端点未返回模型列表');

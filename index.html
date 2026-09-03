@@ -187,6 +187,18 @@
       box-shadow: 0 4px 16px var(--primary-a25);
     }
     .btn-save:hover { transform: translateY(-1px); box-shadow: 0 6px 24px var(--primary-a25), 0 0 20px var(--cyan-a15); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border, rgba(128,128,128,0.35));
+      padding: 10px 18px;
+      border-radius: 12px;
+      cursor: pointer; font-size: 0.88rem;
+      font-weight: 500; font-family: inherit;
+      transition: var(--transition);
+    }
+    .btn-ghost:hover { color: var(--primary); border-color: var(--primary-a40, var(--primary)); }
+    .btn-ghost:disabled { opacity: 0.6; cursor: wait; }
 
     /* ========== Language Bar ========== */
     .lang-bar {
@@ -1142,10 +1154,12 @@
             </div>
             <div class="form-group">
               <label>模型名称</label>
-              <input id="modelName" type="text" placeholder="deepseek-chat" />
+              <input id="modelName" type="text" placeholder="deepseek-chat" list="modelListOptions" autocomplete="off" />
+              <datalist id="modelListOptions"></datalist>
             </div>
           </div>
           <div class="settings-actions">
+            <button class="btn-ghost" id="fetchModelsBtn" title="请求 {Base URL}/models，自动补全模型 ID（Token Plan 等专属网关最需要）">获取模型列表</button>
             <button class="btn-save" onclick="saveSettings()">保存配置</button>
           </div>
         </div>
@@ -1336,8 +1350,9 @@
     ];
 
     // ===== State =====
-    let config = JSON.parse(localStorage.getItem('translate_config') || '{}');
-    let history = JSON.parse(localStorage.getItem('translate_history') || '[]');
+    // 容错解析：localStorage 脏数据（如 "[object Object]"）不得炸掉整个页面
+    let config = (function () { try { return JSON.parse(localStorage.getItem('translate_config') || '{}'); } catch (e) { return {}; } })();
+    let history = (function () { try { return JSON.parse(localStorage.getItem('translate_history') || '[]'); } catch (e) { return []; } })();
 
     // ===== 插件配置同步：接收 AI Tool Box 扩展（内部标识 LinguaFlow）广播的 Base URL / API Key / Model =====
     function applySyncedConfig(cfg) {
@@ -1463,6 +1478,39 @@
       setTimeout(() => document.getElementById('settingsPanel').classList.remove('open'), 600);
     }
 
+    // ===== 获取模型列表（GET {Base URL}/models → datalist 自动补全，与热点雷达同一模式）=====
+    // Token Plan / 智谱编码计划等专属网关只认特定模型 ID（如 qwen3.6-flash），手动输入易错
+    async function fetchModelList() {
+      const _as = window.AiService || {};
+      const _nb = _as.normalizeBaseUrl || function (u) { return String(u || '').trim().replace(/\/+$/, ''); };
+      const baseUrl = _nb(document.getElementById('baseUrl').value);
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const btn = document.getElementById('fetchModelsBtn');
+      if (!baseUrl || !apiKey) { showToast('请先填写 Base URL 与 API Key', 'error'); return; }
+      if (!/^https?:\/\//i.test(baseUrl)) { showToast('Base URL 需以 http(s):// 开头', 'error'); return; }
+      const original = btn.textContent;
+      btn.disabled = true; btn.textContent = '获取中…';
+      try {
+        // 经 AiService.proxyFetch：网页直连失败时自动走扩展代理桥（Token Plan 等无 CORS 端点也可用）
+        const _pf = _as.proxyFetch || fetch;
+        const res = await _pf(baseUrl + '/models', { headers: { 'Authorization': 'Bearer ' + apiKey } });
+        const text = await res.text();
+        if (!res.ok) throw new Error('HTTP ' + res.status + (text ? ': ' + text.slice(0, 120) : ''));
+        let j = null;
+        try { j = JSON.parse(text); } catch (e) {}
+        const arr = j && Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+        const ids = arr.map(m => m && (m.id || m.model || m.name)).filter(Boolean).map(String);
+        if (!ids.length) throw new Error('端点未返回模型列表');
+        document.getElementById('modelListOptions').innerHTML = ids.map(id => '<option value="' + String(id).replace(/"/g, '&quot;') + '"></option>').join('');
+        showToast('已获取 ' + ids.length + ' 个模型，点击模型输入框即可选择', 'success');
+      } catch (err) {
+        showToast('获取模型列表失败：' + ((err && err.message) || err), 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = original;
+      }
+    }
+    document.getElementById('fetchModelsBtn').addEventListener('click', fetchModelList);
+
     // ===== Swap =====
     function swapLanguages() {
       const s = document.getElementById('sourceLang');
@@ -1557,30 +1605,48 @@ After translation, automatically organize and format the output:
 Output ONLY the translated and formatted text. Do not add explanations, notes, or your analysis process.`;
 
       try {
-        const url = `${config.baseUrl}/chat/completions`;
+        // URL 归一化 + 推理模型参数自适应：与 AiService.chat()/email_summary 同一模式。
+        // 全角「：／」、尾斜杠、误填重复端点统一清理；推理模型（deepseek-reasoner/qwq 等）不发送 temperature。
+        const _as = window.AiService || {};
+        const url = _as.buildUrl ? _as.buildUrl(config.baseUrl) : config.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+        const reasoning = _as.isReasoningModel ? _as.isReasoningModel(config.model) : false;
         // 经 AiService.proxyFetch：网页直连失败时自动走扩展代理桥（Token Plan 等无 CORS 端点也可用）
-        const _pf = (window.AiService && window.AiService.proxyFetch) || fetch;
-        const response = await _pf(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`,
-          },
-          body: JSON.stringify({
+        const _pf = _as.proxyFetch || fetch;
+
+        async function translateReq(includeTemp) {
+          const body = {
             model: config.model,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: text }
             ],
-            temperature: 0.3,
-          }),
-        });
+          };
+          if (!reasoning && includeTemp) body.temperature = 0.3;
+          const response = await _pf(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${config.apiKey}`,
+            },
+            body: JSON.stringify(body),
+          });
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const e = new Error(errData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+            e.status = response.status;
+            throw e;
+          }
+          return response;
+        }
 
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          const e = new Error(errData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
-          e.status = response.status;
-          throw e;
+        let response;
+        try {
+          response = await translateReq(!reasoning);
+        } catch (err) {
+          // 部分推理模型收到 temperature 仍报 400 → 去 temperature 无参重试一次
+          if (!reasoning && /temperature/i.test(String(err && err.message || ''))) {
+            response = await translateReq(false);
+          } else { throw err; }
         }
 
         const data = await response.json();

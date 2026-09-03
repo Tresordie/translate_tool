@@ -4,6 +4,7 @@
  * 提供:
  *   - 配置读写（localStorage translate_config / chrome.storage config / 插件 postMessage 同步）
  *   - OpenAI 兼容 chat/completions 调用（reasoning 模型自动省略 temperature）
+ *   - 流式调用 proxyFetchStream()（SSE，经代理桥时分片回传；空闲超时取代总超时）
  *   - AI Parse: 任务抽取 parseNotes() / 自由分析 analyzeContent()（含邮件线程 playbook）
  *   - AI Prompts: 提示词工程 generatePrompt() + extractPromptBody()
  *   - 任务清单写入（todo_items）与 Markdown/HTML 下载等工具
@@ -120,11 +121,17 @@
     return REASONING_RE.test(String(model || '').toLowerCase());
   }
 
-  function buildUrl(baseUrl) {
+  /** Base URL 归一化（只清理不追加端点）：控制字符/空白、全角「：／」、尾斜杠、误填的重复 /chat/completions。
+   *  供 buildUrl 与 /models 等其他端点拼接共用。 */
+  function normalizeBaseUrl(baseUrl) {
     var u = String(baseUrl || "").trim().replace(/[\u0000-\u0020\u007f\u3000]+/g, "").replace(/：/g, ":").replace(/／/g, "/")
     while (u.endsWith("/")) u = u.slice(0, -1);
     if (u.endsWith("/chat/completions")) u = u.slice(0, -1 * "/chat/completions".length);
-    return u + "/chat/completions";
+    return u;
+  }
+
+  function buildUrl(baseUrl) {
+    return normalizeBaseUrl(baseUrl) + "/chat/completions";
   }
 
   /* ================= 网页版跨域代理桥（v0.23.0） =================
@@ -133,7 +140,7 @@
    * background（host_permissions 免跨域）代理发出。
    * 链路：页面 postMessage → content.js → chrome.runtime → background fetch
    * → 原路返回。扩展页面自身直连，不走桥。 */
-  var _bridge = { available: null, seq: 0, pending: {} };
+  var _bridge = { available: null, seq: 0, pending: {}, extVersion: '' };
 
   // 桥消息发往顶层帧：content script 默认只注入顶层（manifest 不含 all_frames），
   // 嵌在 index.html 里的 iframe 页面（如热点雷达）必须经 window.top 才能到达 content.js。
@@ -145,17 +152,35 @@
     var d = e.data;
     if (!d || d.source !== 'linguaflow-extension' || !d.bridgeId) return;
     var cb = _bridge.pending[d.bridgeId];
-    if (cb) { delete _bridge.pending[d.bridgeId]; cb(d); }
+    if (cb) {
+      // 流式回调（d.stream）需要接收多条分片消息，由 finish() 自行清理；一次性请求仍回包即删
+      if (!d.stream) delete _bridge.pending[d.bridgeId];
+      cb(d);
+    }
   });
 
   function bridgePing() {
     return new Promise(function (resolve) {
       var id = 'ping' + (++_bridge.seq);
       var timer = setTimeout(function () { delete _bridge.pending[id]; resolve(false); }, 1500);
-      _bridge.pending[id] = function () { clearTimeout(timer); resolve(true); };
+      _bridge.pending[id] = function (d) {
+        clearTimeout(timer);
+        // content.js 应答附带扩展版本，供页面诊断「扩展副本过旧」
+        if (d && d.extVersion) _bridge.extVersion = d.extVersion;
+        resolve(true);
+      };
       try { bridgeTarget().postMessage({ source: 'linguaflow-page', type: 'bridge-ping', bridgeId: id }, '*'); }
       catch (e) { clearTimeout(timer); resolve(false); }
     });
+  }
+
+  /** 扩展版本：扩展环境直接读 manifest；网页版经 bridge-ping 应答获得（未 ping 过返回空串）。
+   *  用于错误诊断中提示「扩展副本可能过旧，请重新加载」。 */
+  function getExtensionVersion() {
+    if (isExtension()) {
+      try { return chrome.runtime.getManifest().version; } catch (e) {}
+    }
+    return _bridge.extVersion || '';
   }
 
   function bridgeFetch(url, options) {
@@ -166,8 +191,12 @@
       // 实测 background SW 在 420s 在途 fetch 下仍存活并完整应答
       // （tests/bridge-long-request.e2e.mjs），故此处只需容纳真实生成耗时。
       var timer = setTimeout(function () { delete _bridge.pending[id]; reject(new Error('桥接请求超时')); }, 600000);
+      // SW 保活：长生成期间每 20s 心跳一次（同 bridgeStream，防止 MV3 回收 SW）
+      var ka = setInterval(function () {
+        try { bridgeTarget().postMessage({ source: 'linguaflow-page', type: 'bridge-ka', bridgeId: id }, '*'); } catch (e) {}
+      }, 20000);
       _bridge.pending[id] = function (res) {
-        clearTimeout(timer); delete _bridge.pending[id];
+        clearTimeout(timer); clearInterval(ka); delete _bridge.pending[id];
         if (res.error) reject(new Error('代理请求失败：' + res.error));
         else resolve(pfRes(res.text || '', !!res.ok, res.status || 0));
       };
@@ -176,7 +205,7 @@
           source: 'linguaflow-page', type: 'bridge-fetch', bridgeId: id,
           url: url, method: options.method || 'GET', headers: options.headers || {}, body: options.body || ''
         }, '*');
-      } catch (e) { clearTimeout(timer); delete _bridge.pending[id]; reject(new Error('桥接不可用')); }
+      } catch (e) { clearTimeout(timer); clearInterval(ka); delete _bridge.pending[id]; reject(new Error('桥接不可用')); }
     });
   }
 
@@ -188,6 +217,238 @@
       text: function () { return Promise.resolve(text); },
       json: function () { try { return Promise.resolve(JSON.parse(text)); } catch (e) { return Promise.reject(e); } }
     };
+  }
+
+  /* ================= 流式请求通道（v0.25.5） =================
+   * 非流式 chat 调用在大输入（如 6 万字符 PDF 邮件线程）+ 慢网关（Token Plan 等）
+   * 场景下生成常需 10 分钟以上：连接长期无字节流动，会被网关/中间层当作空闲连接
+   * 掐断，或先撞上页面侧桥接总超时。流式（SSE）让字节持续流动，从根本上避免这两类失败。
+   * 协议（bridge-fetch-stream / bridge-abort）：
+   *   页面 --postMessage--> content.js --runtime.connect 长端口--> background
+   *   background 流式 fetch，reader 循环逐片 postMessage 回端口，content.js 以
+   *   e.source 精准回传发起帧。事件：ack（content.js 收到即回，用于探测通道支持）/ 
+   *   chunk（SSE 原始分片）/ json（网关忽略 stream 的完整 JSON）/ http-error / end / error。 */
+
+  // 空闲超时：流式期间这么久没收到任何数据（含 reasoning 增量/keep-alive）才判定失败，
+  // 取代「总耗时上限」——首字前的思考与长正文都不会再被误杀。
+  var STREAM_IDLE_TIMEOUT_MS = 180000;
+
+  /** SSE 增量解析器：容忍分块截断、CRLF、多事件流；只取 choices[0].delta.content，
+   *  reasoning_content（思考型模型的可见思考）仅起活跃作用，不进入正文。 */
+  function createSSEParser(onDelta) {
+    var buf = '';
+    function handleLine(line) {
+      if (!line || line.indexOf('data:') !== 0) return;
+      var payload = line.slice(5).trim();
+      if (!payload || payload === '[DONE]') return;
+      var j;
+      try { j = JSON.parse(payload); } catch (e) { return; }
+      var delta = j.choices && j.choices[0] && j.choices[0].delta;
+      if (delta && typeof delta.content === 'string' && delta.content) onDelta(delta.content);
+    }
+    return {
+      feed: function (text) {
+        buf += text;
+        var idx;
+        while ((idx = buf.indexOf('\n')) >= 0) {
+          var line = buf.slice(0, idx);
+          buf = buf.slice(idx + 1);
+          if (line.charAt(line.length - 1) === '\r') line = line.slice(0, -1);
+          handleLine(line);
+        }
+      },
+      end: function () { if (buf) handleLine(buf); buf = ''; }
+    };
+  }
+
+  /** 直连流式 fetch：扩展页面与 CORS 开放端点走此路径。返回 pfRes（ok 时 text() 为正文全文）。 */
+  async function directStream(url, options, onChunk) {
+    var extSignal = options.signal || null;
+    var abortReason = null;
+    var ctrl = new AbortController();
+    if (extSignal) {
+      if (extSignal.aborted) { var ce = new Error('已取消'); ce._pfStreamPhase = 'connect'; throw ce; }
+      extSignal.addEventListener('abort', function () {
+        abortReason = '已取消';
+        try { ctrl.abort(); } catch (e) {}
+      });
+    }
+    var idle = null;
+    function armIdle() {
+      if (idle) clearTimeout(idle);
+      idle = setTimeout(function () {
+        abortReason = '生成空闲超时：' + Math.round(STREAM_IDLE_TIMEOUT_MS / 1000) + ' 秒未收到任何数据，已中止';
+        try { ctrl.abort(); } catch (e) {}
+      }, STREAM_IDLE_TIMEOUT_MS);
+    }
+    armIdle();
+    var res;
+    try {
+      var opts2 = {};
+      for (var k in options) {
+        if (Object.prototype.hasOwnProperty.call(options, k) && k !== 'signal') opts2[k] = options[k];
+      }
+      opts2.signal = ctrl.signal;
+      res = await fetch(url, opts2);
+    } catch (e) {
+      if (idle) clearTimeout(idle);
+      if (abortReason) { var ae = new Error(abortReason); ae._pfStreamPhase = 'connect'; throw ae; }
+      var ne = new Error(e && e.message || 'fetch failed');
+      ne._pfStreamPhase = 'connect';
+      throw ne;
+    }
+    if (!res.ok) {
+      if (idle) clearTimeout(idle);
+      var t = '';
+      try { t = await res.text(); } catch (e) {}
+      return pfRes(t, false, res.status);
+    }
+    var ct = '';
+    try { ct = (res.headers.get('content-type') || '').toLowerCase(); } catch (e) {}
+    if (ct.indexOf('text/event-stream') < 0) {
+      // 网关忽略 stream:true → 退化为整包 JSON，取正文后整体回调一次
+      if (idle) clearTimeout(idle);
+      var raw = await res.text();
+      var full = '';
+      try {
+        var j = JSON.parse(raw);
+        full = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '';
+      } catch (e) {}
+      if (full && onChunk) { try { onChunk(full); } catch (e) {} }
+      return pfRes(full, true, res.status);
+    }
+    var fullText = '';
+    var parser = createSSEParser(function (d) { fullText += d; if (onChunk) { try { onChunk(d); } catch (e) {} } });
+    try {
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder('utf-8');
+      while (true) {
+        var step = await reader.read();
+        if (step.done) break;
+        armIdle();
+        var piece = decoder.decode(step.value, { stream: true });
+        if (piece) parser.feed(piece);
+      }
+      parser.feed(decoder.decode());
+      parser.end();
+    } catch (e) {
+      var re = new Error(abortReason || '流式读取中断：' + ((e && e.message) || e));
+      re._pfStreamPhase = 'read';
+      re._pfStreamGotData = fullText.length > 0;
+      if (fullText) re._pfStreamPartial = fullText;
+      throw re;
+    } finally {
+      if (idle) clearTimeout(idle);
+    }
+    return pfRes(fullText, true, res.status);
+  }
+
+  /** 桥接流式：经 content.js 长端口分片回传。仅网页版调用（直连失败后）。 */
+  function bridgeStream(url, options, onChunk) {
+    return new Promise(function (resolve, reject) {
+      var id = 'str' + (++_bridge.seq) + '_' + Date.now();
+      var settled = false;
+      var gotData = false;
+      var fullText = '';
+      var idle = null;
+      var ackTimer = null;
+      var ka = null;
+      var parser = createSSEParser(function (d) { fullText += d; if (onChunk) { try { onChunk(d); } catch (e) {} } });
+      function finish(err, res) {
+        if (settled) return;
+        settled = true;
+        if (idle) clearTimeout(idle);
+        if (ackTimer) clearTimeout(ackTimer);
+        delete _bridge.pending[id];
+        if (err) reject(err); else resolve(res);
+      }
+      function armIdle() {
+        if (idle) clearTimeout(idle);
+        idle = setTimeout(function () {
+          finish(new Error('生成空闲超时：' + Math.round(STREAM_IDLE_TIMEOUT_MS / 1000) + ' 秒未收到任何数据，已中止'));
+        }, STREAM_IDLE_TIMEOUT_MS);
+      }
+      // 通道支持探测：新版 content.js 收到请求立即回 ack；旧版无响应 → 5 秒后放弃，调用方可降级非流式
+      ackTimer = setTimeout(function () {
+        var err = new Error('桥接流式通道无响应（扩展版本过旧，请在 chrome://extensions 重新加载扩展）');
+        err._pfStreamUnsupported = true;
+        finish(err);
+      }, 5000);
+      if (options.signal) {
+        if (options.signal.aborted) { finish(new Error('已取消')); return; }
+        options.signal.addEventListener('abort', function () {
+          try {
+            bridgeTarget().postMessage({ source: 'linguaflow-page', type: 'bridge-abort', bridgeId: id }, '*');
+          } catch (e) {}
+          var err = new Error('已取消');
+          err._pfStreamGotData = gotData;
+          if (gotData) err._pfStreamPartial = fullText;
+          finish(err);
+        });
+      }
+      _bridge.pending[id] = function (msg) {
+        if (msg.event === 'ack') {
+          if (ackTimer) { clearTimeout(ackTimer); ackTimer = null; }
+          armIdle();
+        } else if (msg.event === 'chunk') {
+          gotData = true;
+          parser.feed(msg.text || '');
+        } else if (msg.event === 'json') {
+          // 网关忽略 stream:true，background 回传完整 JSON → 取正文整体回调一次
+          var full = '';
+          try {
+            var j = JSON.parse(msg.text || '');
+            full = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '';
+          } catch (e) {}
+          if (full && onChunk) { try { onChunk(full); } catch (e) {} }
+          finish(null, pfRes(full, true, msg.status || 200));
+        } else if (msg.event === 'http-error') {
+          finish(null, pfRes(msg.text || '', false, msg.status || 0));
+        } else if (msg.event === 'end') {
+          parser.end();
+          finish(null, pfRes(fullText, true, msg.status || 200));
+        } else if (msg.event === 'error') {
+          var err = new Error(msg.error || '桥接流式请求失败');
+          err._pfStreamPhase = 'read';
+          err._pfStreamGotData = gotData;
+          if (gotData) err._pfStreamPartial = fullText;
+          finish(err);
+        }
+      };
+      // SW 保活（v0.25.5）：长生成期间每 20s 经桥发一次心跳（content.js 转成 port/运行时消息），
+      // 重置 MV3 SW 空闲计时器，防止 background 在 fetch 完成前被回收导致通道中断
+      ka = setInterval(function () {
+        try { bridgeTarget().postMessage({ source: 'linguaflow-page', type: 'bridge-ka', bridgeId: id }, '*'); } catch (e) {}
+      }, 20000);
+      try {
+        bridgeTarget().postMessage({
+          source: 'linguaflow-page', type: 'bridge-fetch-stream', bridgeId: id,
+          url: url, method: options.method || 'GET', headers: options.headers || {}, body: options.body || ''
+        }, '*');
+      } catch (e) { finish(new Error('桥接不可用')); }
+    });
+  }
+
+  /**
+   * 流式跨域请求通道：与 proxyFetch 相同的「扩展直连 / 网页直连失败回落桥」策略。
+   * onChunk(deltaText) 每收到一段正文增量回调一次；返回 pfRes，ok 时 text() 为正文全文。
+   * 取消：options.signal（AbortController.signal）。错误携带 _pfStreamPhase（connect/read）、
+   * _pfStreamGotData / _pfStreamPartial（中途断流时的已收正文），供调用方降级与保留部分结果。
+   */
+  async function proxyFetchStream(url, options, onChunk) {
+    options = options || {};
+    if (isExtension()) return await directStream(url, options, onChunk);
+    try {
+      return await directStream(url, options, onChunk);
+    } catch (e) {
+      if (options.signal && options.signal.aborted) throw e;   // 用户主动取消，不重试
+      // 只有「连接都没建立」（CORS/断网/DNS）才值得改走桥；空闲超时、中途断流、
+      // 桥不支持流式等失败重发只会重复一次注定漫长的生成
+      if (!e || e._pfStreamPhase !== 'connect') throw e;
+      if (_bridge.available === null) _bridge.available = await bridgePing();
+      if (!_bridge.available) throw new Error('网络请求失败，请检查 Base URL 与网络连接');
+      return await bridgeStream(url, options, onChunk);
+    }
   }
 
   /** 记录跨端同步监听：任一端写入该记录键（chrome.storage 键名）时触发 cb(newValue)
@@ -698,9 +959,12 @@
     saveState: saveState,
     chat: chat,
     proxyFetch: proxyFetch,
+    proxyFetchStream: proxyFetchStream,
     onRecordSync: onRecordSync,
     isReasoningModel: isReasoningModel,
     buildUrl: buildUrl,
+    normalizeBaseUrl: normalizeBaseUrl,
+    getExtensionVersion: getExtensionVersion,
     OUTPUT_LANGS: OUTPUT_LANGS,
     getOutputLang: getOutputLang,
     parseNotes: parseNotes,

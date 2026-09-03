@@ -1,0 +1,6 @@
+Subject: [Test] Vendor email thread about Maple packs
+From: buyer@example.com  Wed, Sep 2, 2026
+To: engineer@example.com
+
+The 1,400pcs Maple packs show end cap cracking risk.
+Please confirm disposition by Friday and update the 8D report.

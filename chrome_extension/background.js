@@ -98,8 +98,73 @@ const RECORD_SYNC_KEYS = {
   ai_prompts_state: 'ai_prompts_state',     // AI 提示词状态
 };
 
+// ===== 网页版跨域代理桥·流式通道（v0.25.5） =====
+// content.js 经 chrome.runtime.connect 长端口发起流式请求（SSE），background 直连
+// fetch（host_permissions 免跨域）并以 reader 循环逐片回传。流式让字节持续流动：
+// 长生成（6 万字符 + 慢网关可达 10 分钟以上）不再因连接「安静」被网关/中间层掐断。
+// 事件：chunk（SSE 原始分片，页面侧统一解析）/ json（网关忽略 stream 的完整 JSON）/
+// http-error / end / error。页面侧取消经 {event:'abort'} → AbortController。
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'linguaflow:proxyFetchStream') return;
+  let started = false;
+  let ctrl = null;
+  const safePost = (m) => { try { port.postMessage(m); } catch (e) {} };
+
+  port.onMessage.addListener((msg) => {
+    if (!msg || !msg.bridgeId) return;
+    if (msg.event === 'abort') {
+      if (ctrl) { try { ctrl.abort(); } catch (e) {} }
+      return;
+    }
+    if (started) return;   // 一条端口只承载一次请求，忽略重复 start
+    started = true;
+    (async () => {
+      ctrl = new AbortController();
+      const bridgeId = msg.bridgeId;
+      try {
+        const r = await fetch(msg.url, {
+          method: msg.method || 'GET',
+          headers: msg.headers || {},
+          body: msg.method && msg.method !== 'GET' ? msg.body : undefined,
+          signal: ctrl.signal,
+        });
+        if (!r.ok) {
+          let t = '';
+          try { t = await r.text(); } catch (e) {}
+          safePost({ bridgeId, event: 'http-error', status: r.status, text: t });
+          return;
+        }
+        let ct = '';
+        try { ct = (r.headers.get('content-type') || '').toLowerCase(); } catch (e) {}
+        if (ct.indexOf('text/event-stream') < 0) {
+          // 网关忽略 stream:true → 整包 JSON 交页面侧统一提取正文
+          const t2 = await r.text();
+          safePost({ bridgeId, event: 'json', status: r.status, text: t2 });
+          return;
+        }
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        while (true) {
+          const step = await reader.read();
+          if (step.done) break;
+          safePost({ bridgeId, event: 'chunk', text: decoder.decode(step.value, { stream: true }) });
+        }
+        safePost({ bridgeId, event: 'end', status: r.status });
+      } catch (e) {
+        safePost({ bridgeId, event: 'error', error: (e && e.name === 'AbortError') ? '已取消' : ((e && e.message) || 'fetch failed') });
+      }
+    })();
+  });
+});
+
 // Handle messages from content script or popup
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // 桥接保活心跳（v0.25.5）：仅用于重置 SW 空闲计时器，立即应答
+  if (msg.action === 'linguaflow:ka') {
+    sendResponse({ ok: true });
+    return;
+  }
+
   // 网页版跨域代理桥（v0.23.0）：无 CORS 端点的请求经 background（host_permissions 免跨域）转发
   if (msg.action === 'linguaflow:proxyFetch') {
     (async () => {
@@ -203,6 +268,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
+// ===== 模型兼容小工具（与 ai-service.js 的 normalizeBaseUrl/isReasoningModel 保持同步；
+// SW 内无 window.AiService / localStorage，故内联纯函数） =====
+function lfNormalizeBaseUrl(baseUrl) {
+  let u = String(baseUrl || '').trim().replace(/[\u0000-\u0020\u007f\u3000]+/g, '').replace(/：/g, ':').replace(/／/g, '/');
+  while (u.endsWith('/')) u = u.slice(0, -1);
+  if (u.endsWith('/chat/completions')) u = u.slice(0, -1 * '/chat/completions'.length);
+  return u;
+}
+function lfIsReasoningModel(model) {
+  return /reasoner|reasoning|thinking|qwq|kimi-k3|deepseek-v4|(^|[^a-z0-9])o[134]($|[^0-9])/i.test(String(model || '').toLowerCase());
+}
+
 // ===== Harden：API 错误友好诊断（指明问题 + 给出恢复路径，不透传原始报错） =====
 function describeApiError(err) {
   const msg = String((err && err.message) || err || '');
@@ -265,21 +342,34 @@ Maintain consistent terminology throughout.
 
 Output ONLY the translated and formatted text.`;
 
-  const response = await fetch(`${config.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify({
+  // URL 归一化 + 推理模型参数自适应：与 AiService.chat() 同一模式
+  const url = lfNormalizeBaseUrl(config.baseUrl) + '/chat/completions';
+  const reasoning = lfIsReasoningModel(config.model);
+  async function translateReq(includeTemp) {
+    const body = {
       model: config.model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: text }
       ],
-      temperature: 0.3,
-    }),
-  });
+    };
+    if (!reasoning && includeTemp) body.temperature = 0.3;
+    return await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  let response = await translateReq(!reasoning);
+  // 部分推理模型收到 temperature 仍报 400 → 去参重试一次
+  if (!response.ok && !reasoning && response.status === 400) {
+    const errText = await response.text().catch(() => '');
+    if (/temperature/i.test(errText)) response = await translateReq(false);
+  }
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));

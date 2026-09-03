@@ -498,11 +498,13 @@
   // ===== 模型列表获取（GET {baseUrl}/models → datalist 自动补全） =====
   // 阿里云 Token Plan 等网关仅支持特定模型 ID（如 qwen3.6-flash，经典名 qwen-plus 会报 Model not exist）
   function fetchModels() {
-    var baseUrl = $('hnApiUrl').value.trim().replace(/\/+$/, '');
+    // 归一化复用 AiService.normalizeBaseUrl（清理全角「：／」/ 空白 / 误填重复端点），无 AiService 时退化为仅去尾斜杠
+    var _nb = (window.AiService && window.AiService.normalizeBaseUrl) ? window.AiService.normalizeBaseUrl : function (u) { return String(u || '').trim().replace(/\/+$/, ''); };
+    var baseUrl = _nb($('hnApiUrl').value);
     var apiKey = $('hnApiKey').value.trim();
     if (!baseUrl || !apiKey) {
       var cfg = (window.AiService && window.AiService.getConfig) ? window.AiService.getConfig() : {};
-      baseUrl = baseUrl || String(cfg.baseUrl || '').replace(/\/+$/, '');
+      baseUrl = baseUrl || _nb(cfg.baseUrl);
       apiKey = apiKey || String(cfg.apiKey || '');
     }
     if (!baseUrl || !apiKey) { showToast('请先填写 Base URL 与 API Key', 'error'); return; }

@@ -1,3 +1,8 @@
+// Google Fonts 异步启用：MV3 CSP 禁止 inline onload，改由 JS 在字体样式表加载完成后切换 media
+(function () {
+  var gf = document.getElementById('gfAsync');
+  if (gf) gf.addEventListener('load', function () { gf.media = 'all'; });
+})();
 // ===== Languages =====
 const LANGUAGES = [
   { code: 'zh', name: '中文', flag: '🇨🇳' },
@@ -216,28 +221,46 @@ After translation, automatically organize and format the output:
 Output ONLY the translated and formatted text. Do not add explanations, notes, or your analysis process.`;
 
   try {
-    const url = `${config.baseUrl}/chat/completions`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
+    // URL 归一化 + 推理模型参数自适应：与 AiService.chat()/email_summary 同一模式
+    const _as = window.AiService || {};
+    const url = _as.buildUrl ? _as.buildUrl(config.baseUrl) : config.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+    const reasoning = _as.isReasoningModel ? _as.isReasoningModel(config.model) : false;
+    const _pf = _as.proxyFetch || fetch;
+
+    async function translateReq(includeTemp) {
+      const body = {
         model: config.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: text }
         ],
-        temperature: 0.3,
-      }),
-    });
+      };
+      if (!reasoning && includeTemp) body.temperature = 0.3;
+      const response = await _pf(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.apiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const e = new Error(errData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+        e.status = response.status;
+        throw e;
+      }
+      return response;
+    }
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      const e = new Error(errData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
-      e.status = response.status;
-      throw e;
+    let response;
+    try {
+      response = await translateReq(!reasoning);
+    } catch (err) {
+      // 部分推理模型收到 temperature 仍报 400 → 去 temperature 无参重试一次
+      if (!reasoning && /temperature/i.test(String(err && err.message || ''))) {
+        response = await translateReq(false);
+      } else { throw err; }
     }
 
     const data = await response.json();

@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.25.3-blue)
+![Version](https://img.shields.io/badge/version-0.25.6-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -14,7 +14,7 @@
 ### 网页版
 
 - **30+ 语言互译** — 中文、英语、日语、韩语、法语、德语、西班牙语、俄语、阿拉伯语等全球常用语言
-- **灵活接入** — 支持任意兼容 OpenAI Chat Completions 接口的大模型（OpenAI、DeepSeek、通义千问等）
+- **灵活接入** — 支持任意兼容 OpenAI Chat Completions 接口的大模型（OpenAI、DeepSeek、通义千问、智谱 GLM/编码计划、月之暗面 Kimi、阿里云百炼 Token Plan、Ollama 等）；全模块统一 URL 归一化与推理模型参数自适应，详见「模型兼容性说明」
 - **深度上下文翻译** — AI 翻译前执行 5 步深度分析（领域识别→文体判断→语气分析→受众定位→意图理解），译文更精准自然
 - **原始格式保留** — 完整保留 Markdown、HTML、代码块等原始格式，翻译后自动整理排版
 - **Chrome 扩展全屏模式** — Popup 右上角新增「全屏按钮」，点击后在新标签页打开完整翻译界面（无高度限制）
@@ -33,6 +33,7 @@
 - **任务清单** — 内置任务管理模块，支持添加/完成/删除任务、优先级标记、进度统计、Markdown 批量导入/导出（含 checkbox 语法）、Apple 提醒事项一键导入（URL Scheme 点击即运行 + AppleScript 文件备用）、Google Calendar 同步、.ics 日历下载
 - **英语学习助手** — 内置英语学习模块，支持单词学习、AI 释义、语音发音、学习历史、笔记导出
 - **邮件总结** — 新增第 5 个 Tab：粘贴邮件线程或上传本地文件（.txt/.md/.eml/.pdf），AI 按专业规范输出四段式详细总结（主题背景/时间线表格/技术要点/风险注意点）+ 按责任方分解的 To Do List（P0/P1/P2 优先级），支持 30 种语言输出、HTML/Markdown 下载、历史记录查阅与编辑
+  - **一次性输出（v0.25.6）** — 总结等待完整结果后整体渲染，不逐行上屏；等待期间显示耗时，可随时取消（直连通道）
   - **PDF 解析** — 内置 pdf.js 本地解析（最大 200MB），超大文件自动处理：读取进度提示、文本预算/页数上限提前终止、逐页内存释放
   - **超长内容自动截取** — 超过 6 万字符自动保留首尾、省略中间并标注，无需手动拆分
 - **AI 解析** — 新增第 6 个 Tab：经典模式（粘贴笔记/需求 → AI 抽取任务清单，可勾选后批量创建到待办，含优先级/标签/子步骤）+ 分析模式（填写需求说明或上传附件 → AI 生成结构化分析总结，支持 .eml 邮件线程自动识别），结果可复制 / 下载 Markdown / HTML
@@ -102,8 +103,9 @@
 | DeepSeek | `https://api.deepseek.com/v1` | `deepseek-v4-pro` | ✅ 开放 |
 | 通义千问（标准 API） | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus`, `qwq-32b` | ✅ 开放 |
 | 智谱 AI | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | ✅ 开放 |
-| 月之暗面 | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` | ✅ 开放 |
-| 阿里云百炼 **Token Plan** | 专属网关地址（**不是**上面的 compatible-mode） | 网关专属 ID，如 `qwen3.7-plus` | ❌ 未开放 |
+| 智谱 **编码计划**（Coding Plan） | `https://open.bigmodel.cn/api/coding/paas/v4` | `glm-4.6` 等编码计划专属模型 | 未实测（多级路径，`buildUrl` 已归一化） |
+| 月之暗面 | `https://api.moonshot.cn/v1` | `moonshot-v1-8k`, `kimi-k3` | ✅ 开放（预检） |
+| 阿里云百炼 **Token Plan** | 专属网关地址（**不是**上面的 compatible-mode） | 网关专属 ID，如 `qwen3.6-flash`, `qwen3.7-plus` | ❌ 未开放 |
 
 > 任何兼容 OpenAI `/chat/completions` 接口的服务均可使用。
 > 「浏览器跨域」为 2026-09-03 实测：向各端点发送 CORS 预检与带无效 Key 的实际 POST，检查响应头 `Access-Control-Allow-Origin`。月之暗面仅验证了预检。
@@ -117,6 +119,22 @@
 
 > 经代理桥时单次请求受页面侧超时约束（v0.25.4 起为 600 秒）；扩展内页面直连无此限制。超长 PDF 总结优先用扩展内页面更稳妥。
 > 注意：千问**标准 API** 与 **Token Plan 网关**是两个不同的端点，前者网页版可直接使用，后者必须装扩展。
+
+### 模型兼容性说明（v0.25.5 起）
+
+凡提供 OpenAI 兼容 `/chat/completions` 接口的模型，**全部 8 个模块统一可用**，由三道通用机制保障：
+
+1. **URL 归一化** — 所有 AI 调用点统一经 `buildUrl`/`normalizeBaseUrl`：自动清理全角「：／」（中文输入法误输）、尾斜杠、误粘贴的重复 `/chat/completions`，智谱 `/api/paas/v4`、编码计划 `/api/coding/paas/v4` 这类多级路径不再 404
+2. **推理模型参数自适应** — 名字含 `reasoner`/`reasoning`/`thinking`/`qwq`/`kimi-k3`/`deepseek-v4`/`o1·o3·o4` 的模型自动不发送 `temperature`/`max_tokens`
+3. **400 去参重试** — 网关报错含 "temperature" 时自动去掉参数重试一次（正则漏判时的兜底）
+
+**专属网关（Token Plan / 编码计划）只认特定模型 ID**（如 `qwen3.6-flash`），填经典名会报 Model not exist——用 API 设置面板或热点雷达的「**获取模型列表**」按钮自动补全（请求 `{Base URL}/models`，网页版经代理桥同样可用）。
+
+已知边界：
+
+- 仅支持 OpenAI 兼容协议；Anthropic `/messages`、Gemini 原生接口等不兼容协议不支持
+- 所有模块均为一次性输出（v0.25.6 起邮件总结撤销流式上屏）；网页版非流式请求走代理桥时受 600 秒总超时约束——开放跨域的端点（DeepSeek / 智谱 / 千问标准 API）浏览器直连无此限制
+- 发送给 AI 的内容上限 6 万字符（超长自动截取首尾）；扫描件/图片型 PDF 无法提取文本（需先 OCR）
 
 ## ⌨️ 快捷键
 
@@ -253,6 +271,17 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.25.6 (2026-09-03)
+- **变更：邮件总结恢复一次性输出** — 应用户反馈撤销 v0.25.5 的流式逐行上屏：总结改为非流式请求，等待完整结果后一次性渲染；等待期间仅显示耗时（「生成中… 已用时 Xs」），取消按钮保留（直连通道可取消）。URL 归一化、推理模型参数自适应、400 去参重试、SW 保活心跳等 v0.25.5 兼容性修复全部保留。流式基础设施（`proxyFetchStream` 与桥接分片协议）保留但休眠，无任何模块使用，对其他 7 个模块零影响。
+
+### v0.25.5 (2026-09-03)
+- **修复：邮件总结超长 PDF「API 服务无法访问」** — 网页版 + Token Plan 等慢网关时，6 万字符的**非流式**生成常需 10 分钟以上：连接长期无字节流动会被网关/中间层当作空闲连接掐断，或先撞上页面侧 600 秒桥接总超时。现邮件总结改走 **SSE 流式**：字节持续流动从根本上避免连接被掐，以「180 秒空闲超时」取代总超时，生成过程实时上屏（已接收 N 字 · 用时）并支持**一键取消**；桥接链路新增分片传输通道（`bridge-fetch-stream` 长端口，background 流式转发），任一分片前失败自动降级回非流式旧路径（600s 兜底），中断时保留已生成部分。
+- **修复：扩展端邮件总结「无法加载文件」** — 根因是 `english_learning` 的 storage 适配器把 chrome.storage 的**对象**未经序列化写进 localStorage（变成字符串 `"[object Object]"`），且其监听器覆盖所有同步键，毒化了扩展全部页面共享的 localStorage；邮件总结页顶层的 `JSON.parse` 无防护直接崩掉整个模块，所有按钮（含「选择本地文件」）失效。修复：污染源改为序列化写入；邮件总结/智能翻译/英语学习的历史与配置读取全部加容错解析（脏数据安全降级，不再崩页面）。**提示：更新代码后需在 chrome://extensions 点击「重新加载」**；manifest 版本号已从 0.20.0 同步到 0.25.5，便于确认加载的是新副本。
+- **全模型兼容统一** — 此前 URL 归一化与推理模型参数自适应只覆盖 AI 解析/提示词/热点雷达/邮件总结，本版推广到剩余全部 AI 调用点：智能翻译（index.html / 扩展弹窗后台 / 全屏页 / 划词翻译）、工作报告（两份）、英语学习（两份）。统一内容：`buildUrl` 归一化（全角「：／」、尾斜杠、误填重复端点——智谱多级路径 / Token Plan 最易踩）；`isReasoningModel` 门控（deepseek-reasoner / qwq / thinking 等不再发送 temperature / max_tokens）；400 报错含 temperature 时自动去参重试一次。
+- **修复**：英语学习「测试连接」使用了不存在的 `response.textAsync()` 导致必然失败；扩展版热点雷达 3 处把响应包装的 `text` 方法当属性用（桥接/必应搜索/模型列表路径）；5 个扩展页面的 Google Fonts `onload` 内联事件被 MV3 CSP 拦截（改由 JS 切换，控制台不再报错）。
+- **新增：主设置面板「获取模型列表」** — index.html 的 API 设置面板新增该按钮（与热点雷达同模式）：请求 `{Base URL}/models` 自动补全模型 ID，Token Plan / 智谱编码计划等只认专属模型 ID 的网关直接受益；模型列表请求经代理桥，无 CORS 端点网页版同样可用。
+- **新增 `tests/`**：`stream-and-url.test.mjs`（虚拟沙箱验证 URL 归一化、SSE 分块截断/CRLF/[DONE]/reasoning_content、桥接流式分片/取消/降级）、`pdf-parse.test.mjs`（用页面同一份 pdf.js 验证 PDF 提取管线）。
 
 ### v0.25.4 (2026-09-03)
 - **修复：邮件总结超长 PDF 报「桥接请求超时」** — 网页版经代理桥调用无 CORS 端点（如阿里云 Token Plan）时，页面侧超时原为 **120 秒**（`ai-service.js` 的 `bridgeFetch`）。而 PDF 邮件线程最多会发送 6 万字符（`email_summary.js:376`），慢网关非流式生成常需数分钟，于是在正常返回前就被误判超时。现放宽为 **600 秒**（网页版与扩展版两份 `ai-service.js` 同步修改）。DeepSeek 等开放跨域的端点直连成功、根本不走桥，因此此前只有 Token Plan 暴露该问题。

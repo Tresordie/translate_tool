@@ -38,7 +38,12 @@
             chrome.storage.onChanged.addListener(function(changes) {
               Object.keys(changes).forEach(function(k) {
                 if (changes[k].newValue !== undefined) {
-                  try { window.localStorage.setItem(k, changes[k].newValue); } catch(e) {}
+                  // chrome.storage 的值可能是对象，必须序列化后写入 localStorage，
+                  // 否则存成 "[object Object]" 会毒化共享 origin 的其他模块（JSON.parse 崩溃）
+                  try {
+                    var nv = changes[k].newValue;
+                    window.localStorage.setItem(k, typeof nv === 'string' ? nv : JSON.stringify(nv));
+                  } catch(e) {}
                 }
               });
             });
@@ -118,22 +123,24 @@
             testBtn.disabled = true;
 
             try {
-                const _pf = (window.AiService && window.AiService.proxyFetch) || fetch;
-                const response = await _pf(`${apiUrl}/chat/completions`, {
+                // URL 归一化 + 推理模型参数自适应：与 AiService.chat() 同一模式（推理模型不发送 max_tokens）
+                const _as = window.AiService || {};
+                const _url = _as.buildUrl ? _as.buildUrl(apiUrl) : apiUrl.replace(/\/+$/, '') + '/chat/completions';
+                const _reasoning = _as.isReasoningModel ? _as.isReasoningModel(modelName) : false;
+                const _pf = _as.proxyFetch || fetch;
+                const reqBody = { model: modelName, messages: [{ role: 'user', content: 'Hello! Connection test.' }] };
+                if (!_reasoning) reqBody.max_tokens = 50;
+                const response = await _pf(_url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${apiKey}`
                     },
-                    body: JSON.stringify({
-                        model: modelName,
-                        messages: [{ role: 'user', content: 'Hello! Connection test.' }],
-                        max_tokens: 50
-                    })
+                    body: JSON.stringify(reqBody)
                 });
-                
+
                 if (!response.ok) {
-                    const errorText = await response.textAsync();
+                    await response.text();
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
@@ -254,7 +261,7 @@
                         var needsReload = false;
                         ['apiConfig', 'englishLearningData', 'learningHistory'].forEach(function(k) {
                             if (data[k] !== undefined && !localStorage.getItem(k)) {
-                                localStorage.setItem(k, data[k]);
+                                localStorage.setItem(k, typeof data[k] === 'string' ? data[k] : JSON.stringify(data[k]));
                                 needsReload = true;
                             }
                         });
@@ -365,7 +372,8 @@
         }
 
         function loadFromStorage() {
-            const data = JSON.parse(localStorage.getItem('englishLearningData'));
+            let data = null;
+            try { data = JSON.parse(localStorage.getItem('englishLearningData')); } catch(e) { data = null; }
             if (data) {
                 wordEditor.setMarkdown(data.wordInput || '');
                 if (data.resultSectionVisible && data.resultContent) {
@@ -376,7 +384,10 @@
         }
 
         function getHistory() {
-            return JSON.parse(localStorage.getItem('learningHistory') || '[]');
+            try {
+                const h = JSON.parse(localStorage.getItem('learningHistory') || '[]');
+                return Array.isArray(h) ? h : [];
+            } catch(e) { return []; }
         }
 
         function saveHistory(item) {
@@ -472,26 +483,39 @@
             document.getElementById('resultSection').style.display = 'none';
 
             try {
-                const _pf = (window.AiService && window.AiService.proxyFetch) || fetch;
-                const response = await _pf(`${apiUrl}/chat/completions`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify({
+                // URL 归一化 + 推理模型参数自适应：与 AiService.chat() 同一模式
+                const _as = window.AiService || {};
+                const _url = _as.buildUrl ? _as.buildUrl(apiUrl) : apiUrl.replace(/\/+$/, '') + '/chat/completions';
+                const _reasoning = _as.isReasoningModel ? _as.isReasoningModel(modelName) : false;
+                const _pf = _as.proxyFetch || fetch;
+                async function wordReq(includeTemp) {
+                    const body = {
                         model: modelName,
                         messages: [
                             { role: 'system', content: '你是专业的英语教学助手，请用JSON格式返回结果。' },
                             { role: 'user', content: `请为"${word}"提供: 1.音标(英美) 2.词性 3.中英文释义 4.用法 5.3-5个例句 6.同义词 7.反义词 8.记忆技巧。JSON格式: {"word":"","phonetic_uk":"","phonetic_us":"","part_of_speech":"","chinese_meaning":"","english_definition":"","usage":"","examples":[{"en":"","zh":""}],"synonyms":[],"antonyms":[],"memory_tip":""}` }
-                        ],
-                        temperature: 0.7
-                    })
-                });
+                        ]
+                    };
+                    if (!_reasoning && includeTemp) body.temperature = 0.7;
+                    return await _pf(_url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify(body)
+                    });
+                }
+                let res = await wordReq(!_reasoning);
+                let resText = await res.text();
+                // 部分推理模型收到 temperature 仍报 400 → 去参重试一次
+                if (!res.ok && !_reasoning && res.status === 400 && /temperature/i.test(resText)) {
+                    res = await wordReq(false);
+                    resText = await res.text();
+                }
+                if (!res.ok) throw new Error(`API请求失败: ${res.status}${resText ? ': ' + resText.slice(0, 150) : ''}`);
 
-                if (!response.ok) throw new Error(`API请求失败: ${response.status}`);
-
-                const data = await response.json();
+                const data = JSON.parse(resText);
                 const content = data.choices[0].message.content;
                 
                 let result;

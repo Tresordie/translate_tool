@@ -3,6 +3,18 @@
 (function() {
   'use strict';
 
+  // ===== 模型兼容小工具（与 ai-service.js 的 normalizeBaseUrl/isReasoningModel 保持同步；
+  // content script 与页面隔离，无 window.AiService，故内联纯函数） =====
+  function lfNormalizeBaseUrl(baseUrl) {
+    let u = String(baseUrl || '').trim().replace(/[\u0000-\u0020\u007f\u3000]+/g, '').replace(/：/g, ':').replace(/／/g, '/');
+    while (u.endsWith('/')) u = u.slice(0, -1);
+    if (u.endsWith('/chat/completions')) u = u.slice(0, -1 * '/chat/completions'.length);
+    return u;
+  }
+  function lfIsReasoningModel(model) {
+    return /reasoner|reasoning|thinking|qwq|kimi-k3|deepseek-v4|(^|[^a-z0-9])o[134]($|[^0-9])/i.test(String(model || '').toLowerCase());
+  }
+
   let config = null;
   let triggerEl = null;
   let tooltipEl = null;
@@ -80,34 +92,110 @@
   // 页面（index.html / hotnews.html 等）→ postMessage → 此处 → chrome.runtime → background
   // 注意：content script 默认只注入顶层帧，因此桥请求（发往 window.top）由本监听处理，
   // 回包必须发往 e.source（发起请求的帧，可能是 index.html 里的 iframe），而非本帧 window。
+  const streamPorts = {};   // bridgeId → 长端口（流式桥接，v0.25.5）
+
+  // MV3 SW 可能在应答前被终止（「message channel closed」）。此处自动重发一次——
+  // sendMessage 会重新唤醒 SW，第二次通常落在健康的 SW 实例上。上下文失效（扩展被
+  // 重载/更新后旧 content script 存活）时同步抛错，直接回报明确错误。
+  function lfSendRuntime(msg, onDone) {
+    let settled = false;
+    const attempt = (retried) => {
+      try {
+        chrome.runtime.sendMessage(msg, (res) => {
+          const le = chrome.runtime.lastError;   // 必须读取，否则控制台报未检查
+          if (settled) return;
+          if (!retried && !res && le && /message channel closed|message port closed/i.test(le.message || '')) {
+            setTimeout(() => attempt(true), 150);
+            return;
+          }
+          settled = true;
+          onDone({ res: res, error: (le && le.message) || '' });
+        });
+      } catch (err) {
+        if (settled) return;
+        settled = true;
+        onDone({ res: null, error: (err && err.message) || 'bridge unavailable' });
+      }
+    };
+    attempt(false);
+  }
+
   window.addEventListener('message', (e) => {
     const d = e.data;
     if (!d || d.source !== 'linguaflow-page') return;
 
-    // 桥可用性探测：回给发起帧
+    // 桥可用性探测：回给发起帧（附带扩展版本，供页面诊断「扩展副本过旧」）
     if (d.type === 'bridge-ping' && d.bridgeId) {
-      try { e.source.postMessage({ source: 'linguaflow-extension', bridgeId: d.bridgeId }, '*'); } catch (err) { /* ignore */ }
+      let v = '';
+      try { v = chrome.runtime.getManifest().version; } catch (err) { /* ignore */ }
+      try { e.source.postMessage({ source: 'linguaflow-extension', bridgeId: d.bridgeId, extVersion: v }, '*'); } catch (err) { /* ignore */ }
       return;
     }
 
     // 代理请求：background fetch（host_permissions 免跨域）后回给发起帧
     if (d.type === 'bridge-fetch' && d.bridgeId && d.url) {
+      lfSendRuntime(
+        { action: 'linguaflow:proxyFetch', url: d.url, method: d.method, headers: d.headers, body: d.body },
+        ({ res, error }) => {
+          try {
+            e.source.postMessage({
+              source: 'linguaflow-extension', bridgeId: d.bridgeId,
+              ok: !!(res && res.ok), status: (res && res.status) || 0,
+              text: (res && res.text) || '', error: (res && res.error) || error
+            }, '*');
+          } catch (err) { /* ignore */ }
+        }
+      );
+      return;
+    }
+
+    // 流式代理请求（v0.25.5）：长端口分片中继。收到请求先回 ack 供页面探测通道支持，
+    // 之后 background 的 chunk/json/http-error/end/error 事件原样回传发起帧。
+    if (d.type === 'bridge-fetch-stream' && d.bridgeId && d.url) {
+      try { e.source.postMessage({ source: 'linguaflow-extension', bridgeId: d.bridgeId, stream: true, event: 'ack' }, '*'); } catch (err) { /* ignore */ }
       try {
-        chrome.runtime.sendMessage(
-          { action: 'linguaflow:proxyFetch', url: d.url, method: d.method, headers: d.headers, body: d.body },
-          (res) => {
-            try {
-              e.source.postMessage({
-                source: 'linguaflow-extension', bridgeId: d.bridgeId,
-                ok: !!(res && res.ok), status: (res && res.status) || 0,
-                text: (res && res.text) || '', error: (res && res.error) || ''
-              }, '*');
-            } catch (err) { /* ignore */ }
-          }
-        );
+        const port = chrome.runtime.connect({ name: 'linguaflow:proxyFetchStream' });
+        streamPorts[d.bridgeId] = port;
+        port.onMessage.addListener((m) => {
+          if (!m || m.bridgeId !== d.bridgeId) return;
+          try {
+            e.source.postMessage({
+              source: 'linguaflow-extension', bridgeId: d.bridgeId, stream: true,
+              event: m.event, text: m.text, status: m.status, error: m.error
+            }, '*');
+          } catch (err) { /* ignore */ }
+        });
+        port.onDisconnect.addListener(() => {
+          const le = chrome.runtime.lastError;
+          try {
+            e.source.postMessage({
+              source: 'linguaflow-extension', bridgeId: d.bridgeId, stream: true, event: 'error',
+              error: (le && le.message) ? ('桥接流式通道中断：' + le.message) : '桥接流式通道中断'
+            }, '*');
+          } catch (err) { /* ignore */ }
+          delete streamPorts[d.bridgeId];
+        });
+        port.postMessage({ bridgeId: d.bridgeId, url: d.url, method: d.method || 'GET', headers: d.headers || {}, body: d.body || '' });
       } catch (err) {
-        try { e.source.postMessage({ source: 'linguaflow-extension', bridgeId: d.bridgeId, ok: false, status: 0, text: '', error: 'bridge unavailable' }, '*'); } catch (e2) { /* ignore */ }
+        try { e.source.postMessage({ source: 'linguaflow-extension', bridgeId: d.bridgeId, stream: true, event: 'error', error: 'bridge unavailable' }, '*'); } catch (e2) { /* ignore */ }
       }
+      return;
+    }
+
+    // 桥接保活（v0.25.5）：长生成期间页面定期心跳 → 转成 port 消息/运行时消息唤醒 SW，
+    // 重置 MV3 SW 空闲计时器，防止 background 在 fetch 完成前被回收导致「通道关闭」
+    if (d.type === 'bridge-ka' && d.bridgeId) {
+      if (streamPorts[d.bridgeId]) {
+        try { streamPorts[d.bridgeId].postMessage({ bridgeId: d.bridgeId, event: 'ka' }); } catch (err) { /* ignore */ }
+      } else {
+        try { chrome.runtime.sendMessage({ action: 'linguaflow:ka' }, function () { void chrome.runtime.lastError; }); } catch (err) { /* ignore */ }
+      }
+      return;
+    }
+
+    // 流式取消：background 侧 AbortController 中止 fetch
+    if (d.type === 'bridge-abort' && d.bridgeId && streamPorts[d.bridgeId]) {
+      try { streamPorts[d.bridgeId].postMessage({ bridgeId: d.bridgeId, event: 'abort' }); } catch (err) { /* ignore */ }
       return;
     }
 
@@ -321,21 +409,34 @@ Preserve ALL original formatting: Markdown, HTML tags, line breaks, special char
 Output ONLY the translated and formatted text.`;
 
     try {
-      const response = await fetch(`${config.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey}`,
-        },
-        body: JSON.stringify({
+      // URL 归一化 + 推理模型参数自适应：与 AiService.chat() 同一模式（小工具见文件顶部）
+      const url = lfNormalizeBaseUrl(config.baseUrl) + '/chat/completions';
+      const reasoning = lfIsReasoningModel(config.model);
+      async function translateReq(includeTemp) {
+        const body = {
           model: config.model,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: text }
           ],
-          temperature: 0.3,
-        }),
-      });
+        };
+        if (!reasoning && includeTemp) body.temperature = 0.3;
+        return await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.apiKey}`,
+          },
+          body: JSON.stringify(body),
+        });
+      }
+
+      let response = await translateReq(!reasoning);
+      // 部分推理模型收到 temperature 仍报 400 → 去参重试一次
+      if (!response.ok && !reasoning && response.status === 400) {
+        const errText = await response.text().catch(() => '');
+        if (/temperature/i.test(errText)) response = await translateReq(false);
+      }
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
