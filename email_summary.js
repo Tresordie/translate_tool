@@ -488,6 +488,11 @@
     if (/Failed to fetch|NetworkError|Load failed|timeout/i.test(msg)) {
       return '无法连接 API：网络异常，或浏览器拦截了跨域请求（CORS）。可改用 Chrome 扩展版（无跨域限制），或换用支持跨域的 API 服务';
     }
+    // status===0 / 「HTTP 0」/ 桥接代理失败 → 请求根本没到达目标服务器
+    //（不是 Token Plan 的参数/模型名问题，而是 Base URL 域名连不上、未装扩展、或桥未注入本页）
+    if ((st === 0) || /HTTP\s*0\b|代理请求失败|桥接/.test(msg)) {
+      return 'API 服务无法访问：请确认 Base URL 域名正确且网络可达；若为无 CORS 端点（如 Token Plan），需在 Chrome 安装并启用本扩展后重试（网页版必须经扩展代理桥）';
+    }
     return msg || '未知错误，请稍后重试';
   }
 
