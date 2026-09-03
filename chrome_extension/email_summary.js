@@ -413,34 +413,49 @@
     setLoading(true);
     const startedAt = Date.now();
 
-    try {
-      const url = config.baseUrl + '/chat/completions';
+    const _as = window.AiService || {};
+    const _pf = _as.proxyFetch || fetch;
+    // URL 归一化：与 AiService.chat() 一致地清理全角「：／」、尾斜杠、误填的重复 /chat/completions，
+    // 否则同一份配置在 AI 解析能用、在邮件总结却 404/网络错误（尤其智谱多级路径、Token Plan）。
+    const buildingUrl = _as.buildUrl ? _as.buildUrl(config.baseUrl) : config.baseUrl + '/chat/completions';
+    // 推理模型（qwq / reasoning 等）拒绝 temperature / max_tokens → 自动去参重试一次。
+    const reasoning = _as.isReasoningModel && _as.isReasoningModel(config.model);
+
+    async function sendEmailReq(includeTemp) {
+      const body = { model: config.model, messages: [] };
+      if (!reasoning && includeTemp) body.temperature = 0.3;
+      body.messages.push({ role: 'system', content: SKILL_PROMPT });
+      body.messages.push({
+        role: 'user',
+        content: '请使用' + LANG_NAMES[lang] + '输出。以下是邮件内容，请按规范输出四段式详细总结与 To Do List：\n\n' + trunc.text,
+      });
       // 经 AiService.proxyFetch：网页直连失败时自动走扩展代理桥（Token Plan 等无 CORS 端点也可用）
-      const _pf = (window.AiService && window.AiService.proxyFetch) || fetch;
-      const response = await _pf(url, {
+      const res = await _pf(buildingUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + config.apiKey,
         },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [
-            { role: 'system', content: SKILL_PROMPT },
-            {
-              role: 'user',
-              content: '请使用' + LANG_NAMES[lang] + '输出。以下是邮件内容，请按规范输出四段式详细总结与 To Do List：\n\n' + trunc.text,
-            },
-          ],
-          temperature: 0.3,
-        }),
+        body: JSON.stringify(body),
       });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        const e = new Error(errText.slice(0, 200) || ('HTTP ' + response.status));
-        e.status = response.status;
+      if (!res.ok) {
+        const errText = await res.text();
+        const e = new Error(errText.slice(0, 200) || ('HTTP ' + res.status));
+        e.status = res.status;
         throw e;
+      }
+      return res;
+    }
+
+    try {
+      let response;
+      try {
+        response = await sendEmailReq(!reasoning);
+      } catch (err) {
+        // 部分推理模型收到 temperature 仍报 400 → 去 temperature 无参重试一次
+        if (!reasoning && /temperature/i.test(String(err && err.message || ''))) {
+          response = await sendEmailReq(false);
+        } else { throw err; }
       }
 
       const data = await response.json();

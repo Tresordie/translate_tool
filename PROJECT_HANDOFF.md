@@ -78,14 +78,19 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 主标题字体为 **Sora**（Google Fonts，与 Syne/Jakarta/Inter 一并异步加载）；Side Panel 因 v0.18.0 起刻意移除 Google Fonts 依赖，改用系统级字体栈。
 
 ### 3.7 AI 服务层（`ai-service.js`）
-507 行（网页版）/ 524 行（扩展版），IIFE 封装暴露 `window.AiService`：
+706 行（网页版）/ 723 行（扩展版），IIFE 封装暴露 `window.AiService`：
 - `initConfigSync()` — 配置读写 + 监听插件广播
-- `chat({messages, options})` — OpenAI 兼容 chat/completions（reasoning 模型自动省略 temperature）
+- `chat({messages, options})` — OpenAI 兼容 chat/completions（内部经 `buildUrl()` 归一化地址、经 `proxyFetch()` 走跨域通道）
+- `proxyFetch(url, options)` — **跨域请求通道，各页面统一入口**（详见 §3.10）；返回值 Response 兼容 `ok/status/text()/json()`
+- `buildUrl(baseUrl)` — **唯一做了地址归一化的地方**：清理控制字符与空白、全角「：」「／」、尾斜杠、以及用户误填的重复 `/chat/completions`。⚠️ 目前只有 `chat()` 用它，其余模块裸拼接（见 §6）
+- `isReasoningModel(model)` — 匹配 `reasoner|reasoning|thinking|qwq|kimi-k3|deepseek-v4|o1/o3/o4`；命中则省略 `temperature`/`max_tokens`，且 400 报错含 temperature 时自动去参重试一次。⚠️ **只有 `chat()` 用得上**（见 §6）
 - `parseNotes(text, mode)` — AI 解析：经典模式（任务抽取）
 - `analyzeContent(text, opts)` — AI 解析：分析模式（结构化总结，含邮件 playbook）
 - `generatePrompt(text)` — AI 提示词生成
 - `extractPromptBody(fullText)` — 从 AI 输出中提取纯提示词正文
-- `writeTodoItems(items)` — 把 AI 解析出的任务写入待办（`todo_items` + chrome.storage 双通道）
+- `onRecordSync(key, cb)` — 跨端记录同步监听（v0.25.2）
+- `loadState(key)` / `saveState(key, value)` — 页面状态双通道持久化（扩展 chrome.storage.local / 网页 localStorage）
+- `createTodos(tasks)` — 把 AI 解析出的任务写入待办（`todo_items`，P0/P1→high、P3→low）
 
 ### 3.8 页面 UI 精修层架构（v0.20.0，⚠️ v0.21.0 已被单一连贯样式层取代）
 
@@ -108,14 +113,26 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 `hotnews.html/js`（两份副本，JS 逐字一致、HTML 仅字体加载差异）：
 - **候选来源（v0.24.0 双层）**：① 热榜层 = 60s 综合榜（6 板块）∪ UApi 全板块（**14 板块**：weibo/zhihu/baidu/douyin/bilibili/toutiao/ithome/36kr/sspai/qq-news/hupu/weread/juejin/thepaper），并行合并去重；② **必应搜索层** = 每张卡片刷新时以提示词为查询词请求 `https://www.bing.com/search?q={prompt}&format=rss&setmkt=zh-CN`（标准 RSS 10 条，无 CORS 头 → 扩展内直连、网页经 proxyFetch 走桥；5 分钟按提示词缓存，失败重试一次后降级为纯热榜模式）。两层合并（搜索结果在前）→ AI 筛选。
 - **AI 归类**：候选池（每板块前 12 条）+ 卡片提示词 → `AiService.chat()`，严格筛选（宁缺毋滥，不足 10 条返回实际数量，每条附 reason）+ `extractJsonItems()` 容错解析（AI 异常自动重试一次）。配置复用 ai-service.js 同步机制；页面自带「大模型接口」配置子区（经 `AiService.saveConfig` 双写 localStorage translate_config 与 chrome.storage config，v0.23.0 起网页保存还会经 content.js 中继写 chrome.storage 实现全端双向同步），未配置时自动展开，保存后自动重试失败卡片。
-- **跨域代理桥（v0.23.0/v0.23.1）**：`AiService.proxyFetch()` —— 扩展页面直连；网页直连失败时经 postMessage → content.js → background（host_permissions 免跨域）转发。⚠️ **桥消息必须发往 `window.top`**（content script 默认不注入 iframe，manifest 未开 all_frames），content.js 回包用 **e.source**（发起帧）——嵌在 index.html 里的 iframe 页面（热点雷达等）依赖此路由。chat / 热点雷达模型列表 / UApi 热榜（「UApi桥接」通道）均已接入。
+- **跨域代理桥**：chat / 模型列表 / UApi 热榜（「UApi桥接」通道）均经 `AiService.proxyFetch()`，架构与排查要点见 **§3.10**。
 - **存储键**：`hn_cards`（扩展 chrome.storage.local / 网页 localStorage，含 id/name/prompt/items/updatedAt）；跨页同步监听同 todolist 模式。
 - **记录全端双向同步（v0.25.0）**：映射表 `RECORD_SYNC_KEYS` 在 background.js（chrome.storage 键 ↔ 网页 localStorage 键，覆盖 td_/wr_ 前缀及 popup 的 history/draft 命名差异）。网页适配器写入后 postMessage `save-record` → content.js → background 写 chrome.storage；扩展写入 → background onChanged 广播 `linguaflow:syncRecord` → 各标签页 content.js 写对应 localStorage → 页面既有 storage 监听自动刷新。**新增需同步的记录：在映射表加一行 + 适配器写入处加一条 postMessage 即可。** 实时刷新仅覆盖已有 storage 监听的页面（任务清单/热点雷达/智能翻译历史），其余模块为落盘同步（刷新可见）。
+
+### 3.10 网页版跨域代理桥（v0.23.0 引入，超时策略 v0.25.4 修订）
+
+无 CORS 头的端点（**阿里云 Token Plan 专属网关**）在网页版会被浏览器拦截。若用户已装本扩展，请求可经 background 转发：
+`页面 postMessage → content.js → chrome.runtime → background fetch（host_permissions 免跨域）→ 原路返回`。
+
+- **入口** `AiService.proxyFetch(url, options)`：扩展页面（能读到 `chrome.storage`）直连；网页版先直连，**仅网络层失败才回落到桥**。因此开放 CORS 的端点（DeepSeek / 千问标准 API / 智谱 / 月之暗面，2026-09-03 实测均返回 `Access-Control-Allow-Origin`）**永远不会走桥**——这是「同一份配置换个模型就正常」类反馈的首要排查方向。
+- **`bridge-ping` 由 content.js 直接应答，不经过 background**。ping 成功只证明 content script 已注入，**不证明 SW 健康**，排查时别被误导。
+- 桥消息发往 `window.top`（content script 默认只注入顶层帧），回包用 `e.source` 定位发起帧，故 index.html 内的 iframe 子页面同样能走桥（v0.23.1）。
+- **超时**：`bridgeFetch` 页面侧定时器 v0.25.4 起为 **600 秒**（原 120 秒）。PDF 邮件线程最多发送 6 万字符（`email_summary.js:376`），慢网关非流式生成常超 120 秒，会在正常返回前被误判「桥接请求超时」。
+- ⚠️ **不要再给 background 加 SW 保活**。排查时曾假设 MV3 service worker 在 30 秒空闲后被终止、`sendResponse` 丢失。实测（`tests/bridge-long-request.e2e.mjs`，真实 Chromium + 真实扩展 + 不回 CORS 头的模拟端点）在途 fetch **45s / 300s / 420s** 三档均完整回传、连接未中断——Chrome 会因在途 fetch 维持 SW 存活。该假设已被证伪，保活代码已撤销。
 
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.25.4 | 修复邮件总结超长 PDF「桥接请求超时」：代理桥页面侧超时 120s → 600s（两份 ai-service.js 同步）；真实浏览器实测**证伪**「MV3 SW 30s 空闲被杀」假设（45/300/420s 均存活），未加保活代码；更正「阿里云端点无 CORS」文档错误（仅 Token Plan 网关如此，千问标准 compatible-mode 实测 CORS 开放）；新增 `tests/`（超时守卫 + 长请求 e2e） |
 | v0.25.3 | 修复刷新后同步记录消失：content script 改为 document_start 注入 + 启动拉取 15 个同步键写入 localStorage（扩展为权威源）；智能翻译历史 flag/time 归一化 |
 | v0.25.2 | 三端实时同步补全：AiService.onRecordSync 统一监听 API + 工作报告/邮件总结/英语学习/AI 解析/AI 提示词全部接入实时刷新 |
 | v0.25.1 | 修复 iframe 页面记录反向同步（14 处中继改发 window.top）+ 各模块历史记录「导出」按钮（JSON 下载） |
@@ -178,13 +195,39 @@ for f in chrome_extension/*.js; do node --check "$f" || echo "FAIL: $f"; done
 
 # JSON 校验 manifest
 node -e "JSON.parse(require('fs').readFileSync('chrome_extension/manifest.json','utf8')); console.log('OK')"
+
+# 代理桥超时守卫（虚拟时钟，毫秒级，无需浏览器）
+node tests/bridge-timeout.test.mjs
+
+# 用 git 旧版对照，确认该测试真能捕获回归（预期报红，exit=1）
+git show HEAD:ai-service.js > /tmp/ai-service-old.js && SVC_PATH=/tmp/ai-service-old.js node tests/bridge-timeout.test.mjs
+
+# 真实浏览器验证 SW 长时间在途 fetch 存活（会打开可见窗口，默认延迟 45s）
+node tests/bridge-long-request.e2e.mjs
+DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 ```
+
+> `bridge-long-request.e2e.mjs` 依赖本机 playwright chromium（详见 §6 环境说明）；加载未打包扩展必须**有头模式**。
 
 ## 6. 已知问题 / 待办
 
-- [x] **README_EN.md 已同步** — 2026-09-01 更新至 v0.21.0（品牌 AI Tool Box、6 主题体系、7 模块、项目结构、更新日志 v0.17–v0.21）
+### 国产模型接入缺口（2026-09-03 排查「桥接请求超时」时发现，均未修）
+
+- [ ] **URL 地址归一化只覆盖 2/7 模块** — `AiService.buildUrl()` 会清理尾斜杠 / 用户误填的重复 `/chat/completions` / 全角「：」「／」（中文输入法下极易误输），但**只有 `chat()`** 用它（AI 解析、AI 提示词）。其余 5 个会调用大模型的模块各有隐患：`email_summary.js:417`、`workreport.js:502`、`hotnews.js:513`（`/models`）、英语学习页（网页版内联于 `english_learning.html:881`，扩展版 `chrome_extension/english_learning.js:122`）均为**完全裸拼接**；`index.html:1560` 是第三种模式——保存配置时用 `replace(/\/+$/, '')` 去了尾斜杠（`index.html:1456`），但仍不处理全角字符与误填的重复 `/chat/completions`。后果：**同一份配置在 AI 解析能用、在邮件总结报 404/网络错误**。智谱 `https://open.bigmodel.cn/api/paas/v4` 这类多级路径最容易踩。修法：统一改调 `AiService.buildUrl()`。
+- [ ] **推理模型参数自适应只覆盖 2/7 模块** — `isReasoningModel()` 虽已导出，但**全仓库无任何模块调用它**，仅 `chat()` 内部使用。`email_summary.js:435`、`workreport.js:517`、`hotnews.js:400` 硬编码 `temperature`，且没有 `chat()` 那套「400 报错含 temperature 则去参重试一次」的兜底。对拒绝 `temperature` 的推理模型（`deepseek-reasoner` / `qwq-*` 等），这三个模块会直接 400。另需注意 `REASONING_RE` 是**按模型名子串匹配**（`reasoner|reasoning|thinking|qwq|kimi-k3|deepseek-v4|o1/o3/o4`）——凡推理能力不体现在名字里的模型（如以参数开启 thinking 的 GLM 系）都会漏判，接入新提供商前应先核对其命名再决定是否扩列。
+- [ ] **「获取模型列表」只有热点雷达有**（`hotnews.js:513`）— 而 Token Plan 网关恰恰最需要它：只认 `qwen3.6-flash` / `qwen3.7-plus` 这类专属 ID，填经典名 `qwen-plus` 报 Model not exist。宜提取为通用设置面板能力。
+- [ ] **Token Plan 专属网关的真实 host 仓库内无记录** — 各处注释与 README 只出现「阿里云 Token Plan」这个名字，从未写出 Base URL，导致无法实测其 CORS 与响应特征（本次排查即受此限）。宜在 README 提供商表补一条真实地址（脱敏 Key）。
+
+### 测试环境
+
+- [ ] `tests/bridge-long-request.e2e.mjs` 依赖本机 playwright chromium（当前：playwright-core 1.62.1 + `ms-playwright/chromium-1234`，Chrome for Testing 151）。加载未打包扩展须有头模式；`--load-extension` 在品牌版 Chrome 137+ 已移除，Chrome for Testing 仍支持。仓库无 `package.json`，`node_modules/` 未被 `.gitignore` 收录（现状即如此，勿误提交）。
+
+### 既有待办
+
+- [x] **README_EN.md 已同步** — 2026-09-01 更新至 v0.21.0（品牌 AI Tool Box、6 主题体系、7 模块、项目结构、更新日志 v0.17–v0.21）；⚠️ 现已落后当前版本 4 个小版本
 - [ ] **`web_accessible_resources` 未包含新页面** — `manifest.json` 的 `web_accessible_resources` 目前只列出 `fullpage/workreport/todolist/english_learning`，未加 `ai_parse.html` / `ai_prompts.html`（因为 sidepanel 直接用相对路径访问扩展内部文件不需要此声明，但若未来需要从外部网页嵌入则需补充）
-- [ ] **`ai-service.js` 双副本维护** — 网页版（507 行）与扩展版（524 行）略有差异，长期看应该考虑构建流程自动同步或抽成共享模块
+- [ ] **`manifest.json` 版本号长期未同步** — 仍为 `0.20.0`，而项目已到 v0.25.4
+- [ ] **`ai-service.js` 双副本维护** — 网页版（706 行）与扩展版（723 行）略有差异（扩展版多一个 `applyConfig` 写回 localStorage 的 shim），长期看应该考虑构建流程自动同步或抽成共享模块
 - [ ] **PDF 解析仍依赖 pdf.js 本地打包**（~1.3MB），每个 iframe 首次打开都会加载，可考虑按需动态 `import()`
 - [ ] **Apple 提醒事项 URL Scheme** 仅 macOS，Windows/Linux 用户无替代方案
 - [ ] **任务清单与 Google Calendar 同步** 仅实现了 .ics 下载，未做 OAuth 直连
@@ -193,7 +236,7 @@ node -e "JSON.parse(require('fs').readFileSync('chrome_extension/manifest.json',
 
 接手本项目时，按此顺序验证环境：
 
-1. `git pull` 拉最新 master，确认版本徽章为 v0.22.0
+1. `git pull` 拉最新 master，确认版本徽章为 v0.25.4
 2. 浏览器打开 `index.html`，配置 API（可用 DeepSeek `https://api.deepseek.com/v1` + `deepseek-chat` 测试）
 3. 依次点击 8 个 Tab，确认每个都能正常工作
 4. Chrome 加载 `chrome_extension/`：
@@ -205,5 +248,5 @@ node -e "JSON.parse(require('fs').readFileSync('chrome_extension/manifest.json',
 
 ---
 
-**最后更新**：2026-09-01 by Mika (agent) · v0.22.0（新增热点雷达模块，详见 §3.9；v0.21 重设计详见 §3.8）
-**参考文档**：`README.md` · `README_EN.md`（已同步至 v0.21.0） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`
+**最后更新**：2026-09-03 · v0.25.4（代理桥超时 120s→600s；实测**证伪**「MV3 SW 30s 空闲被杀」假设，见 §3.10；§6 新增三条国产模型接入缺口）
+**参考文档**：`README.md` · `README_EN.md`（⚠️ 仍停留在 v0.21.0，落后 4 个小版本未同步） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

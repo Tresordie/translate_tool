@@ -144,7 +144,11 @@
   function bridgeFetch(url, options) {
     return new Promise(function (resolve, reject) {
       var id = 'req' + (++_bridge.seq) + '_' + Date.now();
-      var timer = setTimeout(function () { delete _bridge.pending[id]; reject(new Error('桥接请求超时')); }, 120000);
+      // 600s：桥接承载大模型非流式调用，长文档（PDF 邮件线程最多发送 6 万字符）经
+      // Token Plan 等慢网关生成常需数分钟，原先的 120s 会在正常返回前就误判超时。
+      // 实测 background SW 在 420s 在途 fetch 下仍存活并完整应答
+      // （tests/bridge-long-request.e2e.mjs），故此处只需容纳真实生成耗时。
+      var timer = setTimeout(function () { delete _bridge.pending[id]; reject(new Error('桥接请求超时')); }, 600000);
       _bridge.pending[id] = function (res) {
         clearTimeout(timer); delete _bridge.pending[id];
         if (res.error) reject(new Error('代理请求失败：' + res.error));
@@ -679,6 +683,7 @@
     proxyFetch: proxyFetch,
     onRecordSync: onRecordSync,
     isReasoningModel: isReasoningModel,
+    buildUrl: buildUrl,
     OUTPUT_LANGS: OUTPUT_LANGS,
     getOutputLang: getOutputLang,
     parseNotes: parseNotes,

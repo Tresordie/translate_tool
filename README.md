@@ -96,15 +96,27 @@
 
 ### 支持的 API 提供商示例
 
-| 提供商 | Base URL | 模型示例 |
-|--------|----------|----------|
-| OpenAI | `https://api.openai.com/v1` | `gpt-4o`, `gpt-4o-mini` |
-| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-v4-pro` |
-| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
-| 智谱 AI | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
-| 月之暗面 | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
+| 提供商 | Base URL | 模型示例 | 浏览器跨域 |
+|--------|----------|----------|------------|
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o`, `gpt-4o-mini` | 未实测 |
+| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-v4-pro` | ✅ 开放 |
+| 通义千问（标准 API） | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus`, `qwq-32b` | ✅ 开放 |
+| 智谱 AI | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | ✅ 开放 |
+| 月之暗面 | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` | ✅ 开放 |
+| 阿里云百炼 **Token Plan** | 专属网关地址（**不是**上面的 compatible-mode） | 网关专属 ID，如 `qwen3.7-plus` | ❌ 未开放 |
 
 > 任何兼容 OpenAI `/chat/completions` 接口的服务均可使用。
+> 「浏览器跨域」为 2026-09-03 实测：向各端点发送 CORS 预检与带无效 Key 的实际 POST，检查响应头 `Access-Control-Allow-Origin`。月之暗面仅验证了预检。
+
+**跨域只决定一件事：网页版要不要装扩展。**
+
+| 使用场景 | 开放跨域的端点（DeepSeek / 千问标准 API / 智谱 / 月之暗面） | 未开放跨域的端点（Token Plan） |
+|---|---|---|
+| 网页版 `index.html` | ✅ 浏览器直连 | 需安装本扩展，请求经 background 代理转发（免跨域） |
+| 扩展内页面（弹窗 / 侧边栏 / 各工具页） | ✅ 直连 | ✅ 直连（`host_permissions` 免跨域） |
+
+> 经代理桥时单次请求受页面侧超时约束（v0.25.4 起为 600 秒）；扩展内页面直连无此限制。超长 PDF 总结优先用扩展内页面更稳妥。
+> 注意：千问**标准 API** 与 **Token Plan 网关**是两个不同的端点，前者网页版可直接使用，后者必须装扩展。
 
 ## ⌨️ 快捷键
 
@@ -147,6 +159,9 @@ translation_tool/
 ├── pdf.worker.min.js       # pdf.js Worker
 ├── ai_summary_prompt.md    # 工作报告 AI 总结提示词说明
 ├── preview.png             # 网页版截图
+├── tests/                  # 验证脚本（无框架，直接 node 运行）
+│   ├── bridge-timeout.test.mjs        # 代理桥超时守卫（虚拟时钟，毫秒级）
+│   └── bridge-long-request.e2e.mjs    # 真实 Chromium + 扩展，验证 SW 长时间在途 fetch 存活
 ├── chrome_extension/       # Chrome 浏览器扩展
 │   ├── manifest.json       # 扩展配置
 │   ├── popup.html          # 弹窗界面
@@ -239,6 +254,12 @@ translation_tool/
 
 ## 📝 更新日志
 
+### v0.25.4 (2026-09-03)
+- **修复：邮件总结超长 PDF 报「桥接请求超时」** — 网页版经代理桥调用无 CORS 端点（如阿里云 Token Plan）时，页面侧超时原为 **120 秒**（`ai-service.js` 的 `bridgeFetch`）。而 PDF 邮件线程最多会发送 6 万字符（`email_summary.js:376`），慢网关非流式生成常需数分钟，于是在正常返回前就被误判超时。现放宽为 **600 秒**（网页版与扩展版两份 `ai-service.js` 同步修改）。DeepSeek 等开放跨域的端点直连成功、根本不走桥，因此此前只有 Token Plan 暴露该问题。
+- **实测排除「MV3 service worker 被终止」假设** — 排查初期曾疑为 background SW 在 30 秒空闲后被 Chrome 终止、`sendResponse` 丢失。用真实 Chromium + 真实未打包扩展 + 故意不回 CORS 头的模拟端点实测：在途 fetch **45s / 300s / 420s** 三档均完整回传响应、连接未被中断。确认 SW 不是成因，**因此未添加任何 SW 保活代码**（避免留下指向错误原因的误导性实现）。
+- **文档更正**：千问**标准 API** 端点 `dashscope.aliyuncs.com/compatible-mode/v1` 实测 CORS 开放（预检 200 + `Access-Control-Allow-Origin: *`），网页版可直连。此前 v0.22.3 的「阿里云未开放浏览器跨域」表述过宽——仅 **Token Plan 专属网关**如此。提供商表已新增实测跨域列并区分两类端点。
+- **新增 `tests/`** — `bridge-timeout.test.mjs`（虚拟时钟，毫秒级守卫代理桥超时；对旧版 120s 会正确报红）、`bridge-long-request.e2e.mjs`（真实浏览器验证 SW 长时间在途 fetch 存活，是 600s 取值的依据）。
+
 ### v0.25.3 (2026-09-02)
 - **修复：刷新页面后同步的记录消失** — content script 原为 `document_idle` 注入（页面脚本可能先读取了过期的 localStorage），且页面关闭期间在另一端产生的记录不会到达本页。修复：
   - content script 改为 **`document_start` 注入**（先于页面任何脚本执行）
@@ -301,6 +322,7 @@ translation_tool/
   - API 配置区新增「**获取模型列表**」按钮：自动请求 `{Base URL}/models`，模型输入框变为自动补全下拉（Token Plan 网关仅支持特定模型 ID 如 `qwen3.6-flash` / `qwen3.7-plus` / `glm-5.2`，填经典名 `qwen-plus` 会报 Model not exist）
   - 错误提示针对性引导：模型不存在 / Key 无效 / 网络失败（含跨域说明）分别给出对应解决路径
   - ⚠️ 已知限制：阿里云 Token Plan 网关未开放浏览器跨域（无 CORS 头、预检 401），**网页版无法直连，请在 Chrome 扩展内使用**（扩展经 host_permissions 免跨域）；DeepSeek / 智谱等开放跨域的端点网页版不受影响
+    - 📌 **v0.25.4 更正**：本条结论仅适用于 **Token Plan 专属网关**。千问标准端点 `dashscope.aliyuncs.com/compatible-mode/v1` 实测 CORS 开放（预检 200 + `Access-Control-Allow-Origin: *`），网页版可直连、无需扩展。详见「支持的 API 提供商示例」表
 
 ### v0.22.2 (2026-09-01)
 - **热点雷达新增内置 API 配置区** — 独立打开页面（file:// 等）时读不到插件配置也能直接使用：页首新增「API 配置」折叠卡（Base URL / API Key / 模型 + 保存/清除），复用 `AiService.saveConfig` 写入 translate_config / chrome.storage，与插件弹窗及其他页面实时互通；未配置时自动展开引导，保存后自动重试此前因未配置而失败的卡片；卡片错误提示同步指引导语
