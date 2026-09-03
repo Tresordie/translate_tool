@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.25.6-blue)
+![Version](https://img.shields.io/badge/version-0.25.7-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -225,6 +225,8 @@ In addition to the web version, this project includes a **Chrome browser extensi
 
 ## 📝 Changelog
 
+### v0.25.7 (2026-09-03)
+- **English Learning supports long passages** — fixes "pasting a full English email only produced one word card": the prompt template was designed for a single word, so the model picked just one word from the passage. Input length now routes automatically: ≤4 words keep the single word/phrase flow; longer input switches to **material mode** — extracts key vocabulary (sorted by importance, up to 15, preferring harder/technical/pivotal terms) and renders a full learning card per word (phonetics/POS/definitions/usage/examples/synonyms/antonyms/mnemonics) with an extraction summary and numbering. History shows a short label ("xxx + N words") while still restoring the full original text. English Learning module only (both copies in sync), zero impact on other modules.
 ### v0.25.6 (2026-09-03)
 - **Change: Email Summary back to one-shot output** — per user feedback, reverts the v0.25.5 streaming line-by-line rendering: the summary is now a non-streaming request rendered once when complete; while waiting, only elapsed time is shown ("generating… Xs"), the Cancel button remains (works on direct connections). All v0.25.5 compatibility fixes (URL normalization, reasoning-model gating, 400 retry, SW keepalive, error diagnostics) are retained. The streaming infrastructure (proxyFetchStream and the bridge chunk protocol) is kept but dormant — no module uses it, zero impact on the other 7 modules.
 ### v0.25.5 (2026-09-03)

@@ -1194,7 +1194,7 @@
             historyList.innerHTML = history.map((item, index) => `
                 <div class="el-history-item" data-index="${index}">
                     <div style="flex: 1;">
-                        <div class="el-history-word">${escapeHtml(item.word)}</div>
+                        <div class="el-history-word">${escapeHtml(item.label || item.word)}</div>
                         <div class="el-history-time">${new Date(item.timestamp).toLocaleString('zh-CN')}</div>
                     </div>
                     <div class="el-history-actions">
@@ -1247,12 +1247,21 @@
                 const _url = _as.buildUrl ? _as.buildUrl(apiUrl) : apiUrl.replace(/\/+$/, '') + '/chat/completions';
                 const _reasoning = _as.isReasoningModel ? _as.isReasoningModel(modelName) : false;
                 const _pf = _as.proxyFetch || fetch;
+                // 短输入（≤4 词）按单词学习；长输入按材料提取关键词汇（v0.25.6）
+                const wordCount = word.split(/\s+/).filter(Boolean).length;
+                const isPassage = wordCount > 4;
+                let material = word;
+                if (isPassage && material.length > 15000) material = material.slice(0, 15000) + '\n[...材料过长，已截断...]';
+                const SINGLE_SCHEMA = '{"word":"","phonetic_uk":"","phonetic_us":"","part_of_speech":"","chinese_meaning":"","english_definition":"","usage":"","examples":[{"en":"","zh":""}],"synonyms":[],"antonyms":[],"memory_tip":""}';
+                const userPrompt = isPassage
+                    ? `请从以下英语材料中提取值得学习的关键词汇（按重要性排序，最多 15 个，优先选择较难、专业或在文中关键的词，跳过最常见的基础词）。对每个词汇提供：1.音标(英美) 2.词性 3.中英文释义 4.用法 5.2-3个例句 6.同义词 7.反义词 8.记忆技巧。\n只返回 JSON 数组，不要任何其他文字。格式:\n[${SINGLE_SCHEMA}]\n\n英语材料：\n${material}`
+                    : `请为"${word}"提供: 1.音标(英美) 2.词性 3.中英文释义 4.用法 5.3-5个例句 6.同义词 7.反义词 8.记忆技巧。JSON格式: ${SINGLE_SCHEMA}`;
                 async function wordReq(includeTemp) {
                     const body = {
                         model: modelName,
                         messages: [
-                            { role: 'system', content: '你是专业的英语教学助手，请用JSON格式返回结果。' },
-                            { role: 'user', content: `请为"${word}"提供: 1.音标(英美) 2.词性 3.中英文释义 4.用法 5.3-5个例句 6.同义词 7.反义词 8.记忆技巧。JSON格式: {"word":"","phonetic_uk":"","phonetic_us":"","part_of_speech":"","chinese_meaning":"","english_definition":"","usage":"","examples":[{"en":"","zh":""}],"synonyms":[],"antonyms":[],"memory_tip":""}` }
+                            { role: 'system', content: isPassage ? '你是专业的英语教学助手，擅长从英语材料中提取关键词汇进行教学讲解。请用JSON格式返回结果。' : '你是专业的英语教学助手，请用JSON格式返回结果。' },
+                            { role: 'user', content: userPrompt }
                         ]
                     };
                     if (!_reasoning && includeTemp) body.temperature = 0.7;
@@ -1279,15 +1288,37 @@
                 
                 let result;
                 try {
-                    const jsonMatch = content.match(/\{[\s\S]*\}/);
-                    result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+                    if (isPassage) {
+                        // 材料模式：优先 JSON 数组；容错数组被包在对象里（{words:[...]} 等）
+                        const arrMatch = content.match(/\[[\s\S]*\]/);
+                        if (arrMatch) {
+                            const arr = JSON.parse(arrMatch[0]);
+                            result = (Array.isArray(arr) && arr.length) ? arr : null;
+                        }
+                        if (!result) {
+                            const objMatch = content.match(/\{[\s\S]*\}/);
+                            if (objMatch) {
+                                const o = JSON.parse(objMatch[0]);
+                                const inner = o && (o.words || o.results || o.list || o.vocabulary);
+                                if (Array.isArray(inner) && inner.length) result = inner;
+                                else if (o && o.word) result = o;   // 模型只回了单个词也能展示
+                            }
+                        }
+                    } else {
+                        const jsonMatch = content.match(/\{[\s\S]*\}/);
+                        result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+                    }
                 } catch (e) {
                     result = null;
                 }
 
                 if (result) {
                     displayResult(result);
-                    saveHistory({ word, content: content, timestamp: new Date().toISOString() });
+                    // 历史列表显示短标签（word 字段保留完整输入，供点击恢复编辑器内容）
+                    const label = Array.isArray(result)
+                        ? ((result[0] && result[0].word ? result[0].word : '词汇') + ' 等 ' + result.length + ' 词')
+                        : word;
+                    saveHistory({ word: word, label: label, content: content, timestamp: new Date().toISOString() });
                 } else {
                     document.getElementById('resultContent').innerHTML = `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--el-accent);stroke-width:1.5;fill:none"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 学习结果</div><div class="md-rendered">${renderMarkdown(content)}</div></div>`;
                     document.getElementById('resultSection').style.display = 'block';
@@ -1304,52 +1335,68 @@
         }
 
         function displayResult(result) {
-            const html = `
+            const items = Array.isArray(result) ? result : [result];
+            const isBatch = Array.isArray(result) && items.length > 0;
+            // 材料模式：先给一个提取摘要，再逐词渲染完整卡片
+            const summary = isBatch ? `
+                <div class="el-result-card">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        词汇提取
+                    </div>
+                    <p>从材料中提取了 <strong>${items.length}</strong> 个关键词汇（按重要性排序）</p>
+                </div>` : '';
+            const html = summary + items.map((w, i) => renderWordCard(w, isBatch ? (i + 1) + ' / ' + items.length : '')).join('<div style="height:14px"></div>');
+            document.getElementById('resultContent').innerHTML = html;
+            document.getElementById('resultSection').style.display = 'block';
+        }
+
+        function renderWordCard(w, badge) {
+            return `
                 <div class="el-result-card el-result-word-header">
                     <div class="el-result-card-title">
                         <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        ${escapeHtml(result.word)}
+                        ${escapeHtml(w.word || 'N/A')}
+                        ${badge ? `<span style="font-size:0.8em;opacity:0.75;margin-left:8px;">${escapeHtml(badge)}</span>` : ''}
                     </div>
                     <div class="el-phonetic-grid">
                         <div class="el-phonetic-item">
                             <div class="el-phonetic-label">英式音标</div>
-                            <div class="el-phonetic-value">${escapeHtml(result.phonetic_uk || 'N/A')}</div>
+                            <div class="el-phonetic-value">${escapeHtml(w.phonetic_uk || 'N/A')}</div>
                         </div>
                         <div class="el-phonetic-item">
                             <div class="el-phonetic-label">美式音标</div>
-                            <div class="el-phonetic-value">${escapeHtml(result.phonetic_us || 'N/A')}</div>
+                            <div class="el-phonetic-value">${escapeHtml(w.phonetic_us || 'N/A')}</div>
                         </div>
                     </div>
-                    <p style="margin-top:12px"><strong>词性:</strong> ${escapeHtml(result.part_of_speech || 'N/A')}</p>
+                    <p style="margin-top:12px"><strong>词性:</strong> ${escapeHtml(w.part_of_speech || 'N/A')}</p>
                 </div>
                 <div class="el-result-card">
                     <div class="el-result-card-title">
                         <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                         释义
                     </div>
-                    <p><strong>中文:</strong> ${renderMarkdown(result.chinese_meaning || 'N/A')}</p>
-                    <p><strong>英文:</strong> ${renderMarkdown(result.english_definition || 'N/A')}</p>
+                    <p><strong>中文:</strong> ${renderMarkdown(w.chinese_meaning || 'N/A')}</p>
+                    <p><strong>英文:</strong> ${renderMarkdown(w.english_definition || 'N/A')}</p>
                 </div>
                 <div class="el-result-card">
                     <div class="el-result-card-title">
                         <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
                         用法
                     </div>
-                    <div class="md-rendered">${renderMarkdown(result.usage || 'N/A')}</div>
+                    <div class="md-rendered">${renderMarkdown(w.usage || 'N/A')}</div>
                 </div>
                 <div class="el-result-card">
                     <div class="el-result-card-title">
                         <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                         例句
                     </div>
-                    ${(result.examples || []).map((ex, i) => `<div style="margin-bottom:12px;"><p><strong>${i+1}.</strong> ${renderMarkdown(ex.en)}</p><p style="padding-left:20px;color:var(--el-text-faint);">${renderMarkdown(ex.zh)}</p></div>`).join('')}
+                    ${(w.examples || []).map((ex, i) => `<div style="margin-bottom:12px;"><p><strong>${i+1}.</strong> ${renderMarkdown(ex.en)}</p><p style="padding-left:20px;color:var(--el-text-faint);">${renderMarkdown(ex.zh)}</p></div>`).join('')}
                 </div>
-                ${result.synonyms && result.synonyms.length ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 同义词</div><p>${result.synonyms.join(', ')}</p></div>` : ''}
-                ${result.antonyms && result.antonyms.length ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> 反义词</div><p>${result.antonyms.join(', ')}</p></div>` : ''}
-                ${result.memory_tip ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.89-.356-1.751-.988-2.386l-.548-.547z"/></svg> 记忆技巧</div><div class="md-rendered">${renderMarkdown(result.memory_tip)}</div></div>` : ''}
+                ${w.synonyms && w.synonyms.length ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 同义词</div><p>${w.synonyms.join(', ')}</p></div>` : ''}
+                ${w.antonyms && w.antonyms.length ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> 反义词</div><p>${w.antonyms.join(', ')}</p></div>` : ''}
+                ${w.memory_tip ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.89-.356-1.751-.988-2.386l-.548-.547z"/></svg> 记忆技巧</div><div class="md-rendered">${renderMarkdown(w.memory_tip)}</div></div>` : ''}
             `;
-            document.getElementById('resultContent').innerHTML = html;
-            document.getElementById('resultSection').style.display = 'block';
         }
 
         // 获取UTC+8时间信息

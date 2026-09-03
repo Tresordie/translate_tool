@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.25.6 · 2026-09-03
+> **当前版本**：v0.25.7 · 2026-09-03
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -136,6 +136,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.25.7 | 英语学习支持长材料输入：>4 词自动切材料模式，提取关键词汇（≤15 个）逐词生成学习卡片；历史显示短标签、点击恢复全文；两副本同步 |
 | v0.25.6 | 邮件总结恢复一次性输出（撤销 v0.25.5 流式逐行上屏，应用户反馈）；非流式请求带耗时提示与直连取消；流式基础设施保留休眠；其余兼容性修复（buildUrl/推理门控/SW 保活/错误诊断）全部保留 |
 | v0.25.5 | 修复邮件总结超长 PDF「API 服务无法访问」：全链路改 SSE 流式（proxyFetchStream + 桥接长端口分片 + 180s 空闲超时 + 取消按钮 + 非流式降级）；**修复扩展端邮件总结无法加载文件**（english_learning storage 适配器把对象裸写 localStorage 毒化共享 origin → 各页面顶层 JSON.parse 崩溃；已改序列化写入 + 各模块容错解析）；全模型兼容统一（buildUrl/isReasoningModel/400 去参重试推广到智能翻译/工作报告/英语学习/扩展弹窗后台/划词/全屏页）；修复 english_learning textAsync、hotnews ext pr.text、5 处扩展页 CSP inline onload；index.html 设置面板新增「获取模型列表」；manifest 版本 0.20.0→0.25.5；新增 tests/stream-and-url.test.mjs、tests/pdf-parse.test.mjs |
 | v0.25.4 | 修复邮件总结超长 PDF「桥接请求超时」：代理桥页面侧超时 120s → 600s（两份 ai-service.js 同步）；真实浏览器实测**证伪**「MV3 SW 30s 空闲被杀」假设（45/300/420s 均存活），未加保活代码；更正「阿里云端点无 CORS」文档错误（仅 Token Plan 网关如此，千问标准 compatible-mode 实测 CORS 开放）；新增 `tests/`（超时守卫 + 长请求 e2e） |
@@ -264,5 +265,5 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 ---
 
-**最后更新**：2026-09-03 · v0.25.6（邮件总结恢复一次性输出，流式通道休眠保留；v0.25.5 的兼容性修复——buildUrl/推理门控/SW 保活/错误诊断——全部保留；详见 §3.10 与 §4 版本表）
+**最后更新**：2026-09-03 · v0.25.7（英语学习长材料关键词提取；v0.25.6 邮件总结一次性输出与 v0.25.5 兼容性修复全部保留；详见 §4 版本表）
 **参考文档**：`README.md` · `README_EN.md`（changelog 已补 v0.25.5，正文仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`
