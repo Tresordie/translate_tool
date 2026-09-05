@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.25.7 · 2026-09-03
+> **当前版本**：v0.25.8 · 2026-09-05
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -111,14 +111,14 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 3. 根目录与 `chrome_extension/` 的页面副本必须同步修改：todolist 保留 3 处 CSP 差异（扩展版 Google Fonts 异步 + 2 处无 inline onclick），english_learning 保留 2 处差异（扩展版字体异步 + 外部 JS 引用，根目录为内联 JS）
 4. english_learning 根目录版的内联 JS = `chrome_extension/english_learning.js` 内容逐字一致（v0.21.0 消除分叉），改动任一侧需同步另一侧
 
-### 3.9 热点雷达两段式检索（v0.22.0，数据源 v0.22.1 重建）
-`hotnews.html/js`（两份副本，JS 逐字一致、HTML 仅字体加载差异）：
-- **候选来源（v0.24.0 双层）**：① 热榜层 = 60s 综合榜（6 板块）∪ UApi 全板块（**14 板块**：weibo/zhihu/baidu/douyin/bilibili/toutiao/ithome/36kr/sspai/qq-news/hupu/weread/juejin/thepaper），并行合并去重；② **必应搜索层** = 每张卡片刷新时以提示词为查询词请求 `https://www.bing.com/search?q={prompt}&format=rss&setmkt=zh-CN`（标准 RSS 10 条，无 CORS 头 → 扩展内直连、网页经 proxyFetch 走桥；5 分钟按提示词缓存，失败重试一次后降级为纯热榜模式）。两层合并（搜索结果在前）→ AI 筛选。
-- **AI 归类**：候选池（每板块前 12 条）+ 卡片提示词 → `AiService.chat()`，严格筛选（宁缺毋滥，不足 10 条返回实际数量，每条附 reason）+ `extractJsonItems()` 容错解析（AI 异常自动重试一次）。配置复用 ai-service.js 同步机制；页面自带「大模型接口」配置子区（经 `AiService.saveConfig` 双写 localStorage translate_config 与 chrome.storage config，v0.23.0 起网页保存还会经 content.js 中继写 chrome.storage 实现全端双向同步），未配置时自动展开，保存后自动重试失败卡片。
-- **跨域代理桥**：chat / 模型列表 / UApi 热榜（「UApi桥接」通道）均经 `AiService.proxyFetch()`，架构与排查要点见 **§3.10**。
-- **存储键**：`hn_cards`（扩展 chrome.storage.local / 网页 localStorage，含 id/name/prompt/items/updatedAt）；跨页同步监听同 todolist 模式。
-- **记录全端双向同步（v0.25.0）**：映射表 `RECORD_SYNC_KEYS` 在 background.js（chrome.storage 键 ↔ 网页 localStorage 键，覆盖 td_/wr_ 前缀及 popup 的 history/draft 命名差异）。网页适配器写入后 postMessage `save-record` → content.js → background 写 chrome.storage；扩展写入 → background onChanged 广播 `linguaflow:syncRecord` → 各标签页 content.js 写对应 localStorage → 页面既有 storage 监听自动刷新。**新增需同步的记录：在映射表加一行 + 适配器写入处加一条 postMessage 即可。** 实时刷新仅覆盖已有 storage 监听的页面（任务清单/热点雷达/智能翻译历史），其余模块为落盘同步（刷新可见）。
-
+### 3.9 热点雷达 Tavily 检索链（v0.22.0 引入热榜，v0.25.8 切换 Tavily）
+`hotnews.html/js`（两份副本，JS 仅扩展版多 gfAsync 前导、HTML 仅字体加载差异）：
+- **检索链路（v0.25.8）**：① `extractKeywords(prompt)` — AI 提取 3-5 个搜索关键词（含同义词/相关词），按提示词缓存 30 分钟（`KEYWORDS_TTL`），AI 不可用时降级为提示词本身；② `searchOne(kw)` — 逐词 POST `https://api.tavily.com/search`（`topic:news, days:2, max_results:8`），按关键词缓存 5 分钟（`SEARCH_TTL`），映射为 {title/summary/url/source(域名)/score/published}；③ `aiAnalyze()` — 候选池（≤50 条）交 `AiService.chat()`，按「时效性(24h优先)/热度(频次·讨论量)/影响力(涉及范围)」三维度打分（40/30/30 权重），归类 ≤10 主题，每条输出 中文标题/40字摘要/来源/0-100 heat + url/published 原文；`extractGroups()` 容错解析（代码块剥离/尾逗号），AI 异常自动重试一次。**Tavily CORS 开放（2026-09-05 实测预检回显 Origin），网页版与扩展版均浏览器直连、不走代理桥**；401/429 有专门诊断。
+- **Tavily Key**：雷达设置卡「网页搜索（Tavily）」子区（`hnTavilyKey` 输入 + `tvly-` 前缀校验 + 连通测试按钮），存键 `hn_tavily_key`（扩展 chrome.storage.local / 网页 localStorage，均 JSON 序列化）；已加入 background `RECORD_SYNC_KEYS` 映射与 content.js 启动拉取列表（共 16 键），与卡片记录同样全端双向同步。未配置时引导自动展开，保存后自动重试失败卡片。
+- **卡片渲染**：`hn_cards` 每条卡片含 id/name/prompt/**groups**（[{category, items:[{title,summary,source,url,published,heat}]}]）/updatedAt；渲染含搜索词条（`.hn-kw`）、主题分组头（`.hn-cat`）、组内排名色阶（heat ≥85/≥70/≥55 → r1/r2/r3）、摘要行与相对发布时间（`fmtPublished`）。旧格式 items（title/source/hot/url/reason）经 `cardGroups()` 包装单组兼容展示，刷新后升级为新格式。
+- **退役说明（v0.25.8）**：60s/UApi 热榜板块、公共 CORS 代理回退链、必应 RSS 搜索层整体移除；`AiService.proxyFetch` 仅服务于 AI chat 与模型列表。
+- **存储键**：`hn_cards` + `hn_tavily_key`（扩展 chrome.storage.local / 网页 localStorage）；跨页同步监听同 todolist 模式。
+- **记录全端双向同步（v0.25.0）**：映射表 `RECORD_SYNC_KEYS` 在 background.js（chrome.storage 键 ↔ 网页 localStorage 键，覆盖 td_/wr_ 前缀及 popup 的 history/draft 命名差异）。网页适配器写入后 postMessage `save-record` → content.js → background 写 chrome.storage；扩展写入 → background onChanged 广播 `linguaflow:syncRecord` → 各标签页 content.js 写对应 localStorage → 页面既有 storage 监听自动刷新。**新增需同步的记录：在映射表加一行 + content.js 启动拉取列表加一个键 + 适配器写入处加一条 postMessage 即可。** 实时刷新仅覆盖已有 storage 监听的页面（任务清单/热点雷达/智能翻译历史），其余模块为落盘同步（刷新可见）。
 ### 3.10 网页版跨域代理桥（v0.23.0 引入，超时策略 v0.25.4 修订）
 
 无 CORS 头的端点（**阿里云 Token Plan 专属网关**）在网页版会被浏览器拦截。若用户已装本扩展，请求可经 background 转发：
@@ -136,6 +136,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.25.8 | 热点雷达切换 Tavily 检索链（AI 提取 3-5 关键词 → Tavily 新闻搜索 → 三维度打分归类 ≤10 主题，输出标题/摘要/来源/热度）；新增 hn_tavily_key 设置区并入全端同步（16 键）；热榜聚合与必应层退役；Tavily CORS 开放网页直连无需扩展 |
 | v0.25.7 | 英语学习支持长材料输入：>4 词自动切材料模式，提取关键词汇（≤15 个）逐词生成学习卡片；历史显示短标签、点击恢复全文；两副本同步 |
 | v0.25.6 | 邮件总结恢复一次性输出（撤销 v0.25.5 流式逐行上屏，应用户反馈）；非流式请求带耗时提示与直连取消；流式基础设施保留休眠；其余兼容性修复（buildUrl/推理门控/SW 保活/错误诊断）全部保留 |
 | v0.25.5 | 修复邮件总结超长 PDF「API 服务无法访问」：全链路改 SSE 流式（proxyFetchStream + 桥接长端口分片 + 180s 空闲超时 + 取消按钮 + 非流式降级）；**修复扩展端邮件总结无法加载文件**（english_learning storage 适配器把对象裸写 localStorage 毒化共享 origin → 各页面顶层 JSON.parse 崩溃；已改序列化写入 + 各模块容错解析）；全模型兼容统一（buildUrl/isReasoningModel/400 去参重试推广到智能翻译/工作报告/英语学习/扩展弹窗后台/划词/全屏页）；修复 english_learning textAsync、hotnews ext pr.text、5 处扩展页 CSP inline onload；index.html 设置面板新增「获取模型列表」；manifest 版本 0.20.0→0.25.5；新增 tests/stream-and-url.test.mjs、tests/pdf-parse.test.mjs |
@@ -265,5 +266,5 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 ---
 
-**最后更新**：2026-09-03 · v0.25.7（英语学习长材料关键词提取；v0.25.6 邮件总结一次性输出与 v0.25.5 兼容性修复全部保留；详见 §4 版本表）
+**最后更新**：2026-09-05 · v0.25.8（热点雷达切换 Tavily 检索链，§3.9 已重写；热榜/必应层退役；详见 §4 版本表）
 **参考文档**：`README.md` · `README_EN.md`（changelog 已补 v0.25.5，正文仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

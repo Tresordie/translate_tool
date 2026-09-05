@@ -84,6 +84,7 @@ const RECORD_SYNC_KEYS = {
   todo_items: 'td_todo_items',              // 任务清单
   todo_cal_config: 'td_todo_cal_config',    // 任务清单日历配置
   hn_cards: 'hn_cards',                     // 热点雷达卡片
+  hn_tavily_key: 'hn_tavily_key',           // 热点雷达 Tavily 搜索 Key（v0.25.8）
   history: 'translate_history',             // 智能翻译历史（popup/fullpage ↔ index）
   draft: 'translate_draft',                 // 智能翻译草稿（popup/fullpage ↔ index）
   work_records: 'wr_work_records',          // 工作报告记录

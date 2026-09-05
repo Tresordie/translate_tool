@@ -118,7 +118,7 @@
       display: flex; align-items: center; gap: 10px;
       margin: 4px 0 14px; min-width: 0;
     }
-    #hnApiHeader { cursor: pointer; }
+    #hnApiHeader, #hnTavilyHeader { cursor: pointer; }
     .hn-sub-title { font-size: 0.88rem; font-weight: 700; color: var(--text); }
     .hn-api-status {
       display: inline-flex; align-items: center; gap: 6px;
@@ -249,6 +249,36 @@
       flex-shrink: 0; min-width: 40px; text-align: right;
       font-size: 0.73rem; color: var(--text-dim); font-variant-numeric: tabular-nums;
     }
+    .hn-item-hot.r1 { color: var(--red); font-weight: 700; }
+    .hn-item-hot.r2 { color: var(--orange); font-weight: 700; }
+    .hn-item-hot.r3 { color: var(--accent); font-weight: 600; }
+    .hn-item-time {
+      flex-shrink: 0; font-size: 0.66rem; color: var(--text-dim); opacity: 0.8;
+      font-variant-numeric: tabular-nums; padding-top: 1px;
+    }
+    .hn-item-summary {
+      font-size: 0.7rem; color: var(--text-dim);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .hn-kw {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+      margin-bottom: 10px; font-size: 0.68rem; color: var(--text-dim);
+    }
+    .hn-kw span {
+      padding: 1px 8px; border-radius: 999px;
+      background: var(--bg-card2); color: var(--text-secondary);
+      font-size: 0.66rem; font-weight: 600;
+    }
+    .hn-cat {
+      display: flex; align-items: center; gap: 8px;
+      margin: 12px 0 4px; padding-top: 8px;
+      border-top: 1px dashed var(--glass-border);
+    }
+    .hn-cat-name {
+      font-size: 0.76rem; font-weight: 700; color: var(--primary);
+      letter-spacing: 0.5px;
+    }
+    .hn-cat-count { font-size: 0.66rem; color: var(--text-dim); }
     .hn-lownote {
       margin: 4px 0 0; padding-top: 8px;
       border-top: 1px dashed var(--glass-border);
@@ -402,6 +432,28 @@
 
       <div class="hn-divider"></div>
 
+      <!-- 网页搜索（Tavily） -->
+      <div class="hn-sub-head" id="hnTavilyHeader">
+        <span class="hn-sub-title">网页搜索（Tavily）</span>
+        <span class="hn-api-status" id="hnTavilyStatus"><span class="dot"></span><span id="hnTavilyStatusText">未配置</span></span>
+        <button class="hn-toggle-btn" id="hnTavilyIcon" title="展开 / 收起">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <div class="hn-api-content" id="hnTavilyContent">
+        <div class="hn-api-grid">
+          <input id="hnTavilyKey" type="password" placeholder="Tavily API Key（tvly-...，在 tavily.com 免费注册获取）">
+        </div>
+        <div class="hn-api-actions">
+          <button class="btn-api-save" id="hnTavilySave">保存 Key</button>
+          <button class="btn-api-clear" id="hnTavilyTest" title="用测试查询验证 Key 是否可用">测试</button>
+          <button class="btn-api-clear" id="hnTavilyClear">清除</button>
+          <span class="hn-api-hint">热点雷达按卡片提示词提取关键词后经 Tavily 实时检索全网新闻；浏览器直连（无需扩展），与插件端互通</span>
+        </div>
+      </div>
+
+      <div class="hn-divider"></div>
+
       <!-- 快速创建 -->
       <div class="hn-sub-head">
         <span class="hn-sub-title">创建热点卡片</span>
@@ -412,7 +464,7 @@
         <button class="btn-add" id="hnAddBtn">＋ 添加卡片</button>
       </div>
 
-      <p class="hn-hint">AI 会实时抓取微博 / 知乎 / 百度 / 抖音 / B站 / IT之家 / 36氪 等全网热榜，只保留与提示词强相关的条目（宁缺毋滥），并标注入选理由；点击卡片右下角 <code>刷新</code> 可随时重新检索。</p>
+      <p class="hn-hint">创建卡片后，AI 会按你的提示词提取 <code>3-5</code> 个搜索关键词，经 <code>Tavily</code> 全网检索实时新闻，再按 <code>时效性 / 热度 / 影响力</code> 三个维度打分，归类为不超过 <code>10</code> 个主题，每条给出标题、摘要、来源与热度评分；点击卡片右下角 <code>刷新</code> 可随时重新检索。</p>
     </section>
 
     <!-- 卡片网格 -->

@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.25.7-blue)
+![Version](https://img.shields.io/badge/version-0.25.8-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -225,6 +225,10 @@ In addition to the web version, this project includes a **Chrome browser extensi
 
 ## 📝 Changelog
 
+### v0.25.8 (2026-09-05)
+- **Hot News Radar switches its search engine to Tavily** — the card refresh pipeline is rebuilt in three steps: (1) AI extracts 3-5 core search keywords (incl. synonyms/related terms) from the card prompt, cached 30 min per prompt; (2) each keyword is searched via Tavily news API (2-day window, cached 5 min per keyword; CORS-open endpoint — the web page connects directly, no extension needed); (3) AI scores candidates on timeliness (prefer within 24h) / heat (frequency & discussion volume) / impact (scope), grouped into up to 10 themes, each item with Chinese title, 40-char summary, source and 0-100 heat score (weights 40/30/30). Cards now show theme groups, keyword chips, summaries and publish times.
+- **New "Web Search (Tavily)" settings block** — key input with tvly- prefix validation and a connectivity test button, stored as hn_tavily_key and wired into the cross-surface record sync (free key at tavily.com).
+- **Hot-board aggregation & Bing layer retired** — the 60s/UApi boards and Bing RSS channel are removed; legacy card data still renders and upgrades on refresh.
 ### v0.25.7 (2026-09-03)
 - **English Learning supports long passages** — fixes "pasting a full English email only produced one word card": the prompt template was designed for a single word, so the model picked just one word from the passage. Input length now routes automatically: ≤4 words keep the single word/phrase flow; longer input switches to **material mode** — extracts key vocabulary (sorted by importance, up to 15, preferring harder/technical/pivotal terms) and renders a full learning card per word (phonetics/POS/definitions/usage/examples/synonyms/antonyms/mnemonics) with an extraction summary and numbering. History shows a short label ("xxx + N words") while still restoring the full original text. English Learning module only (both copies in sync), zero impact on other modules.
 ### v0.25.6 (2026-09-03)

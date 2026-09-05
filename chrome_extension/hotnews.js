@@ -3,11 +3,14 @@
   var gf = document.getElementById('gfAsync');
   if (gf) gf.addEventListener('load', function () { gf.media = 'all'; });
 })();
+
 /* ================================================================
-   AI Tool Box — 热点雷达（Hot News Radar）v0.24.0
-   全网两层候选：① 14+ 板块热榜（60s + UApi 多源合并）
-                ② 必应搜索层（按卡片提示词实时搜索，经扩展桥免跨域）
-   再由 AI 按提示词筛选 Top 10（宁缺毋滥 + 理由）
+   AI Tool Box — 热点雷达（Hot News Radar）v0.25.8
+   检索链路（Tavily 驱动）：
+     ① AI 按卡片提示词提取 3-5 个核心搜索关键词（含同义词/相关词）
+     ② 逐词调用 Tavily 新闻搜索（api.tavily.com，CORS 开放可直连）
+     ③ AI 按「时效性(24h优先) / 热度(频次·讨论量) / 影响力(涉及范围)」打分，
+        归类为 ≤10 个主题；每条输出 标题/摘要/来源/热度评分
    存储遵循项目惯例：扩展 chrome.storage.local / 网页 localStorage('hn_*')
    ================================================================ */
 
@@ -15,38 +18,42 @@
   "use strict";
 
   // ===== 常量 =====
-  var TOP_N = 10;           // 每张卡片展示条数
-  var PER_BOARD = 12;       // 候选池中每个板块最多取多少条
-  var POOL_TTL = 60 * 1000; // 候选池复用时长（60s 内刷新卡片不重复抓取）
-  var MIN_POOL = 20;        // 候选池最低条数（少于则视为该通道失败）
-
-  // 主数据源：UApi 全网热榜（逐板块抓取，字段 {type, list:[{index,title,url,hot_value}]}）
-  var UAPIS_BASE = 'https://uapis.cn/api/v1/misc/hotboard?type=';
-  var BOARDS = [
-    { type: 'weibo',    name: '微博' },
-    { type: 'zhihu',    name: '知乎' },
-    { type: 'baidu',    name: '百度' },
-    { type: 'douyin',   name: '抖音' },
-    { type: 'bilibili', name: 'B站' },
-    { type: 'toutiao',  name: '头条' },
-    { type: 'ithome',   name: 'IT之家' },
-    { type: '36kr',     name: '36氪' },
-    { type: 'sspai',    name: '少数派' },
-    { type: 'qq-news',  name: '腾讯新闻' },
-    { type: 'hupu',     name: '虎扑' },
-    { type: 'weread',   name: '微信读书' },
-    { type: 'juejin',   name: '掘金' },
-    { type: 'thepaper', name: '澎湃新闻' }
-  ];
-  // 兜底数据源：60s 日报（CORS 开放，稳定可用；真实每日新闻，无热度值）
-  var FALLBACK_60S = 'https://60s.viki.moe/v2/60s';
+  var TOP_N = 10;           // 每张卡片最多展示主题数
+  var MAX_RESULTS = 8;      // Tavily 每个关键词返回条数
+  var TAVILY_URL = 'https://api.tavily.com/search';
+  var TAVILY_DAYS = 2;      // 新闻时间窗（天）
+  var KEYWORDS_TTL = 30 * 60 * 1000;   // 关键词提取缓存（同提示词 30 分钟复用）
+  var SEARCH_TTL = 5 * 60 * 1000;      // Tavily 搜索缓存（同关键词 5 分钟复用）
+  var TAVILY_TIMEOUT = 15000;
   var FETCH_TIMEOUT = 12000;
-  var BING_SEARCH_TTL = 5 * 60 * 1000; // 必应搜索层缓存（同提示词 5 分钟内复用）
-  var searchCache = {};
+  var TAVILY_KEY = 'hn_tavily_key';
+  var keywordCache = {};    // promptKey -> {kws, ts}
+  var searchCache = {};     // kwKey -> {items, ts}
 
   // ===== Storage（扩展 chrome.storage.local / 网页 localStorage，键名 hn_*）=====
   var isExtension = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
   var storage = {
+    cache: {},
+    load: function (keys) {
+      var self = this;
+      return new Promise(function (resolve) {
+        if (isExtension) {
+          chrome.storage.local.get(keys, function (r) {
+            keys.forEach(function (k) {
+              self.cache[k] = r[k];
+              // 镜像进 localStorage，供同步读取（tavilyKey()）
+              try { if (r[k] !== undefined && r[k] !== null) localStorage.setItem(k, JSON.stringify(r[k])); } catch (e) {}
+            });
+            resolve();
+          });
+        } else {
+          keys.forEach(function (k) {
+            try { self.cache[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { self.cache[k] = null; }
+          });
+          resolve();
+        }
+      });
+    },
     get: function (keys) {
       return new Promise(function (resolve) {
         if (isExtension) { chrome.storage.local.get(keys, resolve); }
@@ -60,26 +67,35 @@
       });
     },
     set: function (obj) {
+      var self = this;
       return new Promise(function (resolve) {
+        Object.keys(obj).forEach(function (k) {
+          self.cache[k] = obj[k];
+          try { localStorage.setItem(k, JSON.stringify(obj[k])); } catch (e) {}
+        });
         if (isExtension) { chrome.storage.local.set(obj, resolve); }
-        else {
-          Object.keys(obj).forEach(function (k) { localStorage.setItem(k, JSON.stringify(obj[k])); });
-          resolve();
-        }
+        else { resolve(); }
       });
     }
   };
 
+  // Tavily Key 同步读取（storage.cache 启动预载 + localStorage 兜底）
+  function tavilyKey() {
+    var v = storage.cache[TAVILY_KEY];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+    try { v = JSON.parse(localStorage.getItem(TAVILY_KEY) || 'null'); } catch (e) { v = null; }
+    return (typeof v === 'string') ? v.trim() : '';
+  }
+
   // ===== 状态 =====
-  var cards = [];          // [{id, name, prompt, items, updatedAt}]，error/loading 仅内存态
+  var cards = [];          // [{id, name, prompt, groups, updatedAt}]，error/loading/keywords 仅内存态
   var editingId = null;
-  var pool = null;         // { items: [{title, source, hot, url}], fetchedAt, source }
-  var poolPromise = null;
 
   // ===== 工具 =====
   var $ = function (id) { var el = document.getElementById(id); if (!el) console.error('[HotNews] #' + id + ' not found'); return el; };
   function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
   function formatHot(v) {
     if (v === undefined || v === null || v === '') return '';
@@ -91,6 +107,19 @@
       return String(n);
     }
     return String(v); // 已是 "254.3万" 等预格式化文本
+  }
+
+  // 发布时间简短展示：N小时前 / N天前 / 月日
+  function fmtPublished(published) {
+    if (!published) return '';
+    var d = new Date(published);
+    if (isNaN(d.getTime())) return '';
+    var diff = Date.now() - d.getTime();
+    if (diff < 0) diff = 0;
+    if (diff < 3600000) return Math.max(1, Math.floor(diff / 60000)) + '分钟前';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+    if (diff < 7 * 86400000) return Math.floor(diff / 86400000) + '天前';
+    return (d.getMonth() + 1) + '/' + d.getDate();
   }
 
   function timeAgo(ts) {
@@ -108,7 +137,16 @@
     clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('show'); }, 2800);
   }
 
-  // ===== 底层请求（超时 + 文本返回） =====
+  // 宽松 JSON 解析：容忍代理附加的 markdown 前后缀
+  function parseJsonLoose(text) {
+    var t = String(text || '').trim();
+    t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+    var s = t.indexOf('{'), e = t.lastIndexOf('}');
+    if (s === -1 || e <= s) throw new Error('非 JSON 响应');
+    return JSON.parse(t.slice(s, e + 1));
+  }
+
+  // 底层 GET（模型列表兜底通道用）
   function fetchText(url, timeout, headers) {
     var ms = timeout || FETCH_TIMEOUT;
     return new Promise(function (resolve, reject) {
@@ -131,269 +169,138 @@
     });
   }
 
-  // 宽松 JSON 解析：容忍代理附加的 markdown 前后缀
-  function parseJsonLoose(text) {
-    var t = String(text || '').trim();
-    t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
-    var s = t.indexOf('{'), e = t.lastIndexOf('}');
-    if (s === -1 || e <= s) throw new Error('非 JSON 响应');
-    return JSON.parse(t.slice(s, e + 1));
-  }
-
-  // allorigins /get 变体：{ contents: "<上游 JSON 字符串>" }
-  function parseContents(text) {
-    var j = JSON.parse(String(text));
-    if (j && typeof j.contents === 'string') return JSON.parse(j.contents);
-    return j;
-  }
-
-  // ===== 数据源回退链（v0.22.1）=====
-  // 源1 60s 分板块热榜（CORS 开放，网页/扩展均可直连）→ 源2 UApi 直连（扩展免跨域）
-  // → 源3-5 公共 CORS 代理 → UApi（网页版回退）→ 源6 60s 日报兜底（真实每日新闻）
-  function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-
-  function boardName(type) {
-    for (var i = 0; i < BOARDS.length; i++) {
-      if (BOARDS[i].type === type) return BOARDS[i].name;
-    }
-    return type;
-  }
-
-  // 60s 分板块热榜解析（字段别名防御：hot_value / hot_value_desc / hot，link / url）
-  function parse60sBoard(text, type) {
-    var j = parseJsonLoose(text);
-    var arr = j && Array.isArray(j.data) ? j.data : [];
-    return arr.map(function (it) {
-      if (!it || !it.title) return null;
-      return {
-        title: String(it.title),
-        source: boardName(type),
-        hot: (it.hot_value !== undefined ? it.hot_value : (it.hot_value_desc !== undefined ? it.hot_value_desc : (it.hot !== undefined ? it.hot : ''))),
-        url: String(it.link || it.url || '')
-      };
-    }).filter(Boolean);
-  }
-
-  // 源 1：60s 分板块热榜。官方限速较严：串行抓取 + 429 退避重试一次
-  function fetch60sBoards() {
-    var boards60 = ['weibo', 'zhihu', 'douyin', 'toutiao', 'ithome', '36kr'];
-    var items = [];
-    var chain = Promise.resolve();
-    boards60.forEach(function (type, i) {
-      chain = chain.then(function () {
-        function once() {
-          return fetchText('https://60s.viki.moe/v2/' + type, 10000).then(function (text) {
-            items = items.concat(parse60sBoard(text, type));
-          });
-        }
-        return delay(i ? 250 : 0).then(once).catch(function (e) {
-          if (/HTTP 429/.test(e.message)) {
-            return delay(900).then(once).catch(function () {});
-          }
-        });
-      });
-    });
-    return chain.then(function () {
-      if (items.length < MIN_POOL) throw new Error('可用板块不足');
-      return items;
-    });
-  }
-
-  // 源 2：UApi 直连（扩展 host_permissions 免跨域；网页版该通道会被 CORS 拦截，自动落入桥接/代理通道）
-  var DIRECT_STRATEGY = { name: 'UApi直连', timeout: FETCH_TIMEOUT, wrap: function (u) { return u; }, parse: parseJsonLoose };
-
-  // 源 3：UApi 经扩展代理桥（网页版装有扩展时可用——background 免跨代抓取，无需公共代理）
-  var BRIDGE_STRATEGY = {
-    name: 'UApi桥接',
-    fetchFn: function (url) {
-      if (!window.AiService || typeof window.AiService.proxyFetch !== 'function') {
-        return Promise.reject(new Error('桥接不可用'));
-      }
-      return window.AiService.proxyFetch(url, { cache: 'no-store' }).then(function (pr) {
-        if (!pr.ok) throw new Error('HTTP ' + pr.status);
-        return pr.text();
-      });
-    }
-  };
-
-  // 源 4-7：公共 CORS 代理 → UApi（桥接不可用时的网页版回退）
-  function buildProxyStrategies() {
-    return [
-      { name: '代理A', timeout: 15000, wrap: function (u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); }, parse: parseJsonLoose },
-      { name: '代理B', timeout: 15000, wrap: function (u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); }, parse: parseJsonLoose },
-      { name: '代理C', timeout: 25000, wrap: function (u) { return 'https://r.jina.ai/' + u; }, parse: parseJsonLoose },
-      { name: '代理D', timeout: 15000, wrap: function (u) { return 'https://api.allorigins.win/get?url=' + encodeURIComponent(u); }, parse: parseContents }
-    ];
-  }
-
-  // 经指定通道抓取全部板块（并行，个别板块失败可容忍）
-  function fetchBoardsVia(st) {
-    return Promise.all(BOARDS.map(function (b) {
-      var req = st.fetchFn
-        ? st.fetchFn(UAPIS_BASE + encodeURIComponent(b.type))
-        : fetchText(st.wrap(UAPIS_BASE + encodeURIComponent(b.type)), st.timeout);
-      return req
-        .then(function (text) {
-          var json = st.parse(text);
-          var list = json && Array.isArray(json.list) ? json.list : [];
-          var name = (json && json.type && boardName(json.type)) || b.name;
-          return list.slice(0, PER_BOARD).map(function (it) {
-            if (!it || !it.title) return null;
-            return {
-              title: String(it.title),
-              source: String(name),
-              hot: (it.hot_value !== undefined ? it.hot_value : (it.hot !== undefined ? it.hot : '')),
-              url: String(it.url || '')
-            };
-          }).filter(Boolean);
-        })
-        .catch(function () { return []; });
-    })).then(function (groups) {
-      var items = [];
-      groups.forEach(function (g) { items = items.concat(g); });
-      if (items.length < MIN_POOL) throw new Error('该通道可用板块不足');
-      return items;
-    });
-  }
-
-  // 源 6：60s 日报兜底（真实每日新闻，无热度值与链接）
-  function fetch60sDaily() {
-    return fetchText(FALLBACK_60S, FETCH_TIMEOUT).then(function (text) {
-      var j = JSON.parse(text);
-      var news = j && j.data && Array.isArray(j.data.news) ? j.data.news : [];
-      if (!news.length) throw new Error('兜底数据源返回空');
-      return news.map(function (t) {
-        return { title: String(t), source: '60s日报', hot: '', url: '' };
-      });
-    });
-  }
-
-  // UApi 全通道：直连 → 扩展桥接 → 公共代理（逐个尝试，首个成功者胜出）
-  function fetchUapisAny() {
-    var strategies = [DIRECT_STRATEGY, BRIDGE_STRATEGY].concat(buildProxyStrategies());
-    var i = 0;
-    function attempt() {
-      if (i >= strategies.length) throw new Error('UApi 各通道均不可用');
-      var s = strategies[i++];
-      return fetchBoardsVia(s).catch(function () { return attempt(); });
-    }
-    return attempt();
-  }
-
-  // ===== 候选池抓取（多源合并：综合榜 + 科技等垂直板块，给 AI 更丰富的归类空间） =====
-  // v0.23.2：由「首个源成功即返回」改为「并行抓取 + 合并去重」——
-  // 综合热榜（微博/知乎/抖音/头条）几乎不含科技条目，纯综合池会让垂直主题提示词筛出空结果
-  function mergePools(groups) {
-    var items = [], seen = {};
-    groups.forEach(function (g) {
-      // 防御：g 必须是数组（fetchPool 返回的是池对象 {items,...}，非数组）
-      if (!Array.isArray(g)) return;
-      g.forEach(function (it) {
-        var k = it.source + '|' + it.title;
-        if (!seen[k]) { seen[k] = 1; items.push(it); }
-      });
-    });
-    return items;
-  }
-
-  function fetchPool(force) {
-    if (pool && !force && Date.now() - pool.fetchedAt < POOL_TTL) return Promise.resolve(pool);
-    if (poolPromise && !force) return poolPromise;
-
-    poolPromise = Promise.allSettled([fetch60sBoards(), fetchUapisAny()]).then(function (rs) {
-      var items = mergePools(rs.map(function (r) { return r.status === 'fulfilled' ? r.value : null; }));
-      if (items.length < MIN_POOL) {
-        // 全部失败 → 60s 日报兜底（真实每日新闻，无热度/链接）
-        return fetch60sDaily().then(function (items2) {
-          pool = { items: items2, fetchedAt: Date.now(), source: '60s日报' };
-          poolPromise = null;
-          return pool;
-        });
-      }
-      pool = { items: items, fetchedAt: Date.now(), source: '合并源' };
-      poolPromise = null;
-      return pool;
-    }).catch(function () {
-      poolPromise = null;
-      throw new Error('所有数据源暂不可用（接口限制或网络异常），请稍后重试');
-    });
-    return poolPromise;
-  }
-
-  // ===== 必应搜索层（v0.24.0）：按卡片提示词实时搜索全网 =====
-  // www.bing.com/search?q=..&format=rss 返回标准 RSS（10 条，含直链与摘要）；
-  // 该端点无 CORS 头：扩展内直连，网页版经 AiService.proxyFetch 自动走扩展桥。
-  // 搜索失败可容忍（返回 []，仅用热榜候选池）。
-  function parseRssItems(xml) {
-    var items = [];
+  // ===== Tavily 检索层（v0.25.8）=====
+  // api.tavily.com CORS 开放（实测预检回显 Origin），网页版与扩展版均可直连，无需代理桥。
+  async function fetchJson(url, body, headers) {
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, TAVILY_TIMEOUT);
     try {
-      var doc = new DOMParser().parseFromString(String(xml || ''), 'text/xml');
-      if (doc.querySelector('parsererror')) return [];
-      var nodes = doc.querySelectorAll('item');
-      for (var i = 0; i < nodes.length; i++) {
-        var g = function (n, tag) {
-          var el = n.querySelector(tag);
-          return el ? el.textContent.trim() : '';
-        };
-        var title = g(nodes[i], 'title');
-        if (!title) continue;
-        items.push({ title: title, url: g(nodes[i], 'link'), desc: g(nodes[i], 'description') });
-      }
-    } catch (e) { /* 解析失败返回空 */ }
-    return items;
-  }
-
-  function fetchBingSearch(prompt) {
-    var q = String(prompt || '').trim().slice(0, 60);
-    if (!q) return Promise.resolve([]);
-    var key = q.toLowerCase();
-    var c = searchCache[key];
-    if (c && Date.now() - c.ts < BING_SEARCH_TTL) return Promise.resolve(c.items);
-    var url = 'https://www.bing.com/search?q=' + encodeURIComponent(q) + '&format=rss&setmkt=zh-CN';
-    function attemptFn() {
-      if (window.AiService && typeof window.AiService.proxyFetch === 'function') {
-        return window.AiService.proxyFetch(url, { cache: 'no-store' });
-      }
-      return fetchText(url, 15000).then(function (t) { return { ok: true, status: 200, text: t }; });
-    }
-    // 偶发挑战/抖动重试一次（仅失败时）
-    var req = attemptFn().catch(function (e) {
-      return delay(600).then(attemptFn);
-    });
-    return req.then(function (pr) {
-      if (!pr.ok) throw new Error('HTTP ' + pr.status);
-      var items = parseRssItems(pr.text()).slice(0, 12).map(function (it) {
-        return { title: it.title, source: '必应搜索', hot: '', url: it.url, desc: it.desc };
+      var r = await fetch(url, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
+        body: JSON.stringify(body),
+        cache: 'no-store',
+        signal: ctrl ? ctrl.signal : undefined
       });
-      if (!items.length) throw new Error('搜索结果为空');
-      searchCache[key] = { items: items, ts: Date.now() };
-      return items;
-    }).catch(function (e) {
-      console.warn('[HotNews] 必应搜索层失败（本次仅用热榜候选池）:', e && e.message);
-      return [];
+      if (r.status === 401 || r.status === 403) throw new Error('Tavily Key 无效或无权限（HTTP ' + r.status + '）');
+      if (r.status === 429) throw new Error('Tavily 请求过于频繁（429），请稍后重试');
+      if (!r.ok) throw new Error('Tavily 服务异常（HTTP ' + r.status + '）');
+      return await r.json();
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw new Error('Tavily 请求超时');
+      if (e && /Failed to fetch|NetworkError|Load failed/i.test(String(e.message || ''))) throw new Error('无法连接 Tavily（网络异常），请检查网络后重试');
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // ① 关键词提取：卡片提示词 → 3-5 个搜索关键词（含同义词/相关词），按提示词缓存
+  function extractKeywords(prompt) {
+    var key = String(prompt || '').trim().toLowerCase();
+    var c = keywordCache[key];
+    if (c && Date.now() - c.ts < KEYWORDS_TTL) return Promise.resolve(c.kws);
+    if (!window.AiService || typeof window.AiService.chat !== 'function') {
+      return Promise.resolve([String(prompt || '').trim().slice(0, 60)]);
+    }
+    return window.AiService.chat({
+      messages: [
+        { role: 'system', content: '你是搜索规划助手。根据用户给出的主题，提取 3-5 个适合实时新闻检索的核心搜索关键词（中文与英文混合，覆盖同义词与相关概念）。只输出 JSON 字符串数组，禁止解释或 markdown 代码块。示例：["OpenAI GPT-6","大模型 发布","AI 监管 法案"]' },
+        { role: 'user', content: String(prompt) }
+      ],
+      temperature: 0.2
+    }).then(function (text) {
+      var t = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+      var s2 = t.indexOf('['), e2 = t.lastIndexOf(']');
+      var kws = [];
+      if (s2 !== -1 && e2 > s2) {
+        try {
+          var arr = JSON.parse(t.slice(s2, e2 + 1));
+          if (Array.isArray(arr)) kws = arr.filter(function (x) { return x && typeof x === 'string'; }).map(function (x) { return x.trim(); }).slice(0, 5);
+        } catch (err) {}
+      }
+      if (!kws.length) kws = [String(prompt || '').trim().slice(0, 60)]; // 解析失败 → 提示词兜底
+      keywordCache[key] = { kws: kws, ts: Date.now() };
+      return kws;
+    }).catch(function () {
+      return [String(prompt || '').trim().slice(0, 60)]; // AI 不可用也能检索
     });
   }
 
-  // ===== AI 筛选 =====
-  function aiSelect(prompt, poolItems) {
-    if (!window.AiService || typeof window.AiService.chat !== 'function') {
-      return Promise.reject(new Error('AiService 未加载，请刷新页面'));
-    }
-    var payload = poolItems.map(function (it) {
-      var o = { title: it.title, source: it.source, hot: it.hot, url: it.url };
-      if (it.desc) o.desc = it.desc; // 必应搜索结果附摘要，辅助 AI 判断相关性
-      return o;
+  // ② Tavily 新闻搜索：单关键词 → 候选条目（按关键词缓存）
+  function searchOne(kw, apiKey) {
+    var ckey = kw.toLowerCase();
+    var c = searchCache[ckey];
+    if (c && Date.now() - c.ts < SEARCH_TTL) return Promise.resolve(c.items);
+    return fetchJson(TAVILY_URL, {
+      api_key: apiKey,
+      query: kw,
+      topic: 'news',
+      days: TAVILY_DAYS,
+      max_results: MAX_RESULTS,
+      search_depth: 'basic',
+      include_answer: false
+    }).then(function (data) {
+      var results = data && Array.isArray(data.results) ? data.results : [];
+      var items = results.map(function (r) {
+        if (!r || !r.title) return null;
+        var src = '';
+        try { src = new URL(r.url).hostname.replace(/^www\./, ''); } catch (e) { src = ''; }
+        return {
+          title: String(r.title),
+          summary: String(r.content || '').slice(0, 300),
+          url: String(r.url || ''),
+          source: src,
+          score: typeof r.score === 'number' ? r.score : '',
+          published: String(r.published_date || '')
+        };
+      }).filter(Boolean);
+      if (items.length) searchCache[ckey] = { items: items, ts: Date.now() };
+      return items;
     });
-    var system = '你是全网热点新闻筛选助手。用户给出主题提示词与一组候选条目（JSON 数组），条目分两类：'
-      + '① source 为「必应搜索」的条目：按主题实时搜索得到的全网结果（desc 为网页摘要），与主题直接相关，只要标题/摘要确实切题即优先保留；'
-      + '② 其余条目：来自各平台热榜，需按语义相关性筛选。'
-      + '规则：'
-      + '1. 只保留与主题提示词语义确实相关的条目，宁缺毋滥，禁止为了凑数而保留无关条目；'
-      + '2. 相关性优先，相关性相近时按热度从高到低；最多输出 ' + TOP_N + ' 条，若确实相关的不足 ' + TOP_N + ' 条，只输出实际相关的条数（可以为 0 条，输出 [] 即可）；'
-      + '3. 每条输出 reason 字段：不超过 18 个字，说明该条目与主题的相关点；'
-      + '4. title/source/hot/url 必须保持候选条目原文，不得改写或编造；hot 为空保持为空。'
-      + '只输出 JSON 数组，禁止输出任何解释、前后缀或 markdown 代码块标记。输出格式：'
-      + '[{"title":"原文标题","source":"来源平台","hot":"热度值","url":"原文链接","reason":"相关点"}]';
+  }
+
+  // 多关键词并行搜索，按 url 去重合并；全部失败/为空时抛错（带诊断）
+  function searchAll(keywords, apiKey) {
+    return Promise.allSettled(keywords.map(function (kw) { return searchOne(kw, apiKey); }))
+      .then(function (rs) {
+        var ok = rs.filter(function (r) { return r.status === 'fulfilled'; });
+        if (!ok.length && rs.length) throw (rs[0].reason) || new Error('Tavily 搜索失败');
+        var items = [], seen = {};
+        ok.forEach(function (r) {
+          r.value.forEach(function (it) {
+            var k = it.url || it.title;
+            if (k && !seen[k]) { seen[k] = 1; items.push(it); }
+          });
+        });
+        if (!items.length) throw new Error('Tavily 未返回相关结果：可尝试放宽或更换提示词');
+        return items;
+      });
+  }
+
+  // ===== AI 分析归类（评分维度：时效性/热度/影响力） =====
+  function aiAnalyze(prompt, candidates) {
+    if (!window.AiService || typeof window.AiService.chat !== 'function') {
+      return Promise.reject(new Error('请先在「大模型接口」中配置 Base URL / API Key / 模型'));
+    }
+    var payload = candidates.slice(0, 50).map(function (it) {
+      return { title: it.title, summary: it.summary, source: it.source, url: it.url, published: it.published, score: it.score };
+    });
+    var system = '你是一个热点分析助手。用户给出主题提示词与一组 Tavily 全网新闻搜索的候选条目（JSON 数组，字段 title/summary/source/url/published/score）。任务：\n'
+      + '1. 按以下三个维度为候选条目打分：\n'
+      + '   - 时效性：24 小时内发布的优先（published 字段可判断，缺失视为较旧）\n'
+      + '   - 热度：出现频次与讨论量（同一事件被多来源报道视为高热度；score 为搜索引擎相关性参考）\n'
+      + '   - 影响力：涉及范围（跨国家/跨行业/受众规模）\n'
+      + '2. 与主题弱相关的条目剔除（宁缺毋滥），按维度综合排序；\n'
+      + '3. 将保留的条目归类为不超过 ' + TOP_N + ' 个主题（category 用 2-6 字中文标签，如 政策监管/行业动态/产品技术/芯片半导体/融资并购），无明确归属的放「其他」；\n'
+      + '4. 每个主题内的条目给出四字段：\n'
+      + '   - title：中文标题（外文标题翻译为中文，专有名词与公司/产品名保留原文）\n'
+      + '   - summary：不超过 40 字的一句话摘要（依据候选 summary 字段，禁止编造）\n'
+      + '   - source：来源域名（保持候选条目 source 原文）\n'
+      + '   - heat：0-100 整数热度评分（按 时效40%/热度30%/影响力30% 综合）\n'
+      + '   另附 url 与 published 字段保持候选条目原文，不得改写。\n'
+      + '只输出 JSON 数组，禁止任何解释或 markdown 代码块标记。格式：\n'
+      + '[{"category":"政策监管","items":[{"title":"...","summary":"...","source":"reuters.com","url":"...","published":"...","heat":85}]}]';
     var user = '主题提示词：' + prompt + '\n\n候选条目：\n' + JSON.stringify(payload);
     return window.AiService.chat({
       messages: [
@@ -402,32 +309,44 @@
       ],
       temperature: 0.2
     }).then(function (text) {
-      var items = extractJsonItems(text);
-      if (!items.length && !/^\s*\[\s*\]\s*$/.test(String(text || ''))) {
+      var groups = extractGroups(text);
+      if (!groups.length && !/^\s*\[\s*\]\s*$/.test(String(text || ''))) {
         console.warn('[HotNews] AI 原始返回（解析失败）:', text);
       }
-      return items.slice(0, TOP_N); // 空数组 = 无强相关条目，属正常结果
+      return groups;
     });
   }
 
-  function extractJsonItems(text) {
-    var t = String(text || '').trim();
-    t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
-    var start = t.indexOf('['), end = t.lastIndexOf(']');
-    if (start === -1 || end === -1 || end <= start) return [];
-    var slice = t.slice(start, end + 1);
+  // 解析分组结果 [{category, items:[{title,summary,source,url,published,heat}]}]
+  function extractGroups(text) {
+    var t = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+    var s2 = t.indexOf('['), e2 = t.lastIndexOf(']');
+    if (s2 === -1 || e2 <= s2) return [];
+    var slice = t.slice(s2, e2 + 1);
     var arr = null;
     try { arr = JSON.parse(slice); } catch (e) {
-      // 容错修复：去除对象/数组尾逗号后重试
       try { arr = JSON.parse(slice.replace(/,\s*([\]}])/g, '$1')); } catch (e2) { arr = null; }
     }
     if (!Array.isArray(arr)) return [];
-    return arr.filter(function (it) { return it && it.title; }).map(function (it) {
-      return { title: String(it.title), source: String(it.source || ''), hot: it.hot, url: String(it.url || ''), reason: String(it.reason || '') };
+    var out = [];
+    arr.forEach(function (g) {
+      if (!g || !Array.isArray(g.items)) return;
+      var items = g.items.filter(function (it) { return it && it.title; }).slice(0, TOP_N).map(function (it) {
+        return {
+          title: String(it.title),
+          summary: String(it.summary || ''),
+          source: String(it.source || ''),
+          url: String(it.url || ''),
+          published: String(it.published || ''),
+          heat: (typeof it.heat === 'number' && isFinite(it.heat)) ? Math.max(0, Math.min(100, Math.round(it.heat))) : ''
+        };
+      });
+      if (items.length) out.push({ category: String(g.category || '其他'), items: items });
     });
+    return out.slice(0, TOP_N);
   }
 
-  // ===== API 配置（复用 AiService 配置体系：localStorage translate_config + chrome.storage config，全页互通） =====
+  // ===== 大模型配置（复用 AiService 配置体系：localStorage translate_config + chrome.storage config，全页互通） =====
   function apiOpenState() { return $('hnApiContent').classList.contains('open'); }
 
   function toggleApiPanel(open) {
@@ -483,7 +402,7 @@
     showToast('API 配置已保存', 'success');
     // 自动重试此前因未配置而失败的卡片
     cards.forEach(function (c) {
-      if (c.error && /请先配置/.test(c.error) && !c.loading) refreshCard(c);
+      if (c.error && /请先配置|请先在/.test(c.error) && !c.loading) refreshCard(c);
     });
   }
 
@@ -526,15 +445,17 @@
     }
     req.then(function (pr) {
       if (!pr.ok) throw new Error('HTTP ' + pr.status);
-      var j = parseJsonLoose(pr.text());
-      var arr = j && Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
-      var ids = arr.map(function (m) { return m && (m.id || m.model || m.name); }).filter(Boolean).map(String);
-      if (!ids.length) throw new Error('端点未返回模型列表');
-      $('hnApiModelList').innerHTML = ids.map(function (id) {
-        return '<option value="' + escapeHtml(id) + '"></option>';
-      }).join('');
-      toggleApiPanel(true);
-      showToast('已获取 ' + ids.length + ' 个模型，点击「模型名称」输入框选择（如 ' + ids.slice(0, 3).join(' / ') + '）', 'success');
+      return pr.text().then(function (body) {
+        var j = parseJsonLoose(body);
+        var arr = j && Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+        var ids = arr.map(function (m) { return m && (m.id || m.model || m.name); }).filter(Boolean).map(String);
+        if (!ids.length) throw new Error('端点未返回模型列表');
+        $('hnApiModelList').innerHTML = ids.map(function (id) {
+          return '<option value="' + escapeHtml(id) + '"></option>';
+        }).join('');
+        toggleApiPanel(true);
+        showToast('已获取 ' + ids.length + ' 个模型，点击「模型名称」输入框选择（如 ' + ids.slice(0, 3).join(' / ') + '）', 'success');
+      });
     }).catch(function (e) {
       var msg = e && e.message ? e.message : '未知错误';
       if (/HTTP 401|HTTP 403/.test(msg)) {
@@ -549,43 +470,123 @@
     });
   }
 
-  // ===== 卡片刷新（热榜池 + 必应搜索层并行 → AI 筛选；AI 异常自动重试一次） =====
+  // ===== Tavily 配置（网页搜索 Key，存 hn_tavily_key 双端同步） =====
+  function setTavilyStatus() {
+    var chip = $('hnTavilyStatus'), text = $('hnTavilyStatusText');
+    if (!chip || !text) return;
+    var key = tavilyKey();
+    if (key) {
+      text.textContent = '已配置（' + key.slice(0, 8) + '…）';
+      chip.classList.add('ok');
+    } else {
+      text.textContent = '未配置';
+      chip.classList.remove('ok');
+    }
+  }
+
+  function initTavilyUi() {
+    var key = tavilyKey();
+    var input = $('hnTavilyKey');
+    if (input) input.value = key;
+    setTavilyStatus();
+    toggleTavilyPanel(!key);
+  }
+
+  function toggleTavilyPanel(open) {
+    var el = $('hnTavilyContent');
+    if (el) el.classList.toggle('open', open);
+    var icon = $('hnTavilyIcon');
+    if (icon) icon.classList.toggle('collapsed', !open);
+  }
+
+  function saveTavilyKey() {
+    var key = String($('hnTavilyKey').value || '').trim();
+    if (!/^tvly-/i.test(key)) { showToast('Tavily Key 格式异常（应以 tvly- 开头，在 tavily.com 免费申请）', 'error'); return; }
+    storage.set({ hn_tavily_key: key });
+    // 网页 → 扩展反向同步（content.js 中继，映射表见 background.js）
+    if (!isExtension) {
+      try { (window.top || window).postMessage({ source: 'linguaflow-page', type: 'save-record', key: 'hn_tavily_key', value: key }, '*'); } catch (e) {}
+    }
+    setTavilyStatus();
+    toggleTavilyPanel(false);
+    showToast('Tavily Key 已保存', 'success');
+    // 自动重试此前因未配置而失败的卡片
+    cards.forEach(function (c) {
+      if (c.error && /Tavily/.test(c.error) && !c.loading) refreshCard(c);
+    });
+  }
+
+  function clearTavilyKey() {
+    storage.set({ hn_tavily_key: '' });
+    if (!isExtension) {
+      try { (window.top || window).postMessage({ source: 'linguaflow-page', type: 'save-record', key: 'hn_tavily_key', value: '' }, '*'); } catch (e) {}
+    }
+    $('hnTavilyKey').value = '';
+    setTavilyStatus();
+    toggleTavilyPanel(true);
+    showToast('Tavily Key 已清除', 'info');
+  }
+
+  function testTavily() {
+    var key = String($('hnTavilyKey').value || '').trim();
+    if (!key) { showToast('请先填写 Tavily API Key', 'error'); return; }
+    var btn = $('hnTavilyTest');
+    btn.disabled = true; btn.textContent = '测试中…';
+    searchOne('AI news', key).then(function (items) {
+      showToast('Tavily 连通正常（测试返回 ' + items.length + ' 条结果）', 'success');
+    }).catch(function (e) {
+      showToast('Tavily 测试失败：' + (e && e.message || e), 'error');
+    }).then(function () {
+      btn.disabled = false; btn.textContent = '测试';
+    });
+  }
+
+  // ===== 卡片刷新（Tavily 检索 → AI 分析归类；AI 异常自动重试一次） =====
   function refreshCard(card, isRetry) {
     card.error = '';
     card.loading = true;
     render();
-    return Promise.all([fetchPool(), fetchBingSearch(card.prompt)]).then(function (rs) {
-      // rs[0] = 候选池对象 {items,...}；rs[1] = 必应搜索结果数组（与提示词直接匹配，排在前）
-      var candidates = mergePools([rs[1], rs[0] && rs[0].items]);
-      if (!candidates.length) throw new Error('所有数据源暂不可用（接口限制或网络异常），请稍后重试');
-      return aiSelect(card.prompt, candidates);
-    }).then(function (items) {
-      card.items = items;
-      card.updatedAt = Date.now();
+    var tk = tavilyKey();
+    if (!tk) {
       card.loading = false;
-      card.error = '';
-      save();
+      card.error = '请先配置 Tavily API Key（网页搜索用，tavily.com 免费注册）';
+      toggleTavilyPanel(true);
       render();
-    }).catch(function (e) {
-      var msg = e && e.message ? e.message : '未知错误';
-      var isPoolError = /数据源/.test(msg);
-      if (!isRetry && !isPoolError) {
-        return refreshCard(card, true); // AI 偶发格式/网络异常自动重试一次
-      }
-      card.loading = false;
-      card.error = msg;
-      // 常见失败场景 → 针对性引导
-      if (/请先配置/.test(msg)) {
-        card.error = '请先在上方「API 配置」中填写 Base URL / API Key / 模型';
-        toggleApiPanel(true);
-      } else if (/Model not exist|model_not_found/i.test(msg)) {
-        card.error = '模型名不存在：该端点仅支持特定模型 ID，请点击「获取模型列表」查看并重新填写保存';
-        toggleApiPanel(true);
-      } else if (/网络请求失败/.test(msg)) {
-        card.error = msg + '（跨域直连与扩展代理桥均不可用：请确认已安装扩展并在 chrome://extensions 开启「允许访问文件网址」后刷新，或直接在 Chrome 扩展内使用）';
-      }
-      render();
-    });
+      return Promise.resolve();
+    }
+    return extractKeywords(card.prompt)
+      .then(function (kws) { card.keywords = kws; return searchAll(kws, tk); })
+      .then(function (candidates) { return aiAnalyze(card.prompt, candidates); })
+      .then(function (groups) {
+        card.groups = groups;
+        card.updatedAt = Date.now();
+        card.loading = false;
+        card.error = '';
+        save();
+        render();
+      })
+      .catch(function (e) {
+        var msg = e && e.message ? e.message : '未知错误';
+        if (!isRetry && !/数据源|Tavily 未返回|请先/.test(msg)) {
+          return refreshCard(card, true); // AI 偶发格式/网络异常自动重试一次
+        }
+        card.loading = false;
+        card.error = msg;
+        // 常见失败场景 → 针对性引导
+        if (/Tavily Key/.test(msg)) {
+          card.error = 'Tavily Key 无效或未配置：请在「网页搜索（Tavily）」中填写有效 Key（tavily.com 免费注册）';
+          toggleTavilyPanel(true);
+        } else if (/请先在「大模型接口」/.test(msg)) {
+          card.error = '请先在「大模型接口」中填写 Base URL / API Key / 模型';
+          toggleApiPanel(true);
+        } else if (/Model not exist|model_not_found/i.test(msg)) {
+          card.error = '模型名不存在：该端点仅支持特定模型 ID，请点击「获取模型列表」查看并重新填写保存';
+          toggleApiPanel(true);
+        } else if (/网络请求失败/.test(msg)) {
+          card.error = msg + '（跨域直连与扩展代理桥均不可用：请确认已安装扩展并在 chrome://extensions 开启「允许访问文件网址」后刷新，或直接在 Chrome 扩展内使用）';
+        }
+        render();
+      });
   }
 
   function refreshCardById(id) {
@@ -604,7 +605,7 @@
     var nameEl = $('hnName'), promptEl = $('hnPrompt');
     var name = nameEl.value.trim();
     var prompt = promptEl.value.trim();
-    if (!prompt) { showToast('请输入提示词，用于 AI 归类筛选', 'error'); return; }
+    if (!prompt) { showToast('请输入提示词，用于 AI 提取关键词与归类分析', 'error'); return; }
     if (!name) name = '综合热点';
 
     if (editingId) {
@@ -621,7 +622,7 @@
       editingId = null;
     }
 
-    var card = { id: uid(), name: name, prompt: prompt, items: [], updatedAt: 0 };
+    var card = { id: uid(), name: name, prompt: prompt, groups: [], updatedAt: 0 };
     cards.unshift(card);
     resetForm();
     save(); render();
@@ -661,7 +662,7 @@
   // ===== 持久化（剥离内存态字段） =====
   function save() {
     var plain = cards.map(function (c) {
-      return { id: c.id, name: c.name, prompt: c.prompt, items: c.items || [], updatedAt: c.updatedAt || 0 };
+      return { id: c.id, name: c.name, prompt: c.prompt, groups: c.groups || [], updatedAt: c.updatedAt || 0 };
     });
     // 网页 → 扩展反向同步（content.js 中继，映射表见 background.js）
     if (!isExtension) {
@@ -669,7 +670,6 @@
     }
     return storage.set({ hn_cards: plain });
   }
-
 
   // 导出全部卡片到本地 JSON 文件（v0.24.2）
   function exportCards() {
@@ -680,7 +680,22 @@
       showToast('卡片已导出', 'success');
     }
   }
+
   // ===== 渲染 =====
+  // 旧数据兼容：无 groups 但有旧版 items 时，包装为单组展示（刷新后覆盖为新格式）
+  function cardGroups(c) {
+    if (c.groups && c.groups.length) return c.groups;
+    if (c.items && c.items.length) {
+      return [{
+        category: '热点条目',
+        items: c.items.map(function (it) {
+          return { title: it.title, summary: it.reason || '', source: it.source || '', url: it.url || '', published: '', heat: '' };
+        })
+      }];
+    }
+    return [];
+  }
+
   function render() {
     var grid = $('hnGrid');
     if (!grid) return;
@@ -689,8 +704,8 @@
         '<div class="hn-empty">' +
         '<span class="emoji">📡</span>' +
         '<p class="hn-empty-title">还没有热点卡片</p>' +
-        '<p class="hn-empty-hint">在上方输入名称与提示词创建第一张卡片，AI 将按提示词从全网热榜中筛选 Top 10</p>' +
-        '<p class="hn-empty-config">使用前请确认已在翻译页或插件弹窗配置 API（Base URL / API Key / Model）</p>' +
+        '<p class="hn-empty-hint">在上方输入名称与提示词创建第一张卡片，AI 将提取关键词经 Tavily 全网搜索，按时效/热度/影响力归类为 ≤10 个主题</p>' +
+        '<p class="hn-empty-config">使用前请配置「网页搜索（Tavily）」Key 与「大模型接口」（Base URL / API Key / Model）</p>' +
         '</div>';
       return;
     }
@@ -698,32 +713,43 @@
   }
 
   function renderCard(c) {
+    var groups = cardGroups(c);
+    var hasContent = groups.length > 0;
+
     var html = '';
     html += '<div class="hn-card glass-card" data-id="' + c.id + '">';
     html += '<div class="hn-card-head">';
     html += '<h3 class="hn-card-title">' + escapeHtml(c.name) + '</h3>';
-    html += '<span class="hn-tag">Top ' + TOP_N + '</span>';
+    html += '<span class="hn-tag">' + (hasContent ? groups.length + ' 主题' : 'Top ' + TOP_N) + '</span>';
     html += '</div>';
 
     if (c.loading) {
-      html += '<div class="hn-loading"><div class="hn-spinner"></div><p class="hn-loading-text">AI 正在全网检索…</p></div>';
+      html += '<div class="hn-loading"><div class="hn-spinner"></div><p class="hn-loading-text">AI 正在提取关键词 → Tavily 全网搜索 → 分析归类…</p></div>';
       html += '<div class="hn-skel-wrap">';
       for (var i = 0; i < 6; i++) html += '<div class="hn-skel"></div>';
       html += '</div>';
     } else if (c.error) {
       html += '<div class="hn-error"><p class="hn-error-text">' + escapeHtml(c.error) + '</p>';
       html += '<button class="hn-btn-retry" data-action="retry" data-id="' + c.id + '">↻ 重试</button></div>';
-    } else if (!c.items || !c.items.length) {
-      html += '<div class="hn-none"><p>AI 未在候选热榜中发现与提示词强相关的条目</p><p style="margin-top:6px">可尝试放宽提示词范围，或点击刷新重新检索</p></div>';
+    } else if (!hasContent) {
+      html += '<div class="hn-none"><p>未检索到与提示词强相关的热点</p><p style="margin-top:6px">可尝试放宽提示词范围，或点击刷新重新检索</p></div>';
     } else {
+      if (c.keywords && c.keywords.length) {
+        html += '<div class="hn-kw">搜索词：' + c.keywords.map(function (k) { return '<span>' + escapeHtml(k) + '</span>'; }).join('') + '</div>';
+      }
+      groups.forEach(function (g) {
+        html += '<div class="hn-cat"><span class="hn-cat-name">' + escapeHtml(g.category) + '</span><span class="hn-cat-count">' + g.items.length + ' 条</span></div>';
         html += '<ol class="hn-list">';
-        c.items.forEach(function (it, idx) {
+        g.items.forEach(function (it, idx) {
           var rank = idx + 1;
-          var hot = formatHot(it.hot);
+          var heat = (typeof it.heat === 'number') ? String(it.heat) : formatHot(it.heat || '');
+          var hotCls = '';
+          var heatNum = typeof it.heat === 'number' ? it.heat : NaN;
+          if (isFinite(heatNum)) hotCls = heatNum >= 85 ? ' r1' : heatNum >= 70 ? ' r2' : heatNum >= 55 ? ' r3' : '';
           var title = escapeHtml(it.title);
-          var tip = title + (it.reason ? '（' + escapeHtml(it.reason) + '）' : '');
+          var tip = title + (it.summary ? '（' + escapeHtml(it.summary) + '）' : '');
           html += '<li class="hn-item">';
-          html += '<span class="hn-rank r' + rank + '">' + rank + '</span>';
+          html += '<span class="hn-rank' + hotCls + '" title="组内排名，热度 ' + escapeHtml(heat || '-') + '/100">' + rank + '</span>';
           if (it.source) html += '<span class="hn-src">' + escapeHtml(it.source) + '</span>';
           html += '<div class="hn-item-main">';
           if (it.url) {
@@ -731,16 +757,16 @@
           } else {
             html += '<span class="hn-item-title" title="' + tip + '">' + title + '</span>';
           }
-          if (it.reason) html += '<span class="hn-item-reason">' + escapeHtml(it.reason) + '</span>';
+          if (it.summary) html += '<span class="hn-item-summary">' + escapeHtml(it.summary) + '</span>';
           html += '</div>';
-          if (hot) html += '<span class="hn-item-hot">' + escapeHtml(hot) + '</span>';
+          if (heat) html += '<span class="hn-item-hot' + hotCls + '" title="综合热度评分（0-100）">' + escapeHtml(heat) + '</span>';
+          var pub = fmtPublished(it.published);
+          if (pub) html += '<span class="hn-item-time">' + escapeHtml(pub) + '</span>';
           html += '</li>';
         });
         html += '</ol>';
-        if (c.items.length < TOP_N) {
-          html += '<p class="hn-lownote">与提示词强相关的条目较少，本次仅返回 ' + c.items.length + ' 条（宁缺毋滥）</p>';
-        }
-      }
+      });
+    }
 
     html += '<div class="hn-card-foot">';
     html += '<span class="hn-time">' + (c.loading ? '检索中…' : escapeHtml(timeAgo(c.updatedAt))) + '</span>';
@@ -757,6 +783,7 @@
   function bindEvents() {
     bind('hnAddBtn', 'click', addOrUpdate);
     bind('hnExportBtn', 'click', exportCards);
+    bind('hnRefreshAllBtn', 'click', refreshAll);
 
     bind('hnName', 'keydown', function (e) { if (e.key === 'Enter') addOrUpdate(); });
     bind('hnPrompt', 'keydown', function (e) { if (e.key === 'Enter') addOrUpdate(); });
@@ -764,6 +791,11 @@
     bind('hnApiSave', 'click', saveApiConfig);
     bind('hnApiClear', 'click', clearApiConfig);
     bind('hnApiFetchModels', 'click', fetchModels);
+
+    bind('hnTavilyHeader', 'click', function () { toggleTavilyPanel(!$('hnTavilyContent').classList.contains('open')); });
+    bind('hnTavilySave', 'click', saveTavilyKey);
+    bind('hnTavilyTest', 'click', testTavily);
+    bind('hnTavilyClear', 'click', clearTavilyKey);
 
     var grid = $('hnGrid');
     if (grid) {
@@ -781,11 +813,24 @@
     // 跨页同步：其他页面创建/修改卡片后自动刷新列表
     if (isExtension) {
       chrome.storage.onChanged.addListener(function (changes, area) {
-        if (area === 'local' && changes.hn_cards && !editingId) reload();
+        if (area !== 'local') return;
+        if (changes.hn_cards && !editingId) reload();
+        if (changes.hn_tavily_key) {
+          var v = changes.hn_tavily_key.newValue;
+          storage.cache[TAVILY_KEY] = v;
+          try { if (v) localStorage.setItem(TAVILY_KEY, JSON.stringify(v)); } catch (e) {}
+          setTavilyStatus();
+          var input = $('hnTavilyKey');
+          if (input && typeof v === 'string' && v) input.value = v;
+        }
       });
     } else {
       window.addEventListener('storage', function (e) {
         if (e.key === 'hn_cards' && !editingId) reload();
+        if (e.key === 'hn_tavily_key') {
+          storage.cache[TAVILY_KEY] = null; // 强制 tavilyKey() 重读 localStorage
+          setTavilyStatus();
+        }
       });
     }
   }
@@ -802,17 +847,26 @@
   function sanitize(raw) {
     if (!Array.isArray(raw)) return [];
     return raw.filter(function (c) { return c && c.id && c.prompt; }).map(function (c) {
-      return { id: String(c.id), name: String(c.name || '综合热点'), prompt: String(c.prompt), items: Array.isArray(c.items) ? c.items : [], updatedAt: c.updatedAt || 0 };
+      return {
+        id: String(c.id), name: String(c.name || '综合热点'), prompt: String(c.prompt),
+        groups: Array.isArray(c.groups) ? c.groups : [],
+        items: Array.isArray(c.items) ? c.items : [],   // 旧数据兼容（cardGroups 包装展示）
+        updatedAt: c.updatedAt || 0
+      };
     });
   }
 
   // ===== Init =====
-  reload().then(function () {
+  storage.load([TAVILY_KEY]).then(function () {
+    return reload();
+  }).then(function () {
     bindEvents();
     initConfigUi();
+    initTavilyUi();
   }).catch(function (e) {
     console.error('[HotNews] init failed:', e);
     bindEvents();
     initConfigUi();
+    initTavilyUi();
   });
 })();

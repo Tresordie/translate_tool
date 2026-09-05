@@ -27,7 +27,7 @@
   // 键列表须与 background.js 的 RECORD_SYNC_KEYS 值保持一致。
   try {
     const RECORD_LS_KEYS = [
-      'td_todo_items', 'td_todo_cal_config', 'hn_cards', 'translate_history', 'translate_draft',
+      'td_todo_items', 'td_todo_cal_config', 'hn_cards', 'hn_tavily_key', 'translate_history', 'translate_draft',
       'wr_work_records', 'wr_work_summaries', 'wr_work_config', 'wr_work_draft',
       'email_summary_history', 'email_summary_config',
       'learningHistory', 'englishLearningData', 'ai_parse_state', 'ai_prompts_state'
