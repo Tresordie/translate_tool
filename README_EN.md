@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.25.8-blue)
+![Version](https://img.shields.io/badge/version-0.25.9-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -31,7 +31,7 @@
 - **History export** — Smart Translation history, Work Report records, Email Summary history, English Learning history and Hot News Radar cards can each be exported to a local JSON file with one click
 - **Work Report** — Built-in work report generator with AI one-click summary, history management, and date filtering
 - **Task List** — Built-in task manager with add/complete/delete, priority levels, progress tracking, Markdown batch import/export (with checkbox syntax), Apple Reminders one-click import (URL Scheme + AppleScript file fallback), Google Calendar sync, and .ics calendar download
-- **English Learning Assistant** — Built-in English learning module with word study, AI definitions, text-to-speech, learning history, and note export
+- **English Learning Assistant** — Built-in English learning module with word study, full-text translation + difficult-word extraction for sentences/passages (up to 20 words, one card per word with a speaker button for one-click pronunciation), AI definitions, text-to-speech, learning history (restored exactly as studied), and note export
 - **Email Summary** — New 5th tab: paste email threads or upload local files (.txt/.md/.eml/.pdf); AI produces a professional four-section detailed summary (subject & background / timeline table / technical key points / risks & caveats) plus a responsibility-based To Do List (P0/P1/P2 priorities), with 30-language output, HTML/Markdown download, and history review & editing
   - **PDF Parsing** — Built-in pdf.js local parsing (up to 200MB) with automatic handling of huge files: reading progress indicator, early stop at text budget / page cap, per-page memory release
   - **Auto-Truncation for Oversized Content** — Over 60,000 characters, automatically keeps head & tail, omits and marks the middle — no manual splitting needed
@@ -224,6 +224,11 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.25.9 (2026-09-05)
+- **English Learning passage mode redesigned** — sentence/passage input (>4 words) now asks the model for `{translation, words}`: the result area shows a **full Chinese translation** card first, then full learning cards for **up to 20** difficult words (was 15, with no translation); every word card header gets a speaker button that reads the word aloud (reuses the pronunciation panel's voice/rate settings, wired via event delegation for CSP compliance).
+- **Learning history now matches the study view** — fixes history restore showing the raw AI JSON string in passage mode: history entries store the **structured parsed result** (instead of raw AI text) and restore through the same `displayResult` pipeline used during study; legacy entries degrade to a Markdown fallback render. The "save today's content" export (md/html) is now generated from structured data (the old regex-over-rendered-HTML extraction had drifted from the render structure and produced empty notes); passage exports include the full translation; 4 dead helpers serving only the old export were removed.
+- **Fix: "Clear all" no longer wipes learning history** — the learning-content clear button also deleted the `learningHistory` key, erasing all history; removed. Clearing now writes an empty state and relays it via `elRelayRecord` (removeItem-only left stale chrome.storage data that "resurrected" on reload in the extension); the same fix applies to the history section's "clear all". The learning-content "clear all" no longer shows a confirmation dialog per request.
 
 ### v0.25.8 (2026-09-05)
 - **Hot News Radar switches its search engine to Tavily** — the card refresh pipeline is rebuilt in three steps: (1) AI extracts 3-5 core search keywords (incl. synonyms/related terms) from the card prompt, cached 30 min per prompt; (2) each keyword is searched via Tavily news API (2-day window, cached 5 min per keyword; CORS-open endpoint — the web page connects directly, no extension needed); (3) AI scores candidates on timeliness (prefer within 24h) / heat (frequency & discussion volume) / impact (scope), grouped into up to 10 themes, each item with Chinese title, 40-char summary, source and 0-100 heat score (weights 40/30/30). Cards now show theme groups, keyword chips, summaries and publish times.

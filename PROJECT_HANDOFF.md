@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.25.8 · 2026-09-05
+> **当前版本**：v0.25.9 · 2026-09-05
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -136,6 +136,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.25.9 | 英语学习长内容模式重设计：材料模式提示词改返回 `{translation, words}`（全文中文翻译 + ≤20 较难词汇），结果区 = 全文翻译卡 + 词汇卡（词头喇叭按钮一键朗读，`resultContent` 事件委托）；**历史条目改存结构化解析结果**，恢复走 `displayResult` 与学习时一致（修复恢复显示原始 JSON 串），旧格式按 `{fallback}` / 原文 Markdown 兜底兼容；md/html 导出改结构化生成（删 htmlToText/extractText/extractSection/extractExamples 死函数）；修复「清空所有」误删 `learningHistory` + 清空经 `elRelayRecord` 同步防 chrome.storage 复活；「清空所有」无确认弹窗 |
 | v0.25.8 | 热点雷达切换 Tavily 检索链（AI 提取 3-5 关键词 → Tavily 新闻搜索 → 三维度打分归类 ≤10 主题，输出标题/摘要/来源/热度）；新增 hn_tavily_key 设置区并入全端同步（16 键）；热榜聚合与必应层退役；Tavily CORS 开放网页直连无需扩展 |
 | v0.25.7 | 英语学习支持长材料输入：>4 词自动切材料模式，提取关键词汇（≤15 个）逐词生成学习卡片；历史显示短标签、点击恢复全文；两副本同步 |
 | v0.25.6 | 邮件总结恢复一次性输出（撤销 v0.25.5 流式逐行上屏，应用户反馈）；非流式请求带耗时提示与直连取消；流式基础设施保留休眠；其余兼容性修复（buildUrl/推理门控/SW 保活/错误诊断）全部保留 |
@@ -266,5 +267,5 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 ---
 
-**最后更新**：2026-09-05 · v0.25.8（热点雷达切换 Tavily 检索链，§3.9 已重写；热榜/必应层退役；详见 §4 版本表）
+**最后更新**：2026-09-05 · v0.25.9（英语学习长内容模式重设计：全文翻译 + ≤20 难词卡片 + 词头朗读；历史存结构化结果、恢复与学习时一致；导出改结构化生成；「清空所有」误删历史修复 + 无确认弹窗；详见 §4 版本表）
 **参考文档**：`README.md` · `README_EN.md`（changelog 已补 v0.25.5，正文仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

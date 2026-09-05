@@ -307,12 +307,11 @@
             }
         }
 
-        function speakWord() {
-            const word = wordEditor.getMarkdown().trim();
-            if (!word) return;
+        function speakText(text) {
+            if (!text) return;
             stopSpeaking();
-            
-            const utterance = new SpeechSynthesisUtterance(word);
+
+            const utterance = new SpeechSynthesisUtterance(text);
             const voices = speechSynthesis.getVoices();
             const selectedVoice = voices.find(v => v.name === document.getElementById('voiceSelect').value);
             if (selectedVoice) {
@@ -324,6 +323,10 @@
             
             utterance.rate = parseFloat(document.getElementById('rateSlider').value);
             try { speechSynthesis.speak(utterance); } catch(e) { console.warn("[EL] speak:", e.message); }
+        }
+
+        function speakWord() {
+            speakText(wordEditor.getMarkdown().trim());
         }
 
         function stopSpeaking() {
@@ -412,7 +415,8 @@
 
         function clearAllHistory() {
             if (confirm('确定要清空所有学习历史吗?此操作不可撤销！')) {
-                localStorage.removeItem('learningHistory');
+                localStorage.setItem('learningHistory', JSON.stringify([]));
+                elRelayRecord('learningHistory', []);
                 displayHistory();
             }
         }
@@ -448,15 +452,25 @@
             `).join('');
         }
 
+        // 历史条目 content 为结构化 JSON（displayResult 可回放）；解析失败或旧格式按原文兜底渲染
+        function parseHistoryItem(item) {
+            try {
+                const parsed = JSON.parse(item.content);
+                if (parsed && parsed.fallback !== undefined) return { fallback: String(parsed.fallback) };
+                if (parsed) return { result: parsed };
+            } catch (e) {}
+            return { fallback: item.content || '' };
+        }
+
         function loadHistory(index) {
             const history = getHistory();
             const item = history[index];
             wordEditor.setMarkdown(item.word);
-            // Re-render from raw content if available, else use stored innerHTML
-            if (item.rawContent) {
-                document.getElementById('resultContent').innerHTML = `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--el-accent);stroke-width:1.5;fill:none"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 学习结果</div><div class="md-rendered">${renderMarkdown(item.rawContent)}</div></div>`;
+            const parsed = parseHistoryItem(item);
+            if (parsed.fallback !== undefined) {
+                document.getElementById('resultContent').innerHTML = `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--el-accent);stroke-width:1.5;fill:none"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 学习结果</div><div class="md-rendered">${renderMarkdown(parsed.fallback)}</div></div>`;
             } else {
-                document.getElementById('resultContent').innerHTML = item.content;
+                displayResult(parsed.result);
             }
             document.getElementById('resultSection').style.display = 'block';
             saveToStorage();
@@ -495,13 +509,13 @@
                 if (isPassage && material.length > 15000) material = material.slice(0, 15000) + '\n[...材料过长，已截断...]';
                 const SINGLE_SCHEMA = '{"word":"","phonetic_uk":"","phonetic_us":"","part_of_speech":"","chinese_meaning":"","english_definition":"","usage":"","examples":[{"en":"","zh":""}],"synonyms":[],"antonyms":[],"memory_tip":""}';
                 const userPrompt = isPassage
-                    ? `请从以下英语材料中提取值得学习的关键词汇（按重要性排序，最多 15 个，优先选择较难、专业或在文中关键的词，跳过最常见的基础词）。对每个词汇提供：1.音标(英美) 2.词性 3.中英文释义 4.用法 5.2-3个例句 6.同义词 7.反义词 8.记忆技巧。\n只返回 JSON 数组，不要任何其他文字。格式:\n[${SINGLE_SCHEMA}]\n\n英语材料：\n${material}`
+                    ? `请处理以下英语材料：1. 给出材料全文的中文翻译（保持段落结构，不要遗漏或概括）；2. 从材料中提取值得学习的较难词汇（按重要性排序，最多 20 个，优先选择较难、专业或在文中关键的词，跳过最常见的基础词），对每个词汇提供：音标(英美)、词性、中英文释义、用法、2-3个例句、同义词、反义词、记忆技巧。\n只返回 JSON 对象，不要任何其他文字。格式:\n{"translation":"全文中文翻译","words":[${SINGLE_SCHEMA}]}\n\n英语材料：\n${material}`
                     : `请为"${word}"提供: 1.音标(英美) 2.词性 3.中英文释义 4.用法 5.3-5个例句 6.同义词 7.反义词 8.记忆技巧。JSON格式: ${SINGLE_SCHEMA}`;
                 async function wordReq(includeTemp) {
                     const body = {
                         model: modelName,
                         messages: [
-                            { role: 'system', content: isPassage ? '你是专业的英语教学助手，擅长从英语材料中提取关键词汇进行教学讲解。请用JSON格式返回结果。' : '你是专业的英语教学助手，请用JSON格式返回结果。' },
+                            { role: 'system', content: isPassage ? '你是专业的英语教学助手，擅长翻译英语材料并从中提取较难词汇进行教学讲解。请用JSON格式返回结果。' : '你是专业的英语教学助手，请用JSON格式返回结果。' },
                             { role: 'user', content: userPrompt }
                         ]
                     };
@@ -530,19 +544,21 @@
                 let result;
                 try {
                     if (isPassage) {
-                        // 材料模式：优先 JSON 数组；容错数组被包在对象里（{words:[...]} 等）
-                        const arrMatch = content.match(/\[[\s\S]*\]/);
-                        if (arrMatch) {
-                            const arr = JSON.parse(arrMatch[0]);
-                            result = (Array.isArray(arr) && arr.length) ? arr : null;
+                        // 材料模式：{translation, words:[...]}；容错裸数组 / {words:[...]} 等包裹 / 单词对象
+                        const objMatch = content.match(/\{[\s\S]*\}/);
+                        if (objMatch) {
+                            const o = JSON.parse(objMatch[0]);
+                            if (o && Array.isArray(o.words)) {
+                                result = { translation: typeof o.translation === 'string' ? o.translation : '', words: o.words };
+                            } else if (o && o.word) {
+                                result = { translation: typeof o.translation === 'string' ? o.translation : '', words: [o] };
+                            }
                         }
                         if (!result) {
-                            const objMatch = content.match(/\{[\s\S]*\}/);
-                            if (objMatch) {
-                                const o = JSON.parse(objMatch[0]);
-                                const inner = o && (o.words || o.results || o.list || o.vocabulary);
-                                if (Array.isArray(inner) && inner.length) result = inner;
-                                else if (o && o.word) result = o;   // 模型只回了单个词也能展示
+                            const arrMatch = content.match(/\[[\s\S]*\]/);
+                            if (arrMatch) {
+                                const arr = JSON.parse(arrMatch[0]);
+                                if (Array.isArray(arr) && arr.length) result = { translation: '', words: arr };
                             }
                         }
                     } else {
@@ -556,14 +572,15 @@
                 if (result) {
                     displayResult(result);
                     // 历史列表显示短标签（word 字段保留完整输入，供点击恢复编辑器内容）
+                    const words = Array.isArray(result) ? result : (result.words || []);
                     const label = Array.isArray(result)
-                        ? ((result[0] && result[0].word ? result[0].word : '词汇') + ' 等 ' + result.length + ' 词')
-                        : word;
-                    saveHistory({ word: word, label: label, content: content, timestamp: new Date().toISOString() });
+                        ? word
+                        : (words.length ? ((words[0] && words[0].word ? words[0].word : '词汇') + ' 等 ' + words.length + ' 词') : word);
+                    saveHistory({ word: word, label: label, content: JSON.stringify(result), timestamp: new Date().toISOString() });
                 } else {
                     document.getElementById('resultContent').innerHTML = `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--el-accent);stroke-width:1.5;fill:none"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 学习结果</div><div class="md-rendered">${renderMarkdown(content)}</div></div>`;
                     document.getElementById('resultSection').style.display = 'block';
-                    saveHistory({ word, content: content, timestamp: new Date().toISOString() });
+                    saveHistory({ word, content: JSON.stringify({ fallback: content }), timestamp: new Date().toISOString() });
                 }
                 
                 saveToStorage();
@@ -576,18 +593,26 @@
         }
 
         function displayResult(result) {
-            const items = Array.isArray(result) ? result : [result];
-            const isBatch = Array.isArray(result) && items.length > 0;
-            // 材料模式：先给一个提取摘要，再逐词渲染完整卡片
-            const summary = isBatch ? `
+            // 材料模式：{translation, words:[...]} → 全文翻译卡 + 逐词卡片；单词模式：单对象
+            const isPassageResult = result && !Array.isArray(result) && Array.isArray(result.words);
+            const translation = isPassageResult && result.translation ? `
+                <div class="el-result-card">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                        全文翻译
+                    </div>
+                    <div class="md-rendered">${renderMarkdown(result.translation)}</div>
+                </div>` : '';
+            const items = isPassageResult ? result.words : (Array.isArray(result) ? result : [result]);
+            const summary = isPassageResult ? `
                 <div class="el-result-card">
                     <div class="el-result-card-title">
                         <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                        词汇提取
+                        词汇讲解
                     </div>
-                    <p>从材料中提取了 <strong>${items.length}</strong> 个关键词汇（按重要性排序）</p>
+                    <p>从材料中提取了 <strong>${items.length}</strong> 个较难词汇（按重要性排序，点击词头喇叭可朗读）</p>
                 </div>` : '';
-            const html = summary + items.map((w, i) => renderWordCard(w, isBatch ? (i + 1) + ' / ' + items.length : '')).join('<div style="height:14px"></div>');
+            const html = translation + summary + items.map((w, i) => renderWordCard(w, isPassageResult ? (i + 1) + ' / ' + items.length : '')).join('<div style="height:14px"></div>');
             document.getElementById('resultContent').innerHTML = html;
             document.getElementById('resultSection').style.display = 'block';
         }
@@ -599,6 +624,9 @@
                         <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         ${escapeHtml(w.word || 'N/A')}
                         ${badge ? `<span style="font-size:0.8em;opacity:0.75;margin-left:8px;">${escapeHtml(badge)}</span>` : ''}
+                        <button type="button" class="el-speak-btn" data-speak="${escapeHtml(w.word || '')}" title="朗读该单词" aria-label="朗读该单词">
+                            <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                        </button>
                     </div>
                     <div class="el-phonetic-grid">
                         <div class="el-phonetic-item">
@@ -722,50 +750,6 @@
             }, 10000);
         }
 
-        function htmlToText(html) {
-            if (!html) return '';
-            const div = document.createElement('div');
-            div.innerHTML = html;
-            return (div.textContent || div.innerText || '').trim();
-        }
-
-        function extractText(content, field) {
-            if (!content) return '';
-            const re = new RegExp('<strong>\\s*' + field + '\\s*:?</strong>([\\s\\S]*?)</p>', 'i');
-            const m = content.match(re);
-            if (!m) return '';
-            const text = htmlToText(m[1]);
-            return text && text !== 'N/A' ? text : '';
-        }
-
-        function extractSection(content, field) {
-            if (!content) return '';
-            const re = new RegExp('<h3[^>]*>' + field + '[\\s\\S]*?</h3>([\\s\\S]*?)(?=<h3|$)', 'i');
-            const m = content.match(re);
-            if (!m) return '';
-            const text = htmlToText(m[1]);
-            return text && text !== 'N/A' ? text : '';
-        }
-
-        function extractExamples(content) {
-            if (!content) return [];
-            const examples = [];
-            const enRegex = /<p>\s*<strong>\d+\.\s*<\/strong>\s*([\s\S]*?)<\/p>/gi;
-            const zhRegex = /<p\s+style="[^"]*"[^>]*>\s*([\s\S]*?)<\/p>/gi;
-            const enMatches = [...content.matchAll(enRegex)];
-            const zhMatches = [...content.matchAll(zhRegex)];
-
-            const count = Math.max(enMatches.length, zhMatches.length);
-            for (let i = 0; i < count; i++) {
-                const en = enMatches[i] ? htmlToText(enMatches[i][1]) : '';
-                const zh = zhMatches[i] ? htmlToText(zhMatches[i][1]) : '';
-                if (en || zh) {
-                    examples.push({ en, zh });
-                }
-            }
-            return examples;
-        }
-
         function generateMarkdown(history, date) {
             let md = `# 📚 英语学习笔记\n\n`;
             md += `---\n\n`;
@@ -777,81 +761,54 @@
             md += `## 📖 目录\n\n`;
             history.forEach((item, index) => {
                 const time = new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-                const anchor = item.word.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-').replace(/-+/g, '-');
-                md += `${index + 1}. [**${item.word}**](#${anchor}) - _${time}_\n`;
+                const anchor = item.word.toLowerCase().replace(/[^a-z0-9一-龥]/g, '-').replace(/-+/g, '-');
+                md += `${index + 1}. [**${item.label || item.word}**](#${anchor}) - _${time}_\n`;
             });
             md += `\n---\n\n`;
-            
+
             history.forEach((item, index) => {
-                const anchor = item.word.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-').replace(/-+/g, '-');
-                md += `## ${index + 1}. ${item.word} {#${anchor}}\n\n`;
-                
-                const content = item.content;
-                
-                const wordMatch = content.match(/<h3[^>]*>📝\s*([^<]+)<\/h3>/);
-                if (wordMatch) {
-                    md += `### 📝 基本信息\n\n`;
+                const anchor = item.word.toLowerCase().replace(/[^a-z0-9一-龥]/g, '-').replace(/-+/g, '-');
+                md += `## ${index + 1}. ${item.label || item.word} {#${anchor}}\n\n`;
+
+                const parsed = parseHistoryItem(item);
+                if (parsed.fallback !== undefined) {
+                    md += `${parsed.fallback}\n\n---\n\n`;
+                    return;
                 }
-                
-                const phoneticUk = extractText(content, '英式音标');
-                const phoneticUs = extractText(content, '美式音标');
-                const partOfSpeech = extractText(content, '词性');
-                
-                if (phoneticUk || phoneticUs || partOfSpeech) {
+                const result = parsed.result;
+                const words = Array.isArray(result) ? result : (Array.isArray(result.words) ? result.words : [result]);
+                if (result && result.translation) {
+                    md += `### 📄 全文翻译\n\n${result.translation}\n\n`;
+                }
+                words.forEach((w, wi) => {
+                    if (words.length > 1) md += `### ${wi + 1}. ${w.word || ''}\n\n`;
                     md += `| 项目 | 内容 |\n|------|------|\n`;
-                    if (phoneticUk) md += `| 🔊 英式音标 | ${phoneticUk} |\n`;
-                    if (phoneticUs) md += `| 🔊 美式音标 | ${phoneticUs} |\n`;
-                    if (partOfSpeech) md += `| 🏷️ 词性 | ${partOfSpeech} |\n`;
+                    if (w.phonetic_uk) md += `| 🔊 英式音标 | ${w.phonetic_uk} |\n`;
+                    if (w.phonetic_us) md += `| 🔊 美式音标 | ${w.phonetic_us} |\n`;
+                    if (w.part_of_speech) md += `| 🏷️ 词性 | ${w.part_of_speech} |\n`;
                     md += `\n`;
-                }
-                
-                const chineseMeaning = extractText(content, '中文');
-                const englishDefinition = extractText(content, '英文');
-                if (chineseMeaning || englishDefinition) {
-                    md += `### 📖 详细释义\n\n`;
-                    if (chineseMeaning) md += `**🇨🇳 中文释义**:\n\n${chineseMeaning}\n\n`;
-                    if (englishDefinition) md += `**🇬🇧 英文释义**:\n\n${englishDefinition}\n\n`;
-                }
-                
-                const usage = extractSection(content, '用法');
-                if (usage) {
-                    md += `### 💡 用法说明\n\n${usage}\n\n`;
-                }
-                
-                const examples = extractExamples(content);
-                if (examples.length > 0) {
-                    md += `### 📚 经典例句\n\n`;
-                    examples.forEach((ex, i) => {
-                        md += `${i + 1}. **${ex.en}**\n\n   > ${ex.zh}\n\n`;
-                    });
-                }
-                
-                const synonyms = extractText(content, '同义词');
-                if (synonyms && synonyms !== 'N/A' && synonyms.trim()) {
-                    md += `### 🔄 同义词\n\n`;
-                    const synList = synonyms.split(/[,，]/).map(s => s.trim()).filter(s => s && s !== 'N/A');
-                    if (synList.length > 0) {
-                        synList.forEach(syn => { md += `- ${syn}\n`; });
+                    if (w.chinese_meaning) md += `**🇨 中文释义**: ${w.chinese_meaning}\n\n`;
+                    if (w.english_definition) md += `**🇬🇧 英文释义**: ${w.english_definition}\n\n`;
+                    if (w.usage) md += `### 💡 用法说明\n\n${w.usage}\n\n`;
+                    if (w.examples && w.examples.length) {
+                        md += `### 📚 经典例句\n\n`;
+                        w.examples.forEach((ex, i) => {
+                            md += `${i + 1}. **${ex.en || ''}**\n\n   > ${ex.zh || ''}\n\n`;
+                        });
+                    }
+                    if (w.synonyms && w.synonyms.length) {
+                        md += `### 🔄 同义词\n\n`;
+                        w.synonyms.forEach(s => { md += `- ${s}\n`; });
                         md += `\n`;
                     }
-                }
-                
-                const antonyms = extractText(content, '反义词');
-                if (antonyms && antonyms !== 'N/A' && antonyms.trim()) {
-                    md += `### ⚡ 反义词\n\n`;
-                    const antList = antonyms.split(/[,，]/).map(a => a.trim()).filter(a => a && a !== 'N/A');
-                    if (antList.length > 0) {
-                        antList.forEach(ant => { md += `- ${ant}\n`; });
+                    if (w.antonyms && w.antonyms.length) {
+                        md += `### ⚡ 反义词\n\n`;
+                        w.antonyms.forEach(a => { md += `- ${a}\n`; });
                         md += `\n`;
                     }
-                }
-                
-                const memoryTip = extractText(content, '记忆技巧');
-                if (memoryTip && memoryTip !== 'N/A' && memoryTip.trim()) {
-                    md += `### 🧠 记忆技巧\n\n`;
-                    md += `> 💭 ${memoryTip}\n\n`;
-                }
-                
+                    if (w.memory_tip) md += `### 🧠 记忆技巧\n\n> 💭 ${w.memory_tip}\n\n`;
+                });
+
                 md += `---\n\n`;
             });
             
@@ -865,20 +822,44 @@
             return md;
         }
 
+        function historyItemHTML(item) {
+            const parsed = parseHistoryItem(item);
+            if (parsed.fallback !== undefined) {
+                return `<div class="md-rendered">${renderMarkdown(parsed.fallback)}</div>`;
+            }
+            const result = parsed.result;
+            const words = Array.isArray(result) ? result : (Array.isArray(result.words) ? result.words : [result]);
+            let h = '';
+            if (result && result.translation) {
+                h += `<div style="margin:0 0 16px;"><h3 style="margin:0 0 8px;">📄 全文翻译</h3><div class="md-rendered">${renderMarkdown(result.translation)}</div></div>`;
+            }
+            h += words.map(w => `
+                <div style="margin:0 0 14px;padding:14px 16px;background:#fff;border:1px solid rgba(15,23,42,0.08);border-radius:10px;">
+                    <h3 style="margin:0 0 8px;">${escapeHtml(w.word || '')}</h3>
+                    <p style="margin:2px 0;color:#64748B;">${escapeHtml(w.phonetic_uk || '')}　${escapeHtml(w.phonetic_us || '')}　${escapeHtml(w.part_of_speech || '')}</p>
+                    <p style="margin:4px 0;"><strong>中文:</strong> ${escapeHtml(w.chinese_meaning || '')}</p>
+                    <p style="margin:4px 0;"><strong>英文:</strong> ${escapeHtml(w.english_definition || '')}</p>
+                    ${w.usage ? `<p style="margin:4px 0;"><strong>用法:</strong> ${escapeHtml(w.usage)}</p>` : ''}
+                    ${(w.examples || []).map((ex, i) => `<p style="margin:4px 0;">${i + 1}. ${escapeHtml(ex.en || '')}<br><span style="color:#64748B;">${escapeHtml(ex.zh || '')}</span></p>`).join('')}
+                    ${w.memory_tip ? `<p style="margin:4px 0;"><strong>记忆技巧:</strong> ${escapeHtml(w.memory_tip)}</p>` : ''}
+                </div>`).join('');
+            return h;
+        }
+
         function generateHTML(history, date) {
             const cards = history.map((item, i) => `
                 <div class="word-card">
                     <div class="word-header">
-                        <h2>${i + 1}. ${item.word}</h2>
+                        <h2>${i + 1}. ${escapeHtml(item.label || item.word)}</h2>
                         <span class="time-badge">${new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    ${item.content}
+                    ${historyItemHTML(item)}
                 </div>
             `).join('');
 
             return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>英语学习笔记</title>
 <style>body{font-family:'Plus Jakarta Sans','Inter','Noto Sans SC',sans-serif;background:#F8FAFC;padding:40px;color:#1E293B;}.container{max-width:900px;margin:0 auto;background:white;padding:50px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,0.05);}.header{text-align:center;margin-bottom:40px;}h1{color:#0F172A;font-size:36px;font-weight:700;}.word-card{background:#F8FAFC;padding:30px;border-radius:14px;margin:20px 0;border:1px solid rgba(15,23,42,0.08);box-shadow:0 2px 8px rgba(0,0,0,0.04);}.word-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}.time-badge{background:linear-gradient(135deg,#F59E0B,#D97706);color:white;padding:5px 15px;border-radius:20px;font-weight:600;}</style>
-</head><body><div class="container"><div class="header"><h1>📚 英语学习笔记</h1><p style="color:#64748B;">${date.toLocaleDateString('zh-CN')} | ${history.length} 个单词</p></div>${cards}</div></body></html>`;
+</head><body><div class="container"><div class="header"><h1>📚 英语学习笔记</h1><p style="color:#64748B;">${date.toLocaleDateString('zh-CN')} | ${history.length} 条学习记录</p></div>${cards}</div></body></html>`;
         }
 
         function downloadFile(filename, content, type) {
@@ -905,15 +886,13 @@
         }
 
         function clearAll() {
-            if (confirm('确定要清空所有内容吗?')) {
-                wordEditor.clear();
-                document.getElementById('resultContent').innerHTML = '';
-                document.getElementById('resultSection').style.display = 'none';
-                localStorage.removeItem('englishLearningData');
-                localStorage.removeItem('learningHistory');
-                displayHistory();
-                hideError();
-            }
+            wordEditor.clear();
+            document.getElementById('resultContent').innerHTML = '';
+            document.getElementById('resultSection').style.display = 'none';
+            const data = { wordInput: '', resultContent: '', resultSectionVisible: false };
+            localStorage.setItem('englishLearningData', JSON.stringify(data));
+            elRelayRecord('englishLearningData', data);
+            hideError();
         }
 
         function showError(message) {
@@ -986,4 +965,10 @@
             if (historyItem) {
                 loadHistory(parseInt(historyItem.getAttribute('data-index')));
             }
+        });
+
+        // 结果区单词发音按钮委托（CSP 合规，卡片 HTML 由 innerHTML 注入）
+        document.getElementById('resultContent').addEventListener('click', function(e) {
+            var speakBtn = e.target.closest('[data-speak]');
+            if (speakBtn) speakText(speakBtn.getAttribute('data-speak'));
         });
