@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.25.9-blue)
+![Version](https://img.shields.io/badge/version-0.25.10-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -271,6 +271,10 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.25.10 (2026-09-06)
+- **修复：关闭「启用划词翻译」保存后图标仍出现** — 根因不在开关逻辑，而在存储：除扩展弹窗「保存设置」写入完整配置外，侧边栏保存、AI 解析/提示词/热点雷达保存（`AiService.saveConfig`）、以及网页设置页（经 `content.js → background` 反向同步）写入的都是**只含 Base URL / API Key / 模型的新对象并整体替换** `chrome.storage.local.config`，把弹窗保存的 `enableSelectTranslate` 静默抹掉；划词判定为「非 false 即显示」，字段丢失后功能"复活"（`sourceLang/targetLang` 同遭丢失）。修复：上述局部保存路径全部改为**读取-合并-写入**（`chrome_extension/background.js`、`sidepanel.js`、两份 `ai-service.js`），不再整替换 config。
+- **修复：严格 CSP 站点上划词翻译报「Failed to fetch」** — 划词请求原为内容脚本在页面上下文直接 `fetch()`，受所在页面 CSP `connect-src` 约束，在配置严格 CSP 的文档站/企业站必然被浏览器拦截（同一配置在弹窗内翻译正常）。修复：划词请求改经 background 代理桥（`linguaflow:proxyFetch`，与网页版同一通道，免页面 CSP）代发；URL 归一化、推理模型门控、400 去参重试全部保留，网络/CSP/后台失效类错误改为可行动中文诊断，API 4xx 仍透传业务错误。
 
 ### v0.25.9 (2026-09-05)
 - **英语学习长内容模式重设计** — 句子/段落输入（>4 词）现在要求模型返回 `{translation, words}`：结果区先展示**全文中文翻译**卡片，再展示**最多 20 个**较难词汇的完整学习卡片（原为最多 15 个且无翻译）；每个词汇卡片标题右侧新增喇叭按钮，点击朗读该词（复用发音面板的音色/语速设置，事件委托实现、CSP 合规）。

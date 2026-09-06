@@ -412,6 +412,8 @@ Output ONLY the translated and formatted text.`;
       // URL 归一化 + 推理模型参数自适应：与 AiService.chat() 同一模式（小工具见文件顶部）
       const url = lfNormalizeBaseUrl(config.baseUrl) + '/chat/completions';
       const reasoning = lfIsReasoningModel(config.model);
+      // 经 background 代理桥发请求（与网页版同一通道，v0.25.10）：内容脚本直接 fetch
+      // 受所在页面 CSP connect-src 限制，严格 CSP 的文档站上会必然「Failed to fetch」
       async function translateReq(includeTemp) {
         const body = {
           model: config.model,
@@ -421,29 +423,40 @@ Output ONLY the translated and formatted text.`;
           ],
         };
         if (!reasoning && includeTemp) body.temperature = 0.3;
-        return await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`,
-          },
-          body: JSON.stringify(body),
+        return await new Promise((resolve) => {
+          lfSendRuntime(
+            {
+              action: 'linguaflow:proxyFetch', url, method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
+              body: JSON.stringify(body),
+            },
+            resolve
+          );
         });
       }
+      // 拆解代理桥应答：lfSendRuntime → {res, error}；res 为 background 的
+      // {ok,status,text}，网络异常时为 {ok:false,status:0,error}
+      function unwrapProxy(pack) {
+        const friendly = (m) => (/Failed to fetch|NetworkError|Load failed|timeout|message channel closed|message port closed/i.test(m)
+          ? '无法连接 API：网络异常或 API 服务不可达，请检查 Base URL 与网络' : m);
+        if (pack && pack.error) throw new Error(friendly(pack.error));
+        const res = pack && pack.res;
+        if (!res) throw new Error('桥接不可用：扩展后台未响应，请在 chrome://extensions 重新加载扩展');
+        if (res.error) throw new Error(friendly(res.error));
+        return res;
+      }
+      function parseApiError(text) {
+        try { const o = JSON.parse(text); return (o && o.error && o.error.message) || ''; } catch (e2) { return ''; }
+      }
 
-      let response = await translateReq(!reasoning);
+      let r = unwrapProxy(await translateReq(!reasoning));
       // 部分推理模型收到 temperature 仍报 400 → 去参重试一次
-      if (!response.ok && !reasoning && response.status === 400) {
-        const errText = await response.text().catch(() => '');
-        if (/temperature/i.test(errText)) response = await translateReq(false);
+      if (!r.ok && !reasoning && r.status === 400 && /temperature/i.test(r.text || '')) {
+        r = unwrapProxy(await translateReq(false));
       }
+      if (!r.ok) throw new Error(parseApiError(r.text) || `HTTP ${r.status}`);
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error?.message || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = JSON.parse(r.text);
       let result = data.choices?.[0]?.message?.content?.trim() || '';
       if (!result) throw new Error('翻译结果为空');
 

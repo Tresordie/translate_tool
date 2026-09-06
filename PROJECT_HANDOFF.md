@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.25.9 · 2026-09-05
+> **当前版本**：v0.25.10 · 2026-09-06
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -44,6 +44,8 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 **Chrome 扩展是配置的权威源**。插件保存的配置会通过 `chrome.storage.local` + `postMessage` 实时推送到所有已打开的工具页。页面内手工保存的配置会被插件同步覆盖。
 
 实现位置：`ai-service.js` 的 `initConfigSync()`。v0.18.0 修复：`initConfigSync` 现在同步写入 `localStorage('translate_config')`，确保 `chat()` 读到的永远是最新配置（之前只更新内存变量，AI 解析/提示词页面无法立即生效）。
+
+⚠️ **v0.25.10 关键规则：`config` 是共享键的局部写入必须「读取-合并-写入」**。`chrome.storage.local.config` 有多个写入方：popup 写全字段（含 `enableSelectTranslate/sourceLang/targetLang`），而侧边栏、`AiService.saveConfig`（热点雷达/AI 解析/提示词）、网页设置页（`content.js → background` 的 `linguaflow:saveConfig` 桥）只携带 API 三字段。历史上这些局部写入整替换 config，把扩展侧字段静默抹掉——划词开关「关了又开」（判定为 `!== false` 默认开启语义）即此根因。**新增任何只携带部分字段的 config 保存路径时，一律先 `get(['config'])` 合并再 `set`**（参考 `background.js` 桥 / `sidepanel.js` / `ai-service.js` 的 v0.25.10 写法）；整对象写入方可直接 set（popup/fullpage）。
 
 ### 3.3 主题同步
 - 网页版各 iframe 通过 `postMessage({type: 'theme-change', theme})` 从父页接收主题
@@ -131,11 +133,13 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **流式通道（v0.25.5）**：邮件总结主路径改走 `AiService.proxyFetchStream()`（SSE）。链路：页面 postMessage `bridge-fetch-stream` → content.js **立即回 ack**（旧版 content.js 无此逻辑，页面 5 秒收不到 ack 即判定「通道不支持」并降级非流式）→ `chrome.runtime.connect('linguaflow:proxyFetchStream')` 长端口 → background 流式 fetch、reader 循环逐片 postMessage 回端口 → content.js 以 `e.source` 回传。事件：`ack` / `chunk`（SSE 原始分片，页面侧统一解析）/ `json`（网关忽略 stream 的整包 JSON）/ `http-error` / `end` / `error`；取消经 `bridge-abort` → background AbortController。**空闲超时 180 秒**（STREAM_IDLE_TIMEOUT_MS）取代总超时——流式字节持续流动，慢网关长生成不再被掐断/误判。直连错误带 `_pfStreamPhase`（connect/read）标记：只有 connect 阶段失败才回落桥，read 阶段失败带 `_pfStreamPartial`（已收正文）直接抛给调用方保留部分结果。
 - ⚠️ **v0.25.6 起邮件总结改回一次性输出（非流式），流式通道整体休眠**：`proxyFetchStream` 与桥接分片协议保留但无任何模块调用（应需求撤销流式逐行上屏）。若未来重启流式，接入范例可参考 git 历史中 v0.25.5 的 `email_summary.js` summarize()。桥接保活心跳（bridge-ka）仍生效——它保护的是非流式桥接请求。
 - ⚠️ **不要再给 background 加 SW 保活**。排查时曾假设 MV3 service worker 在 30 秒空闲后被终止、`sendResponse` 丢失。实测（`tests/bridge-long-request.e2e.mjs`，真实 Chromium + 真实扩展 + 不回 CORS 头的模拟端点）在途 fetch **45s / 300s / 420s** 三档均完整回传、连接未中断——Chrome 会因在途 fetch 维持 SW 存活。该假设已被证伪，保活代码已撤销。
+- **划词翻译也走桥（v0.25.10 起）**：content.js 的划词请求原为页面上下文直接 `fetch()`，受所在页面 CSP `connect-src` 限制（MV3 内容脚本 fetch 按页面源处理），严格 CSP 站点上必然「Failed to fetch」而弹窗同配置正常。现改经 `lfSendRuntime({action:'linguaflow:proxyFetch',...})` 由 background 代发；`unwrapProxy` 分层映射应答（桥通道错误 / `{ok,status,text}` / 网络异常 `{ok:false,status:0,error}`）。**扩展内任何新增的页面侧网络请求都应经桥，不要在 content script 直连。**
 
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.25.10 | 修复划词开关失效：侧边栏/`AiService.saveConfig`/网页设置桥等**局部保存整替换 `chrome.storage.config`**，抹掉 popup 写入的 `enableSelectTranslate`（判定 `!== false` 默认开启 → 图标"复活"，sourceLang/targetLang 同丢），全部改「读取-合并-写入」；修复严格 CSP 站点划词「Failed to fetch」：content.js 页面上下文直连 fetch 受页面 CSP `connect-src` 约束，改经 `linguaflow:proxyFetch` 桥由 background 代发，`unwrapProxy` 分层错误诊断（归一化/推理门控/400 去参重试保留）|
 | v0.25.9 | 英语学习长内容模式重设计：材料模式提示词改返回 `{translation, words}`（全文中文翻译 + ≤20 较难词汇），结果区 = 全文翻译卡 + 词汇卡（词头喇叭按钮一键朗读，`resultContent` 事件委托）；**历史条目改存结构化解析结果**，恢复走 `displayResult` 与学习时一致（修复恢复显示原始 JSON 串），旧格式按 `{fallback}` / 原文 Markdown 兜底兼容；md/html 导出改结构化生成（删 htmlToText/extractText/extractSection/extractExamples 死函数）；修复「清空所有」误删 `learningHistory` + 清空经 `elRelayRecord` 同步防 chrome.storage 复活；「清空所有」无确认弹窗 |
 | v0.25.8 | 热点雷达切换 Tavily 检索链（AI 提取 3-5 关键词 → Tavily 新闻搜索 → 三维度打分归类 ≤10 主题，输出标题/摘要/来源/热度）；新增 hn_tavily_key 设置区并入全端同步（16 键）；热榜聚合与必应层退役；Tavily CORS 开放网页直连无需扩展 |
 | v0.25.7 | 英语学习支持长材料输入：>4 词自动切材料模式，提取关键词汇（≤15 个）逐词生成学习卡片；历史显示短标签、点击恢复全文；两副本同步 |

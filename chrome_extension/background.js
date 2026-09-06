@@ -185,9 +185,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   // 网页保存配置反向同步（v0.23.0）：content.js 中继 → 写 chrome.storage → 扩展弹窗/侧边栏实时同步
+  // 网页只携带 baseUrl/apiKey/model，必须读取现有 config 合并后再写：
+  // 整替换会抹掉 enableSelectTranslate/sourceLang 等扩展侧字段（v0.25.10 修复划词开关失效）
   if (msg.action === 'linguaflow:saveConfig') {
     if (msg.config && msg.config.baseUrl) {
-      chrome.storage.local.set({ config: { baseUrl: msg.config.baseUrl, apiKey: msg.config.apiKey, model: msg.config.model } }, () => {});
+      chrome.storage.local.get(['config'], ({ config }) => {
+        const merged = Object.assign({}, config || {}, msg.config);
+        chrome.storage.local.set({ config: merged }, () => {});
+      });
     }
     sendResponse({ ok: true });
     return;

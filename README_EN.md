@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.25.9-blue)
+![Version](https://img.shields.io/badge/version-0.25.10-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -224,6 +224,10 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - Safari 15+
 
 ## 📝 Changelog
+
+### v0.25.10 (2026-09-06)
+- **Fix: selection-translation icon still appears after turning the toggle off** — the bug was in storage, not the toggle logic: besides the popup's "save settings" (which writes the full config object), the side panel, AI Parse/Prompts/Hot News (`AiService.saveConfig`) and the web settings page (relayed `content.js → background`) all wrote a **partial object replacing `chrome.storage.local.config` wholesale**, silently dropping `enableSelectTranslate`. The selection feature defaults to on (check is `!== false`), so the icon "resurrected" whenever the field vanished (`sourceLang/targetLang` were lost the same way). Fix: every partial save path now does **read → merge → write** (`chrome_extension/background.js`, `sidepanel.js`, both `ai-service.js` copies).
+- **Fix: selection translation "Failed to fetch" on strict-CSP sites** — the content script used to `fetch()` the API directly in the page context, where requests are subject to the page's CSP `connect-src`; on document/enterprise sites with strict CSP the request was blocked by the browser (translation worked in the popup with the same config). Fix: selection requests now go through the existing background proxy bridge (`linguaflow:proxyFetch`, same channel as the web app, not bound by page CSP). URL normalization, reasoning-model gating and the 400 temperature-retry are all kept; network/CSP/dead-backend failures now surface actionable Chinese diagnostics, and API 4xx responses still pass through the provider error message.
 
 ### v0.25.9 (2026-09-05)
 - **English Learning passage mode redesigned** — sentence/passage input (>4 words) now asks the model for `{translation, words}`: the result area shows a **full Chinese translation** card first, then full learning cards for **up to 20** difficult words (was 15, with no translation); every word card header gets a speaker button that reads the word aloud (reuses the pronunciation panel's voice/rate settings, wired via event delegation for CSP compliance).

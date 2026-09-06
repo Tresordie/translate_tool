@@ -34,16 +34,21 @@ function loadConfig(config) {
 }
 
 $('spSaveSettings').addEventListener('click', () => {
-  const config = {
+  const partial = {
     baseUrl: $('spBaseUrl').value.trim().replace(/\/+$/, ''),
     apiKey: $('spApiKey').value.trim(),
     model: $('spModelName').value.trim(),
   };
-  chrome.storage.local.set({ config }, () => {
-    showToast('配置已保存', 'success');
-    settingsPanel.classList.remove('open');
-    toggleSettingsBtn.classList.remove('active');
-    broadcastConfig(config);
+  // 合并写入：侧边栏无划词/语言字段，整替换会抹掉 popup 保存的
+  // enableSelectTranslate/sourceLang（v0.25.10 修复划词开关失效）
+  chrome.storage.local.get(['config'], ({ config }) => {
+    const merged = Object.assign({}, config || {}, partial);
+    chrome.storage.local.set({ config: merged }, () => {
+      showToast('配置已保存', 'success');
+      settingsPanel.classList.remove('open');
+      toggleSettingsBtn.classList.remove('active');
+      broadcastConfig(merged);
+    });
   });
 });
 

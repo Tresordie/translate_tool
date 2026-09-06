@@ -29,7 +29,14 @@
   function saveConfig(cfg) {
     try { localStorage.setItem('translate_config', JSON.stringify(cfg)); } catch (e) {}
     if (isExtension()) {
-      try { chrome.storage.local.set({ config: cfg }, function () {}); } catch (e) {}
+      // 合并写入：调用方（热点雷达/AI 解析等）只携带 API 三字段，
+      // 整替换会抹掉 enableSelectTranslate/sourceLang（v0.25.10 修复划词开关失效）
+      try {
+        chrome.storage.local.get(['config'], function (res) {
+          var merged = Object.assign({}, (res && res.config) || {}, cfg);
+          chrome.storage.local.set({ config: merged }, function () {});
+        });
+      } catch (e) {}
     } else {
       // 网页保存 → content.js 中继 → background 写 chrome.storage（扩展弹窗/侧边栏同步）
       try { (window.top || window).postMessage({ source: 'linguaflow-page', type: 'save-config', config: cfg }, '*'); } catch (e) {}
