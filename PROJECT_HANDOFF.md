@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.25.10 · 2026-09-06
+> **当前版本**：v0.25.11 · 2026-09-11
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -32,6 +32,8 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 | 热点雷达 | ✅ iframe | ✅ 新标签页按钮 | ✅ Tab 8 |
 
 > 上表所有模块的**记录与配置均跨端双向同步**（v0.25.x）：任一端产生的数据实时互通到另两端（机制见 §3.9），智能翻译历史/任务清单/热点雷达为实时上屏，其余模块落盘同步（刷新可见）。
+>
+> **结果导出能力（v0.25.11）**：工作报告 / 邮件总结 / AI 解析 / AI 提示词四个模块的结果区均有「微信格式」按钮——一键把 AI 输出转成可直接粘贴到微信发送的纯文本（详见 §3.11）。
 
 ## 3. 关键架构决策
 
@@ -135,10 +137,27 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - ⚠️ **不要再给 background 加 SW 保活**。排查时曾假设 MV3 service worker 在 30 秒空闲后被终止、`sendResponse` 丢失。实测（`tests/bridge-long-request.e2e.mjs`，真实 Chromium + 真实扩展 + 不回 CORS 头的模拟端点）在途 fetch **45s / 300s / 420s** 三档均完整回传、连接未中断——Chrome 会因在途 fetch 维持 SW 存活。该假设已被证伪，保活代码已撤销。
 - **划词翻译也走桥（v0.25.10 起）**：content.js 的划词请求原为页面上下文直接 `fetch()`，受所在页面 CSP `connect-src` 限制（MV3 内容脚本 fetch 按页面源处理），严格 CSP 站点上必然「Failed to fetch」而弹窗同配置正常。现改经 `lfSendRuntime({action:'linguaflow:proxyFetch',...})` 由 background 代发；`unwrapProxy` 分层映射应答（桥通道错误 / `{ok,status,text}` / 网络异常 `{ok:false,status:0,error}`）。**扩展内任何新增的页面侧网络请求都应经桥，不要在 content script 直连。**
 
+### 3.11 微信格式转换与剪贴板读取（v0.25.11）
+
+**微信格式（`markdownToWechat`，共享于 `markdown.js`）**——微信不渲染 Markdown，四个模块（工作报告 / 邮件总结 / AI 解析 / AI 提示词）的结果区各有一个「微信格式」按钮，点击后在该页结果下方展开 `<pre class="wechat-result">` 区域并显示转换结果，区域内独立「复制」按钮。
+
+- **实现位置**：`markdown.js`（根目录与 `chrome_extension/` 两份副本逐字节一致）导出 `window.markdownToWechat(md)`。**这是唯一实现，勿再往各模块 JS 里复制**——四个模块 + 扩展副本共用；`workreport.js` 已从本地实现改为调用共享版。
+- **转换规则**：块级——标题去 `#` 保留 emoji、无序列表转 `•`（缩进按层级保留）、任务项转 `☑/☐`、有序列表保留、`**1. 标题** 详述` 转「1. 标题：详述」、引用转 `「」`、水平线转 `————————`、表格转「值 | 值」、代码围栏标记丢弃且正文**原样保留不加缩进**（提示词可直接用）；行内——`**粗体**`/`*斜体*`/`~~删除~~`/`` `代码` `` 去符号保内容、`[文本](url)` 转「文本（url）」；收尾——收敛连续空行、去行尾空格、折叠行内多余空格（不动行首列表缩进）。
+- **emoji 兼容（关键）**：全程按**字符串级正则**处理，绝不逐字符遍历，避免拆坏四字节代理对；仅清除微信会渲染成方框/分离字符的隐藏字符——变体选择符 `U+FE0E/U+FE0F`、零宽连接符 `U+200D`、键帽包围符 `U+20E3`。标准 emoji（`📋 🔑 📝 ✅` 等）原样保留。
+- **数据来源各页不同**：workreport/email_summary 读 DOM 上的 `dataset.rawText`；ai_parse 读 `currentSummaryMd`；ai_prompts 读 `currentResultMd`。生成新结果或加载历史时调用各页的 `resetWechatSection()` 清空并隐藏区域，避免展示过期转换。
+- ⚠️ **新增支持该功能的页面时**：在结果按钮行加 `#wechatFormatBtn`、结果下方加 `#wechatSection`（含 `#copyWechatBtn` / `#wechatResult`）、样式块按各页 `<style>` 约定复制 `.wechat-*` 规则，JS 侧复用 `convertToWechat` / `copyWechat` / `resetWechatSection` 三个函数模式并调用 `window.markdownToWechat`。
+
+**剪贴板读取（v0.25.11，避免重复授权弹窗）**——`navigator.clipboard.readText()` 受权限门控，`file://` 页面属不透明来源、浏览器**不保留**其授权，故每次调用都弹授权框。
+
+- **扩展页**（弹窗 / 全屏页 / 侧边栏）：manifest 新增 `clipboardRead` 权限（⚠️ 新增权限后必须在 `chrome://extensions` 重新加载）；`fullpage.js` 用 `readClipboardText()`——隐藏 textarea + `document.execCommand('paste')` 优先，失败回退 `readText()`。
+- **网页版**：不直接调用 `readText()`。先经 `content.js` 新增的 `read-clipboard` 桥（页面 postMessage → content script 用扩展权限 `execCommand('paste')` 代读 → `e.source` 回包 `{type:'clipboard-text', requestId, text|error}`），**一键粘贴且不弹框**；桥不可用（无扩展/扩展未获文件访问权）时，仅当 `navigator.permissions.query({name:'clipboard-read'})` 已为 `granted` 才直接读取，否则聚焦输入框并提示按 `Ctrl+V`——**任何路径都不主动触发授权对话框**。桥的超时 400ms。
+- **注意**：`execCommand('paste')` 依赖扩展的 `clipboardRead` 权限，这是该权限的官方用途；content script 能以此读页面剪贴板已在真实浏览器实测通过（含 4 字节 emoji）。
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.25.11 | 四个模块（工作报告/邮件总结/AI 解析/AI 提示词）新增「微信格式」一键转换（共享 `markdown.js` 的 `markdownToWechat`，保留 emoji + 清除微信方框字符 + 代码块不缩进）；智能翻译原文输入框新增复制按钮（网页 + 扩展弹窗/全屏页/侧栏）；修复工作报告「输出语言选 English 却输出中文」（配置同步把 `config.outputLang` 重置为 zh 且不回写下拉框 → 现以界面下拉框为准，同步只更新连接信息并保留语言偏好）；修复粘贴按钮每次都弹剪贴板授权框（扩展声 `clipboardRead` + content.js `read-clipboard` 桥 `execCommand('paste')` 代读；网页未授权时降级聚焦 + Ctrl+V，绝不触发授权框）；Popup 新增「打开本地网页版」入口（路径可配置 + 未开文件访问权时给指引）；页面初始化加 `request-config` 握手修首开配置竞态 |
 | v0.25.10 | 修复划词开关失效：侧边栏/`AiService.saveConfig`/网页设置桥等**局部保存整替换 `chrome.storage.config`**，抹掉 popup 写入的 `enableSelectTranslate`（判定 `!== false` 默认开启 → 图标"复活"，sourceLang/targetLang 同丢），全部改「读取-合并-写入」；修复严格 CSP 站点划词「Failed to fetch」：content.js 页面上下文直连 fetch 受页面 CSP `connect-src` 约束，改经 `linguaflow:proxyFetch` 桥由 background 代发，`unwrapProxy` 分层错误诊断（归一化/推理门控/400 去参重试保留）|
 | v0.25.9 | 英语学习长内容模式重设计：材料模式提示词改返回 `{translation, words}`（全文中文翻译 + ≤20 较难词汇），结果区 = 全文翻译卡 + 词汇卡（词头喇叭按钮一键朗读，`resultContent` 事件委托）；**历史条目改存结构化解析结果**，恢复走 `displayResult` 与学习时一致（修复恢复显示原始 JSON 串），旧格式按 `{fallback}` / 原文 Markdown 兜底兼容；md/html 导出改结构化生成（删 htmlToText/extractText/extractSection/extractExamples 死函数）；修复「清空所有」误删 `learningHistory` + 清空经 `elRelayRecord` 同步防 chrome.storage 复活；「清空所有」无确认弹窗 |
 | v0.25.8 | 热点雷达切换 Tavily 检索链（AI 提取 3-5 关键词 → Tavily 新闻搜索 → 三维度打分归类 ≤10 主题，输出标题/摘要/来源/热度）；新增 hn_tavily_key 设置区并入全端同步（16 键）；热榜聚合与必应层退役；Tavily CORS 开放网页直连无需扩展 |
@@ -196,7 +215,10 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **改了 iframe 子页面** → 网页版和扩展版各自有一份，注意同步
 - **Google Fonts** → 侧边栏已移除依赖；网页版仍加载，但用了 `preconnect` 非阻塞
 - **MV3 CSP** → Chrome 扩展不允许内联 `<script>`，所有 JS 必须外部文件（`english_learning.js` 就是这么来的）
-- **manifest.json 权限** → `sidePanel` 权限 + `minimum_chrome_version: 114` 必须同时存在
+- **manifest.json 权限** → `sidePanel` 权限 + `minimum_chrome_version: 114` 必须同时存在；v0.25.11 起新增 `clipboardRead`（原文粘贴免授权，见 §3.11）——**新增/修改扩展权限后必须提醒用户在 `chrome://extensions` 重新加载扩展**
+- **`markdown.js`** → 根目录与 `chrome_extension/` 两份副本逐字节一致，新增/修改共享渲染或转换函数（`renderMarkdown` / `markdownEscapeHtml` / `markdownToWechat`）必须同步两份
+- **新增「微信格式」支持的页面** → 见 §3.11 的接入清单（按钮 + 区域 + `.wechat-*` 样式 + 三个 JS 函数模式），根目录与扩展副本同步
+- **剪贴板相关改动** → 勿在网页版直接调用 `navigator.clipboard.readText()`（`file://` 每次弹授权框），走 §3.11 的桥/降级路径
 
 ### 5.3 测试脚本
 ```bash
@@ -239,14 +261,14 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 ### 测试环境
 
-- [ ] `tests/bridge-long-request.e2e.mjs` 依赖本机 playwright chromium（当前：playwright-core 1.62.1 + `ms-playwright/chromium-1234`，Chrome for Testing 151）。加载未打包扩展须有头模式；`--load-extension` 在品牌版 Chrome 137+ 已移除，Chrome for Testing 仍支持。仓库无 `package.json`，`node_modules/` 未被 `.gitignore` 收录（现状即如此，勿误提交）。
+- [ ] `tests/bridge-long-request.e2e.mjs` 依赖本机 playwright chromium（当前：playwright-core 1.62.1 + `ms-playwright/chromium-1234`，Chrome for Testing 151）。加载未打包扩展须有头模式；`--load-extension` 在品牌版 Chrome 137+ 已移除，Chrome for Testing 仍支持。仓库无 `package.json`；`.gitignore` 自 v0.25.11 起已收录 `node_modules/` 与 `.zcode/`（均为本机开发/agent 产物，不随项目分发）。
 
 ### 既有待办
 
 - [ ] **流式通道整体休眠（v0.25.6）** — 邮件总结已改回一次性输出（应用户反馈，撤销 v0.25.5 的逐行上屏），当前无任何模块使用流式；全部模块非流式，经代理桥时受 600s 总超时约束（开放跨域端点直连无此限制）。`proxyFetchStream` 与桥接分片协议保留，重启流式时可直接复用（接入范例见 git 历史 v0.25.5 的 email_summary.js）
 - [ ] **模型兼容性已知边界**（详见 README「模型兼容性说明」）— 仅支持 OpenAI 兼容协议（Anthropic/Gemini 原生协议不支持）；`REASONING_RE` 按模型名匹配，按参数开思考且名字无线索的模型（GLM 系）不命中（它们接受 temperature，正常工作，靠 400 重试兜底）；发送上限 6 万字符；扫描件 PDF 需 OCR
 
-- [x] **README_EN.md 已同步** — 2026-09-01 更新至 v0.21.0，后续版本持续追加 changelog；v0.25.5 已补入（注意 v0.25.4 条目 EN 版缺失，中文 README 为准）
+- [x] **README_EN.md 已同步** — changelog 与功能特性已补至 v0.25.11（注意 v0.25.4 条目 EN 版缺失、v0.25.6/v0.25.9 中文条目较细，正文以中文 README 为准）
 - [ ] **`web_accessible_resources` 未包含新页面** — `manifest.json` 的 `web_accessible_resources` 目前只列出 `fullpage/workreport/todolist/english_learning`，未加 `ai_parse.html` / `ai_prompts.html` / `email_summary.html`（扩展内部相对路径访问不需要此声明，但若未来需要从外部网页嵌入则需补充）
 - [x] **`manifest.json` 版本号长期未同步** — v0.25.5 起已同步为 0.25.5（后续发版记得一并更新）
 - [ ] **`ai-service.js` 双副本维护** — 网页版与扩展版略有差异（扩展版多一个 `applyConfig` 写回 localStorage 的 shim），长期看应该考虑构建流程自动同步或抽成共享模块
@@ -259,17 +281,18 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 接手本项目时，按此顺序验证环境：
 
-1. `git pull` 拉最新 master，确认版本徽章为 v0.25.4
+1. `git pull` 拉最新 master，确认版本徽章为 v0.25.11（`chrome_extension/manifest.json` 的 `version`）
 2. 浏览器打开 `index.html`，配置 API（可用 DeepSeek `https://api.deepseek.com/v1` + `deepseek-chat` 测试）
-3. 依次点击 8 个 Tab，确认每个都能正常工作
-4. Chrome 加载 `chrome_extension/`：
+3. 依次点击 8 个 Tab，确认每个都能正常工作；在工作报告/邮件总结/AI 解析/AI 提示词生成一次结果后点「微信格式」，确认区域展开、内容无 `#`/`**` 残留且 emoji 正常
+4. Chrome 加载 `chrome_extension/`（v0.25.11 起新增 `clipboardRead` 权限，加载/更新后需在扩展卡片点「重新加载」）：
    - 点工具栏图标 → 弹窗翻译
    - 点弹窗「侧边栏」按钮或按 `Alt+Shift+L` → 侧边栏 8 个 Tab 切换
    - 在任意页划词 → 弹出翻译图标
+   - 点弹窗的原文「粘贴」按钮 → 应直接粘贴且不弹剪贴板授权框
 5. 在弹窗改 API 配置 → 切到侧边栏「AI 解析」，应立即使用新配置（无需刷新）
 6. 切换主题（右下角面板 / 侧边栏右下角圆形按钮）→ 全部 8 个 Tab + 弹窗 + 网页版全部同步
 
 ---
 
-**最后更新**：2026-09-05 · v0.25.9（英语学习长内容模式重设计：全文翻译 + ≤20 难词卡片 + 词头朗读；历史存结构化结果、恢复与学习时一致；导出改结构化生成；「清空所有」误删历史修复 + 无确认弹窗；详见 §4 版本表）
-**参考文档**：`README.md` · `README_EN.md`（changelog 已补 v0.25.5，正文仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`
+**最后更新**：2026-09-11 · v0.25.11（四模块「微信格式」一键转换 + 智能翻译原文复制按钮 + 工作报告输出语言修复 + 粘贴免授权弹框 + Popup 打开本地网页版入口 + 首开配置握手；详见 §4 版本表与 §3.11）
+**参考文档**：`README.md` · `README_EN.md`（changelog 已补 v0.25.11，正文仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

@@ -79,7 +79,8 @@ function init() {
   targetLang.value = 'en';
 
   // Load config
-  chrome.storage.local.get(['config'], ({ config }) => {
+  chrome.storage.local.get(['config', 'localPagePath'], ({ config, localPagePath }) => {
+    $('localPagePathInput').value = localPagePath || DEFAULT_LOCAL_PAGE_PATH;
     if (config) {
       if (config.baseUrl) $('baseUrl').value = config.baseUrl;
       if (config.apiKey) $('apiKey').value = config.apiKey;
@@ -160,6 +161,33 @@ safeBind('openFullscreen', 'click', () => {
   chrome.tabs.create({ url: fullPageUrl });
 });
 
+// Open local web page (index.html) in new tab
+const DEFAULT_LOCAL_PAGE_PATH = 'F:\\gitee\\translate_tool\\index.html';
+
+// 本地路径 → file:// URL：反斜杠转正斜杠、盘符路径补前导 /、encodeURI 处理空格等字符
+function toFileUrl(p) {
+  p = String(p || '').trim();
+  if (!p) return '';
+  if (/^file:\/\//i.test(p)) return p;
+  p = p.replace(/\\/g, '/');
+  if (/^[a-zA-Z]:\//.test(p)) p = '/' + p;
+  return 'file://' + encodeURI(p);
+}
+
+safeBind('openLocalPage', 'click', () => {
+  chrome.storage.local.get(['localPagePath'], ({ localPagePath }) => {
+    const url = toFileUrl(localPagePath || DEFAULT_LOCAL_PAGE_PATH);
+    if (!url) return;
+    chrome.tabs.create({ url }, () => {
+      // 未开启「允许访问文件网址」时 tabs.create 报 lastError，给出开启指引
+      const le = chrome.runtime.lastError;
+      if (le) {
+        showToast('打开失败：请在 chrome://extensions 为本扩展开启「允许访问文件网址」', 'error');
+      }
+    });
+  });
+});
+
 // Open todo list in new tab
 safeBind('openTodoList', 'click', () => {
   const todoUrl = chrome.runtime.getURL('todolist.html');
@@ -211,7 +239,8 @@ safeBind('saveSettings', 'click', () => {
     sourceLang: sourceLang.value,
     targetLang: targetLang.value,
   };
-  chrome.storage.local.set({ config }, () => {
+  const localPagePath = $('localPagePathInput').value.trim() || DEFAULT_LOCAL_PAGE_PATH;
+  chrome.storage.local.set({ config, localPagePath }, () => {
     showToast('配置已保存', 'success');
     settingsPanel.classList.remove('open');
     $('toggleSettings').classList.remove('active');
@@ -283,6 +312,19 @@ safeBind('clearBtn', 'click', () => {
 safeBind('copyBtn', 'click', () => {
   const text = resultText.dataset.text || resultText.textContent;
   if (!text) return;
+  navigator.clipboard.writeText(text).then(
+    () => showToast('已复制', 'success'),
+    () => showToast('复制失败', 'error')
+  );
+});
+
+// Copy source text
+safeBind('copySourceBtn', 'click', () => {
+  const text = srcEditor.getMarkdown();
+  if (!text || !text.trim()) {
+    showToast('没有可复制的内容', 'error');
+    return;
+  }
   navigator.clipboard.writeText(text).then(
     () => showToast('已复制', 'success'),
     () => showToast('复制失败', 'error')

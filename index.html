@@ -1215,6 +1215,12 @@
                     <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
                   </svg>
                 </button>
+                <button class="icon-btn" onclick="copySource()" title="复制原文">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
@@ -1375,6 +1381,10 @@
         });
       }
     });
+    // 启动握手（v0.25.11）：监听器就绪后主动向扩展请求一次配置，
+    // 修掉首开竞态（扩展 content script 异步写 localStorage 可能晚于上面的初始化读取）。
+    // 无扩展环境时无人应答，零副作用。
+    try { window.postMessage({ source: 'linguaflow-page', type: 'request-config' }, '*'); } catch (err) { /* ignore */ }
     // 扩展环境（作为扩展页面加载时）直接监听 chrome.storage
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
       chrome.storage.onChanged.addListener((changes, area) => {
@@ -1822,22 +1832,69 @@ Output ONLY the translated and formatted text. Do not add explanations, notes, o
       localStorage.removeItem('translate_draft');
     }
 
+    // 桥接读取剪贴板：扩展可用时一键粘贴且不弹授权框
+    // （file:// 页面无法保留网页剪贴板授权，直接读会每次都弹框）
+    function readClipboardViaBridge(timeoutMs) {
+      return new Promise((resolve, reject) => {
+        const requestId = 'cb-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+        const timer = setTimeout(() => {
+          window.removeEventListener('message', onMsg);
+          reject(new Error('bridge timeout'));
+        }, timeoutMs);
+        function onMsg(ev) {
+          const d = ev.data;
+          if (!d || d.source !== 'linguaflow-extension' || d.type !== 'clipboard-text' || d.requestId !== requestId) return;
+          clearTimeout(timer);
+          window.removeEventListener('message', onMsg);
+          if (d.error) reject(new Error(d.error));
+          else resolve(d.text || '');
+        }
+        window.addEventListener('message', onMsg);
+        window.postMessage({ source: 'linguaflow-page', type: 'read-clipboard', requestId: requestId }, '*');
+      });
+    }
+
     async function pasteFromClipboard() {
+      let text = null;
       try {
-        const text = await navigator.clipboard.readText();
+        text = await readClipboardViaBridge(400);
+      } catch (e) {
+        // 无扩展桥接：仅在浏览器已授权时直接读取。授权为 prompt 时绝不调用——
+        // file:// 的授权不会被记住，读取必然弹授权框且每次都要确认。
+        try {
+          const st = navigator.permissions ? await navigator.permissions.query({ name: 'clipboard-read' }) : null;
+          if (st && st.state === 'granted') text = await navigator.clipboard.readText();
+        } catch (e2) { /* ignore */ }
+      }
+      if (typeof text === 'string') {
+        if (!text.trim()) { showToast('剪贴板为空', 'error'); return; }
         srcEditor.setMarkdown(text);
         updateCharCount();
         updateMdPreview();
+        srcEditor.focus();
         showToast('已粘贴', 'success');
-      } catch {
-        showToast('无法读取剪贴板', 'error');
+        return;
       }
+      srcEditor.focus();
+      showToast('已定位到输入框，请按 Ctrl+V 粘贴', 'info');
     }
 
     function copyResult() {
       const output = document.getElementById('outputText');
       const text = output.dataset.text || output.textContent;
       if (!text || text.includes('翻译结果将显示在这里')) {
+        showToast('没有可复制的内容', 'error');
+        return;
+      }
+      navigator.clipboard.writeText(text).then(
+        () => showToast('已复制到剪贴板', 'success'),
+        () => showToast('复制失败', 'error')
+      );
+    }
+
+    function copySource() {
+      const text = srcEditor.getMarkdown();
+      if (!text || !text.trim()) {
         showToast('没有可复制的内容', 'error');
         return;
       }

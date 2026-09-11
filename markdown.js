@@ -261,6 +261,91 @@
     return html.join('\n');
   }
 
+  /* ---------- WeChat plain-text conversion ----------
+   * 微信不渲染 Markdown：去掉 # / ** / 引用等语法符号，保留 emoji 与层级结构。
+   * emoji 全程按字符串处理（不拆四字节代理对），仅移除微信会显示成方框/分离字符
+   * 的隐藏字符：变体选择符 U+FE0E/U+FE0F、零宽连接符 U+200D、键帽包围符 U+20E3。
+   */
+  function markdownToWechat(md) {
+    var lines = String(md || '').replace(/\r\n?/g, '\n').split('\n');
+    var out = [];
+    var inFence = false;
+
+    function inline(t) {
+      return String(t)
+        .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, '$1 $2')
+        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '$1（$2）')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/__([^_]+)__/g, '$1')
+        .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1$2')
+        .replace(/(^|[^\w_])_([^_\n]+)_(?![\w_])/g, '$1$2')
+        .replace(/~~([^~]+)~~/g, '$1')
+        .replace(/`([^`]+)`/g, '$1');
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      var m;
+
+      // 代码围栏标记丢弃，正文原样保留（微信里前导缩进会显示成多余空格）
+      if (/^\s*```/.test(line)) { inFence = !inFence; continue; }
+      if (inFence) { out.push(line); continue; }
+
+      // 表格：分隔行丢弃，数据行转成 "值 | 值"
+      if (line.indexOf('|') !== -1 && /^\s*\|?[\s:|-]+\|?\s*$/.test(line)) continue;
+      if (line.indexOf('|') !== -1) {
+        var cells = line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
+        out.push(cells.map(function (c) { return inline(c.trim()); }).join(' | '));
+        continue;
+      }
+
+      // 水平线
+      if (/^\s*([-*_])\s*(?:\1\s*){2,}$/.test(line)) { out.push('————————'); continue; }
+
+      // 引用
+      m = line.match(/^\s*>\s?(.*)$/);
+      if (m) { out.push('「' + inline(m[1]) + '」'); continue; }
+
+      // 标题：去 # 前缀，emoji 原样保留
+      m = line.match(/^\s{0,3}#{1,6}\s+(.*)$/);
+      if (m) { out.push(inline(m[1].trim())); continue; }
+
+      // 加粗编号：**1. 标题** 详述 → "1. 标题：详述"
+      m = line.match(/^\s*\*\*\s*(\d+)[.)]\s*([^*]+?)\s*\*\*\s*(.*)$/);
+      if (m) { out.push(m[1] + '. ' + m[2] + (m[3] ? '：' + m[3] : '')); continue; }
+
+      // 无序列表（- * +，含任务列表与缩进层级）
+      m = line.match(/^(\s*)([-*+])\s+(.*)$/);
+      if (m) {
+        var indent = '  '.repeat(Math.floor(m[1].replace(/\t/g, '  ').length / 2));
+        var body = m[3];
+        var task = body.match(/^\[([ xX])\]\s*([\s\S]*)$/);
+        var marker = '• ';
+        if (task) { marker = (task[1] === ' ') ? '☐ ' : '☑ '; body = task[2]; }
+        out.push(indent + marker + inline(body));
+        continue;
+      }
+
+      // 有序列表
+      m = line.match(/^(\s*)(\d+)[.)]\s+(.*)$/);
+      if (m) {
+        var indent2 = '  '.repeat(Math.floor(m[1].replace(/\t/g, '  ').length / 2));
+        out.push(indent2 + m[2] + '. ' + inline(m[3]));
+        continue;
+      }
+
+      out.push(inline(line));
+    }
+
+    return out.join('\n')
+      .replace(/[\uFE0E\uFE0F\u200D\u20E3]/g, '')
+      .replace(/[ \t]+$/gm, '')
+      .replace(/(\S)[ \t]{2,}/g, '$1 ')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/^\n+|\n+$/g, '');
+  }
+
   global.renderMarkdown = renderMarkdown;
   global.markdownEscapeHtml = escapeHtml;
+  global.markdownToWechat = markdownToWechat;
 })(typeof window !== 'undefined' ? window : this);

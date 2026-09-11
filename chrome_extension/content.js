@@ -124,6 +124,20 @@
     const d = e.data;
     if (!d || d.source !== 'linguaflow-page') return;
 
+    // 配置拉取握手（v0.25.11）：页面初始化时主动请求，绕开启动竞态——
+    // content.js 的 storage.get 回调可能晚于页面解析时读 localStorage 的那一刻，
+    // 首开错过配置。收到请求后把当前 config 经 syncConfigToPage 双通道再推一次。
+    if (d.type === 'request-config') {
+      if (config && config.baseUrl) {
+        syncConfigToPage(config);
+      } else {
+        chrome.storage.local.get(['config'], ({ config: c }) => {
+          if (c) { config = c; syncConfigToPage(c); }
+        });
+      }
+      return;
+    }
+
     // 桥可用性探测：回给发起帧（附带扩展版本，供页面诊断「扩展副本过旧」）
     if (d.type === 'bridge-ping' && d.bridgeId) {
       let v = '';
@@ -196,6 +210,33 @@
     // 流式取消：background 侧 AbortController 中止 fetch
     if (d.type === 'bridge-abort' && d.bridgeId && streamPorts[d.bridgeId]) {
       try { streamPorts[d.bridgeId].postMessage({ bridgeId: d.bridgeId, event: 'abort' }); } catch (err) { /* ignore */ }
+      return;
+    }
+
+    // 读取剪贴板：file:// 等不透明来源无法保留剪贴板授权，网页自己调用
+    // navigator.clipboard.readText() 会每次都弹授权框。改由内容脚本凭扩展的
+    // clipboardRead 权限用 execCommand('paste') 代读，网页端一键粘贴且不再弹窗。
+    if (d.type === 'read-clipboard' && d.requestId) {
+      let text = '';
+      let error = '';
+      try {
+        const ta = document.createElement('textarea');
+        ta.setAttribute('aria-hidden', 'true');
+        ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:0;padding:0;margin:0;';
+        (document.body || document.documentElement).appendChild(ta);
+        ta.focus();
+        if (!document.execCommand('paste')) error = 'execCommand-paste-unsupported';
+        text = ta.value;
+        ta.remove();
+      } catch (err) {
+        error = (err && err.message) || 'read-clipboard-failed';
+      }
+      try {
+        e.source.postMessage({
+          source: 'linguaflow-extension', type: 'clipboard-text',
+          requestId: d.requestId, text: text, error: error
+        }, '*');
+      } catch (err) { /* ignore */ }
       return;
     }
 

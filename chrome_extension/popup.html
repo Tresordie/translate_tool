@@ -50,6 +50,11 @@
           <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
         </svg>
       </button>
+      <button class="localpage-btn" id="openLocalPage" title="打开本地网页版（路径可在设置中修改）">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+      </button>
       <button class="todolist-btn" id="openTodoList" title="打开任务清单">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
@@ -104,6 +109,10 @@
         <label>模型 / Model</label>
         <input id="modelName" type="text" placeholder="deepseek-v4-pro" />
       </div>
+      <div class="form-group">
+        <label>本地页面路径</label>
+        <input id="localPagePathInput" type="text" placeholder="F:\gitee\translate_tool\index.html" />
+      </div>
       <div class="form-group checkbox-group">
         <label>
           <input type="checkbox" id="enableSelectTranslate" checked />
@@ -150,6 +159,11 @@
           <button class="icon-btn" id="clearBtn" title="清空">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+          <button class="icon-btn" id="copySourceBtn" title="复制原文">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
             </svg>
           </button>
         </div>

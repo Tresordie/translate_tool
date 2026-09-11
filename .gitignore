@@ -16,6 +16,10 @@ Thumbs.db
 # Design/agent tool artifacts
 .impeccable/
 .qoder/
+.zcode/
+
+# Dev/test dependencies (playwright-core，仅供测试脚本使用，不随项目分发)
+node_modules/
 
 # Dev artifacts (keep for reference, uncomment to ignore)
 # fix_regex.py

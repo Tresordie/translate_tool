@@ -165,6 +165,35 @@
     el.innerHTML = renderMarkdown(md);
     $('resultMeta').textContent = '已生成';
     $('resultFooter').classList.add('visible');
+    resetWechatSection();
+  }
+
+  /* ==================== 微信格式（纯文本，可直接粘贴发送） ==================== */
+
+  function resetWechatSection() {
+    const sec = $('wechatSection');
+    const box = $('wechatResult');
+    if (box) { box.textContent = ''; }
+    if (sec) sec.style.display = 'none';
+  }
+
+  function convertToWechat() {
+    if (!currentResultMd) { showToast('暂无提示词可转换', 'error'); return; }
+    const text = window.markdownToWechat ? window.markdownToWechat(currentResultMd) : '';
+    if (!text) { showToast('暂无提示词可转换', 'error'); return; }
+    $('wechatResult').textContent = text;
+    $('wechatSection').style.display = 'block';
+    showToast('已生成微信格式，点击「复制」即可粘贴发送', 'success');
+  }
+
+  function copyWechat() {
+    const box = $('wechatResult');
+    const text = (box && box.textContent) || '';
+    if (!text) { showToast('请先生成微信格式', 'error'); return; }
+    navigator.clipboard.writeText(text).then(
+      () => showToast('微信格式已复制到剪贴板', 'success'),
+      () => showToast('复制失败', 'error')
+    );
   }
 
   /* ==================== 主流程 ==================== */
@@ -341,6 +370,8 @@
       if (!currentResultMd) return;
       Ai.downloadText('ai-prompt-' + stamp() + '.html', Ai.mdToHtml(currentResultMd, 'AI 提示词'), 'text/html;charset=utf-8');
     });
+    $('wechatFormatBtn').addEventListener('click', convertToWechat);
+    $('copyWechatBtn').addEventListener('click', copyWechat);
 
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {

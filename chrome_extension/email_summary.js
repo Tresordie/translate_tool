@@ -565,6 +565,35 @@
     el.dataset.rawText = md;
     el.classList.add('md-fade-in');
     $('summaryFooter').classList.add('visible');
+    resetWechatSection();
+  }
+
+  /* ==================== 微信格式（纯文本，可直接粘贴发送） ==================== */
+  function resetWechatSection() {
+    const sec = $('wechatSection');
+    const box = $('wechatResult');
+    if (box) { box.textContent = ''; delete box.dataset.rawText; }
+    if (sec) sec.style.display = 'none';
+  }
+
+  function convertToWechat() {
+    const raw = $('summaryResult').dataset.rawText;
+    if (!raw || raw.includes('粘贴邮件内容')) { showToast('暂无总结内容可转换', 'error'); return; }
+    const text = window.markdownToWechat ? window.markdownToWechat(raw) : '';
+    if (!text) { showToast('暂无总结内容可转换', 'error'); return; }
+    $('wechatResult').textContent = text;
+    $('wechatSection').style.display = 'block';
+    showToast('已生成微信格式，点击「复制」即可粘贴发送', 'success');
+  }
+
+  function copyWechat() {
+    const box = $('wechatResult');
+    const text = (box && box.textContent) || '';
+    if (!text) { showToast('请先生成微信格式', 'error'); return; }
+    navigator.clipboard.writeText(text).then(
+      () => showToast('微信格式已复制到剪贴板', 'success'),
+      () => showToast('复制失败', 'error')
+    );
   }
 
   /* ==================== 复制 / 下载 ==================== */
@@ -579,6 +608,8 @@
 
   $('downloadMdBtn').addEventListener('click', () => downloadSummary('md'));
   $('downloadHtmlBtn').addEventListener('click', () => downloadSummary('html'));
+  $('wechatFormatBtn').addEventListener('click', convertToWechat);
+  $('copyWechatBtn').addEventListener('click', copyWechat);
 
   function downloadSummary(format) {
     // 必须使用原始 Markdown（dataset.rawText）：textContent 已被 renderMarkdown 剥离语法

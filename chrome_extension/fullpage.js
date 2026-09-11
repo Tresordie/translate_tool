@@ -414,15 +414,39 @@ function clearSource() {
   chrome.storage.local.remove('draft');
 }
 
+// clipboardRead 权限下 execCommand('paste') 是免授权的读取方式（见 manifest permissions），
+// 失败时回退到 navigator.clipboard.readText()
+async function readClipboardText() {
+  try {
+    const ta = document.createElement('textarea');
+    ta.setAttribute('aria-hidden', 'true');
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:0;padding:0;margin:0;';
+    document.body.appendChild(ta);
+    ta.focus();
+    const ok = document.execCommand('paste');
+    const v = ta.value;
+    ta.remove();
+    if (ok && v) return v;
+  } catch (e) { /* fall through */ }
+  return await navigator.clipboard.readText();
+}
+
 async function pasteFromClipboard() {
   try {
-    const text = await navigator.clipboard.readText();
+    const text = await readClipboardText();
+    if (!text || !text.trim()) {
+      showToast('剪贴板为空', 'error');
+      srcEditor.focus();
+      return;
+    }
     srcEditor.setMarkdown(text);
     updateCharCount();
     updateMdPreview();
+    srcEditor.focus();
     showToast('已粘贴', 'success');
   } catch {
-    showToast('无法读取剪贴板', 'error');
+    srcEditor.focus();
+    showToast('无法读取剪贴板，请按 Ctrl+V 粘贴', 'error');
   }
 }
 
@@ -430,6 +454,18 @@ function copyResult() {
   const output = document.getElementById('outputText');
   const text = output.dataset.text || output.textContent;
   if (!text || text.includes('翻译结果将显示在这里')) {
+    showToast('没有可复制的内容', 'error');
+    return;
+  }
+  navigator.clipboard.writeText(text).then(
+    () => showToast('已复制到剪贴板', 'success'),
+    () => showToast('复制失败', 'error')
+  );
+}
+
+function copySource() {
+  const text = srcEditor.getMarkdown();
+  if (!text || !text.trim()) {
     showToast('没有可复制的内容', 'error');
     return;
   }
@@ -519,6 +555,7 @@ function bindEvents() {
   document.getElementById('swapBtn').addEventListener('click', swapLanguages);
   document.getElementById('clearSourceBtn').addEventListener('click', clearSource);
   document.getElementById('pasteBtn').addEventListener('click', pasteFromClipboard);
+  document.getElementById('copySourceBtn').addEventListener('click', copySource);
   document.getElementById('copyResultBtn').addEventListener('click', copyResult);
   document.getElementById('translateBtn').addEventListener('click', doTranslate);
   document.getElementById('clearHistoryBtn').addEventListener('click', clearHistory);

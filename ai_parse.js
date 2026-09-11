@@ -236,6 +236,7 @@
     $('taskListSection').style.display = 'none';
     $('summaryResult').style.display = 'none';
     $('summaryFooter').classList.remove('visible');
+    resetWechatSection();
     hideError();
   }
 
@@ -290,6 +291,35 @@
     void el.offsetWidth; // 重启动画
     el.classList.add('md-fade-in');
     el.innerHTML = renderMarkdown(md);
+    resetWechatSection();
+  }
+
+  /* ==================== 微信格式（纯文本，可直接粘贴发送） ==================== */
+
+  function resetWechatSection() {
+    const sec = $('wechatSection');
+    const box = $('wechatResult');
+    if (box) { box.textContent = ''; }
+    if (sec) sec.style.display = 'none';
+  }
+
+  function convertToWechat() {
+    if (!currentSummaryMd) { showToast('暂无分析结果可转换', 'error'); return; }
+    const text = window.markdownToWechat ? window.markdownToWechat(currentSummaryMd) : '';
+    if (!text) { showToast('暂无分析结果可转换', 'error'); return; }
+    $('wechatResult').textContent = text;
+    $('wechatSection').style.display = 'block';
+    showToast('已生成微信格式，点击「复制」即可粘贴发送', 'success');
+  }
+
+  function copyWechat() {
+    const box = $('wechatResult');
+    const text = (box && box.textContent) || '';
+    if (!text) { showToast('请先生成微信格式', 'error'); return; }
+    navigator.clipboard.writeText(text).then(
+      () => showToast('微信格式已复制到剪贴板', 'success'),
+      () => showToast('复制失败', 'error')
+    );
   }
 
   /* ==================== 主流程 ==================== */
@@ -576,6 +606,8 @@
       if (!currentSummaryMd) return;
       Ai.downloadText('ai-parse-' + stamp() + '.html', Ai.mdToHtml(currentSummaryMd, 'AI 解析总结'), 'text/html;charset=utf-8');
     });
+    $('wechatFormatBtn').addEventListener('click', convertToWechat);
+    $('copyWechatBtn').addEventListener('click', copyWechat);
 
     $('instructionsInput').addEventListener('input', () => {
       state.instructions = String($('instructionsInput').value || '');

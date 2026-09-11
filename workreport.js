@@ -438,8 +438,10 @@
       return;
     }
 
-    const inputLang = config.inputLang || 'zh';
-    const outputLang = config.outputLang || 'zh';
+    // 语言以界面选择为准：applySyncedConfig 会重写 config，仅读 config 会导致
+    // 下拉框显示 English 而实际按 zh 组 prompt
+    const inputLang = ($('inputLang') && $('inputLang').value) || config.inputLang || 'zh';
+    const outputLang = ($('outputLang') && $('outputLang').value) || config.outputLang || 'zh';
     // Use English language names in prompts when output is non-Chinese
     // to avoid mixing Chinese chars that trigger LLM code-switching
     const nameMap = (outputLang === 'zh') ? LANG_NAMES : LANG_NAMES_EN;
@@ -457,6 +459,7 @@
     resultEl.innerHTML = '';
     resultEl.classList.remove('typing-cursor');
     footer.classList.remove('visible');
+    resetWechatSection();
     loadingBar.classList.add('active');
 
     // Build records text
@@ -555,7 +558,7 @@
       footer.classList.add('visible');
 
       // Save to summary history
-      saveSummaryResult(dateRange, result, config.inputLang || 'zh', config.outputLang || 'zh');
+      saveSummaryResult(dateRange, result, inputLang, outputLang);
 
       showToast('总结生成完成', 'success');
     } catch (err) {
@@ -578,6 +581,43 @@
     }
     navigator.clipboard.writeText(text).then(
       () => showToast('总结已复制到剪贴板', 'success'),
+      () => showToast('复制失败', 'error')
+    );
+  }
+
+  // ===== WeChat Plain-Text Format =====
+  // 转换实现已提升到共享的 markdown.js（markdownToWechat），各工具页统一复用
+  function resetWechatSection() {
+    var sec = $('wechatSection');
+    var box = $('wechatResult');
+    if (box) { box.textContent = ''; delete box.dataset.rawText; }
+    if (sec) sec.style.display = 'none';
+  }
+
+  function convertToWechat() {
+    var resultEl = $('summaryResult');
+    var raw = (resultEl && resultEl.dataset.rawText) || '';
+    if (!raw || raw.includes('选择日期范围')) {
+      showToast('暂无总结内容可转换', 'error');
+      return;
+    }
+    var text = window.markdownToWechat ? window.markdownToWechat(raw) : '';
+    if (!text) { showToast('暂无总结内容可转换', 'error'); return; }
+    var box = $('wechatResult');
+    var sec = $('wechatSection');
+    if (!box || !sec) return;
+    box.textContent = text;
+    box.dataset.rawText = text;
+    sec.style.display = 'block';
+    showToast('已生成微信格式，点击「复制」即可粘贴发送', 'success');
+  }
+
+  function copyWechat() {
+    var box = $('wechatResult');
+    var text = (box && (box.dataset.rawText || box.textContent)) || '';
+    if (!text) { showToast('请先生成微信格式', 'error'); return; }
+    navigator.clipboard.writeText(text).then(
+      () => showToast('微信格式已复制到剪贴板', 'success'),
       () => showToast('复制失败', 'error')
     );
   }
@@ -874,6 +914,7 @@
             resultEl.dataset.rawText = sm.content;
           }
           if (footer) footer.classList.add('visible');
+          resetWechatSection();
           showToast('已加载 ' + sm.date + ' 的总结', 'success');
         }
       });
@@ -905,6 +946,10 @@
     if (btn) btn.addEventListener('click', doSummarize);
     btn = $('copySummaryBtn');
     if (btn) btn.addEventListener('click', copySummary);
+    btn = $('wechatFormatBtn');
+    if (btn) btn.addEventListener('click', convertToWechat);
+    btn = $('copyWechatBtn');
+    if (btn) btn.addEventListener('click', copyWechat);
 
     // Download buttons
     btn = $('downloadHtmlBtn');
@@ -992,16 +1037,19 @@
   // ===== 插件配置同步（LinguaFlow 扩展广播） =====
   function applySyncedConfig(cfg) {
     if (!cfg || !cfg.baseUrl) return;
+    // 只同步连接信息，保留用户在本页选定的输入/输出语言
     config = {
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
       model: cfg.model,
-      inputLang: 'zh',
-      outputLang: 'zh',
+      inputLang: config.inputLang || 'zh',
+      outputLang: config.outputLang || 'zh',
     };
     if (cfg.baseUrl) $('baseUrl').value = cfg.baseUrl;
     if (cfg.apiKey) $('apiKey').value = cfg.apiKey;
     if (cfg.model) $('modelName').value = cfg.model;
+    if ($('inputLang')) $('inputLang').value = config.inputLang;
+    if ($('outputLang')) $('outputLang').value = config.outputLang;
     const panel = $('settingsPanel');
     if (panel) panel.classList.remove('open');
     showToast('已同步插件配置（Base URL / API Key / Model）', 'success');
