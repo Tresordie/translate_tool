@@ -28,7 +28,7 @@
 - **Privacy First** — All settings and history stored locally in browser localStorage
 - **Responsive Design** — Works seamlessly on desktop and mobile devices
 - **Cross-surface record sync** — tasks, cards and every history are shared live between the web app, the extension popup and the side panel (changes on one surface appear instantly on the others and survive refreshes); the AI config syncs everywhere from a single save
-- **History export** — Smart Translation history, Work Report records, Email Summary history, English Learning history and Hot News Radar cards can each be exported to a local JSON file with one click
+- **History export** — Smart Translation history, Work Report records, Email Summary history, English Learning history can each be exported to a local JSON file with one click
 - **One-click WeChat format** — Work Report, Email Summary, AI Parse and AI Prompts each gain a "微信格式 / WeChat format" button that turns the AI output into plain text ready to paste into WeChat: emoji and structure are preserved while the Markdown that WeChat does not render (`#`, `**`, …) is removed (lists become `•`, task items `☑/☐`, tables `value | value`), and hidden characters that WeChat shows as boxes are stripped
 - **Work Report** — Built-in work report generator with AI one-click summary, WeChat-format conversion, history management, and date filtering; the summary output language supports 30 languages (fixes "English selected but Chinese produced")
 - **Task List** — Built-in task manager with add/complete/delete, priority levels, progress tracking, Markdown batch import/export (with checkbox syntax), Apple Reminders one-click import (URL Scheme + AppleScript file fallback), Google Calendar sync, and .ics calendar download
@@ -38,8 +38,7 @@
   - **Auto-Truncation for Oversized Content** — Over 60,000 characters, automatically keeps head & tail, omits and marks the middle — no manual splitting needed
 - **AI Parse** — New 6th tab: Classic mode (paste notes/requirements → AI extracts a task list, tick items and batch-create into the todo list, with priorities/tags/sub-steps) + Analysis mode (describe requirements or upload attachments → AI generates a structured analysis summary, auto-detects .eml email threads); results can be copied / downloaded as Markdown / HTML / converted to WeChat format
 - **AI Prompts** — New 7th tab: enter a rough requirement → generate an expert-level structured prompt (with "📋 Prompt", "⚠ Assumptions", "💡 Usage tips"); copy the prompt body or everything, download, convert to WeChat format
-- **Hot News Radar** — New 8th tab: create multiple hot-news cards, each with its own prompt (used by AI for categorization); AI fetches real-time hot lists from Weibo / Zhihu / Baidu / Douyin / Bilibili / IT之家 / 36Kr and picks the Top 10 most relevant entries per card; cards show rank colors, source tags, clickable source links, heat values, and a refresh button (re-fetch + AI re-curation)
-- **Page Reuse Architecture** — Work Report, Task List, English Learning, Email Summary, AI Parse, AI Prompts, and Hot News Radar tabs embed standalone pages via iframe, sharing the same codebase with Chrome extension
+- **Page Reuse Architecture** — Work Report, Task List, English Learning, Email Summary, AI Parse, AI Prompts, and WeChat Toolkit tabs embed standalone pages via iframe, sharing the same codebase with Chrome extension
 - **Zero Dependencies** — Pure HTML + CSS + JavaScript, no installation required
 
 ### Chrome Extension
@@ -60,9 +59,8 @@
 - **Open local web version** — new popup header button that opens the local `index.html` in a new tab; the page path is configurable in Settings under "Local page path", with guidance when "Allow access to file URLs" is off
 - **Language Preference Memory** — Automatically saves source and target language choices
 - **Email Summary Entry** — New envelope icon in popup header opens the Email Summary page in a new tab (full parity with web version, including PDF upload and 30-language output)
-- **Side Panel** — Chrome 114+ dedicated side panel bundling all 8 modules (Smart Translation / Work Report / Task List / English Learning / Email Summary / AI Parse / AI Prompts / Hot News Radar) with one-click tab switching and lazy-loaded iframes; open it via the popup's Side Panel button, the `Alt+Shift+L` shortcut, or the "Open AI Tool Box in Side Panel" context-menu item
+- **Side Panel** — Chrome 114+ dedicated side panel bundling all 8 modules (Smart Translation / Work Report / Task List / English Learning / Email Summary / AI Parse / AI Prompts / WeChat Toolkit) with one-click tab switching and lazy-loaded iframes; open it via the popup's Side Panel button, the `Alt+Shift+L` shortcut, or the "Open AI Tool Box in Side Panel" context-menu item
 - **AI Parse / AI Prompts** — Two new Side Panel tabs (lazy-loaded); the popup also gains two entry buttons that open the standalone pages in a new tab
-- **Hot News Radar** — New Side Panel tab (lazy-loaded); the popup gains an entry button; cards and results sync across pages via chrome.storage
 
 ## 📸 Preview
 
@@ -115,7 +113,7 @@
 
 ```
 translation_tool/
-├── index.html              # Web app (translation main page, 8 tabs: Translate / Report / Todos / English / Email / AI Parse / AI Prompts / Hot News Radar)
+├── index.html              # Web app (translation main page, 8 tabs: Translate / Report / Todos / English / Email / AI Parse / AI Prompts / WeChat Toolkit)
 ├── workreport.html         # Work report page (standalone, shared with extension)
 ├── workreport.js           # Work report core logic (IIFE encapsulated)
 ├── english_learning.html    # English learning assistant page (standalone, shared)
@@ -126,8 +124,6 @@ translation_tool/
 ├── ai_parse.js             # AI Parse page logic
 ├── ai_prompts.html         # AI Prompts page (enter a requirement → generate a structured prompt)
 ├── ai_prompts.js           # AI Prompts page logic
-├── hotnews.html            # Hot News Radar page (card-based Top 10 hot news, AI-curated by prompt)
-├── hotnews.js              # Hot News Radar logic (hot-list aggregation + AI curation + card management)
 ├── install_url_scheme.sh     # Apple Reminders URL Scheme bridge installer
 ├── theme.css               # Shared theme system (6 minimal premium theme variables + per-page UI layers + glass cards/noise/ambient glow styles)
 ├── theme.js                # Theme switcher / data-mode light-dark flag / iframe theme sync / legacy theme migration / MD preview binding
@@ -215,7 +211,7 @@ In addition to the web version, this project includes a **Chrome browser extensi
 ### How to Use the Side Panel (Chrome 114+)
 
 1. Click the AI Tool Box toolbar icon, then click the **Side Panel** button in the popup header (or press `Alt+Shift+L`, or right-click → "Open AI Tool Box in Side Panel")
-2. The side panel opens on the right edge of the window with 8 tabs: **Smart Translation / Work Report / Task List / English Learning / Email Summary / AI Parse / AI Prompts / Hot News Radar**
+2. The side panel opens on the right edge of the window with 8 tabs: **Smart Translation / Work Report / Task List / English Learning / Email Summary / AI Parse / AI Prompts / WeChat Toolkit**
 3. Click any tab to switch modules instantly — each module is lazily loaded on first open to keep startup fast
 4. Configure your API in the side panel's **Settings** panel (gear icon) — the config syncs to the popup, fullscreen page and every module in real time
 5. Click the circular theme button in the bottom-right corner to switch between the 6 themes directly inside the side panel — changes sync to every module in real time

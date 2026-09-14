@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Tool Box · 微信工具</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="theme.css">
+  <style>
+    /* ============================================================
+       微信工具 · v0.28.0
+       单一连贯样式层：变量取自 theme.css，跟随 6 主题明暗自适应
+       ============================================================ */
+    :root { --radius: 20px; --green: #2ea86e; --green-a12: rgba(46,168,110,.12); }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', 'Noto Sans SC', -apple-system, sans-serif;
+      font-size: 15px; min-height: 100vh;
+      color: var(--text); background: var(--bg-body);
+      transition: background 0.4s ease; overflow-x: hidden;
+    }
+    button, input, select, textarea { font-family: inherit; }
+
+    /* ---------- 页头（iframe 内由 theme.css 隐藏） ---------- */
+    .header { text-align: center; padding: 34px 16px 6px; }
+    .header-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 16px; border-radius: 999px;
+      background: var(--primary-a08); border: 1px solid var(--primary-a15);
+      color: var(--primary); font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase;
+    }
+    .header-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); animation: pulse 2.2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+    .header h1 { margin-top: 14px; font-size: clamp(1.8rem, 3.4vw, 2.5rem); font-weight: 800; }
+    .header p { margin-top: 8px; color: var(--text-dim); font-size: 0.94rem; }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 26px 24px 36px; display: flex; flex-direction: column; gap: 18px; }
+    html.in-iframe .container { padding-top: 18px; }
+
+    /* ---------- 面板通用 ---------- */
+    .panel { padding: 20px 22px; }
+    .panel-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding-bottom: 13px; margin-bottom: 16px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .panel-title { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .panel-title svg { width: 16px; height: 16px; color: var(--primary); flex-shrink: 0; }
+    .panel-title .count { font-weight: 500; color: var(--text-dim); font-size: 0.8rem; }
+
+    .btn-mini {
+      height: 30px; padding: 0 14px; border-radius: 8px;
+      border: 1px solid var(--glass-border); background: transparent;
+      color: var(--text-secondary); font-size: 0.8rem; cursor: pointer; transition: var(--transition);
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .btn-mini:hover { border-color: var(--primary-a25); background: var(--primary-a06); color: var(--primary); }
+    .btn-mini:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-mini.danger:hover { border-color: var(--red-a12); background: var(--red-a08); color: var(--red); }
+    .btn-primary {
+      height: 40px; padding: 0 24px; border: none; border-radius: 11px;
+      background: var(--btn-gradient); background-size: 150% 130%; background-position: 0% 50%;
+      color: #fff; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+      box-shadow: 0 3px 10px var(--primary-a20); transition: background-position .35s ease, transform .08s ease;
+    }
+    .btn-primary:hover { background-position: 100% 50%; }
+    .btn-primary:active { transform: scale(.97); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ---------- 表单 ---------- */
+    .ws-form-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+    .ws-field { display: flex; flex-direction: column; gap: 6px; min-width: 200px; flex: 1; }
+    .ws-field label { font-size: 0.76rem; font-weight: 600; color: var(--text-dim); letter-spacing: .03em; }
+    .ws-input {
+      height: 42px; padding: 0 14px; width: 100%;
+      background: var(--bg-card2); border: 1px solid transparent; border-radius: 11px;
+      color: var(--text); font-size: 0.9rem; outline: none; min-width: 0;
+      transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+    }
+    .ws-input:focus { background: var(--bg-card); border-color: var(--primary-a25); box-shadow: var(--focus-ring); }
+    textarea.ws-input { height: auto; min-height: 88px; padding: 12px 14px; resize: vertical; line-height: 1.6; }
+    select.ws-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
+
+    /* 接收人联想下拉 */
+    .ws-receiver-wrap { position: relative; }
+    .ws-suggest {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
+      max-height: 240px; overflow-y: auto; display: none;
+      background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(0,0,0,.25); backdrop-filter: blur(24px) saturate(1.4);
+    }
+    .ws-suggest.open { display: block; }
+    .ws-suggest-item { padding: 9px 14px; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+    .ws-suggest-item:hover, .ws-suggest-item.active { background: var(--primary-a08); }
+    .ws-suggest-item .tag { margin-left: auto; font-size: 0.68rem; color: var(--text-dim); border: 1px solid var(--glass-border); border-radius: 6px; padding: 1px 6px; }
+    .ws-suggest-empty { padding: 10px 14px; font-size: 0.8rem; color: var(--text-dim); }
+
+    /* 调度类型分段按钮 */
+    .ws-seg { display: inline-flex; border: 1px solid var(--glass-border); border-radius: 11px; overflow: hidden; }
+    .ws-seg button {
+      height: 42px; padding: 0 18px; border: none; background: transparent;
+      color: var(--text-dim); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: var(--transition);
+    }
+    .ws-seg button + button { border-left: 1px solid var(--glass-border); }
+    .ws-seg button.on { background: var(--primary-a15); color: var(--primary); }
+
+    /* 星期 chips */
+    .ws-weekdays { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ws-wday {
+      width: 44px; height: 36px; border-radius: 9px; border: 1px solid var(--glass-border);
+      background: var(--bg-card2); color: var(--text-dim); font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: var(--transition);
+    }
+    .ws-wday.on { background: var(--primary-a15); border-color: var(--primary-a25); color: var(--primary); }
+
+    .ws-form-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+    .ws-form-hint { font-size: 0.76rem; color: var(--text-dim); margin-left: auto; }
+
+    /* ---------- 任务列表 ---------- */
+    .ws-list { display: flex; flex-direction: column; gap: 10px; }
+    .ws-task {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 14px 16px; border-radius: 14px;
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      transition: var(--transition);
+    }
+    .ws-task.off { opacity: .55; }
+    .ws-task-main { flex: 1; min-width: 240px; }
+    .ws-task-name { font-size: 0.92rem; font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .ws-task-meta { margin-top: 4px; font-size: 0.78rem; color: var(--text-dim); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+    .ws-task-meta b { color: var(--primary); font-weight: 600; }
+    .ws-task-content { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 560px; }
+    .ws-badge { font-size: 0.66rem; font-weight: 700; border-radius: 6px; padding: 2px 7px; letter-spacing: .04em; }
+    .ws-badge.on { background: var(--green-a12); color: var(--green); }
+    .ws-badge.off { background: var(--bg-card2); color: var(--text-dim); }
+    .ws-task-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    /* ---------- 历史 ---------- */
+    .ws-hist { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; }
+    .ws-hist-row {
+      display: grid; grid-template-columns: 78px minmax(0, 1fr) 22px 26px;
+      column-gap: 12px; row-gap: 2px; align-items: center;
+      padding: 9px 14px; border-radius: 12px;
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      font-size: 0.79rem; transition: var(--transition);
+    }
+    .ws-hist-row:hover { background: var(--primary-a06); }
+    .ws-hist-time { color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .ws-hist-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .ws-hist-line1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .ws-hist-task { font-weight: 600; color: var(--text); white-space: nowrap; }
+    .ws-hist-to { color: var(--text-dim); font-size: 0.74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .ws-hist-body { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ws-hist-state { justify-self: end; font-weight: 700; font-size: 0.85rem; }
+    .ws-hist-state.ok { color: var(--green); }
+    .ws-hist-state.fail { color: var(--red); }
+    .ws-hist-del {
+      width: 22px; height: 22px; border-radius: 7px; border: none; background: transparent;
+      color: var(--text-dim); font-size: 0.9rem; line-height: 1; cursor: pointer;
+      opacity: .45; transition: var(--transition); justify-self: end;
+    }
+    .ws-hist-del:hover { opacity: 1; background: var(--red-a08); color: var(--red); }
+    .ws-hist-err { grid-column: 2 / -1; color: var(--red); font-size: 0.72rem; word-break: break-all; line-height: 1.5; }
+    .ws-hist-tag { font-size: 0.66rem; font-weight: 700; border-radius: 6px; padding: 1px 6px; flex-shrink: 0; }
+    .ws-hist-tag.catchup { background: rgba(230,162,60,.15); color: #c8781e; }
+    html[data-mode="dark"] .ws-hist-tag.catchup { color: #e8a852; }
+    .ws-hist-tag.manual { background: var(--primary-a08); color: var(--primary); }
+
+    /* ---------- 状态点 / 连接区 ---------- */
+    .ws-status { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--text-dim); flex-wrap: wrap; }
+    .ws-status .s-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
+    .ws-status .s-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green-a12); }
+    .ws-status .s-dot.bad { background: var(--red); }
+    .ws-guide { margin-top: 12px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.8; }
+    .ws-guide code { background: var(--bg-card2); border-radius: 5px; padding: 1px 6px; font-size: 0.74rem; }
+    .ws-collapse-body { max-height: 0; opacity: 0; overflow: hidden; transition: max-height .35s ease, opacity .3s ease; }
+    .ws-collapse-body.open { max-height: 520px; opacity: 1; }
+    .hn-toggle-btn {
+      width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--glass-border); background: transparent;
+      color: var(--text-dim); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition); flex-shrink: 0;
+    }
+    .hn-toggle-btn:hover { border-color: var(--primary-a25); background: var(--primary-a06); color: var(--primary); }
+    .hn-toggle-btn svg { width: 15px; height: 15px; transition: transform var(--transition); }
+    .hn-toggle-btn.collapsed svg { transform: rotate(-90deg); }
+
+    /* ---------- 风险声明 ---------- */
+    .ws-risk {
+      border: 1px dashed var(--red-a12); background: var(--red-a08);
+      border-radius: 12px; padding: 12px 14px; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.7;
+    }
+    .ws-risk-head { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--red); margin-bottom: 6px; }
+    .ws-risk ul { margin: 0 0 0 18px; }
+    .ws-risk-ack { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.78rem; }
+    .ws-risk-ack input { accent-color: var(--primary); width: 15px; height: 15px; }
+
+    /* ---------- 聊天记录总结 ---------- */
+    .ws-divider { height: 1px; background: var(--glass-border); margin: 16px 0; }
+    .ws-sub-head { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; }
+    .ws-sub-title { font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); letter-spacing: .02em; }
+    .ws-api-status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; color: var(--text-dim); }
+    .ws-api-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); }
+    .ws-api-status.ok .dot { background: var(--green); }
+    .ws-api-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .ws-api-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .ws-hint { font-size: 0.74rem; color: var(--text-dim); line-height: 1.6; }
+    .ws-preview {
+      margin-top: 10px; padding: 12px 14px; border-radius: 12px;
+      background: var(--bg-card2); border: 1px solid var(--glass-border);
+      font-size: 0.76rem; line-height: 1.7; color: var(--text-secondary);
+      max-height: 220px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+      font-family: 'Consolas', 'Courier New', monospace;
+    }
+    .ws-md { font-size: 0.86rem; line-height: 1.75; color: var(--text-secondary); }
+    .ws-md h1, .ws-md h2, .ws-md h3, .ws-md h4 { color: var(--text); margin: 14px 0 8px; font-size: 0.95rem; }
+    .ws-md ul, .ws-md ol { padding-left: 20px; margin: 6px 0; }
+    .ws-md li { margin: 3px 0; }
+    .ws-md table { border-collapse: collapse; margin: 8px 0; width: 100%; font-size: 0.8rem; }
+    .ws-md th, .ws-md td { border: 1px solid var(--glass-border); padding: 6px 10px; text-align: left; }
+    .ws-md th { background: var(--bg-card2); color: var(--text); }
+    .ws-md code { background: var(--bg-card2); border-radius: 5px; padding: 1px 6px; font-size: 0.78rem; }
+    .ws-md blockquote { border-left: 3px solid var(--primary-a25); margin: 8px 0; padding: 4px 12px; color: var(--text-dim); }
+    /* 微信格式区：与工作报告页同构（.wechat-section 展开 + 独立复制按钮 + .wechat-result 正文） */
+    .wechat-section {
+      margin-top: 14px; padding: 16px 18px; border-radius: 14px;
+      border-top: 1px solid var(--primary-a10);
+      background: var(--cyan-a06);
+    }
+    .wechat-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .wechat-title { font-size: 0.95rem; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .wechat-title svg { width: 16px; height: 16px; color: var(--primary); }
+    .wechat-meta { font-size: 0.78rem; font-weight: 400; color: var(--text-secondary); }
+    .wechat-result {
+      margin: 0;
+      padding: 18px 20px;
+      border: 2px solid var(--primary-a10);
+      border-radius: 14px;
+      background: var(--bg-dark);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 420px;
+      overflow: auto;
+    }
+    .ws-sum-item { border: 1px solid var(--glass-border); border-radius: 12px; background: var(--glass-bg); overflow: hidden; }
+    /* 滑动开关（自动备份） */
+    .ws-switch { position: relative; display: inline-block; width: 46px; height: 26px; cursor: pointer; flex-shrink: 0; }
+    .ws-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .ws-slider {
+      position: absolute; inset: 0; border-radius: 999px;
+      background: var(--bg-card2); border: 1px solid var(--glass-border);
+      transition: var(--transition);
+    }
+    .ws-slider:before {
+      content: ""; position: absolute; width: 20px; height: 20px; left: 2px; top: 50%;
+      transform: translateY(-50%); border-radius: 50%; background: var(--text-dim);
+      transition: var(--transition);
+    }
+    .ws-switch input:checked + .ws-slider { background: var(--primary-a15); border-color: var(--primary-a25); }
+    .ws-switch input:checked + .ws-slider:before { background: var(--primary); transform: translateY(-50%) translateX(20px); }
+    .ws-switch input:focus-visible + .ws-slider { box-shadow: var(--focus-ring); }
+    /* 目录选择弹窗（居中模态） */
+    .ws-modal-backdrop {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,.55); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ws-modal {
+      width: min(620px, 92vw); max-height: 82vh;
+      display: flex; flex-direction: column;
+      background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: 16px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.45);
+      padding: 18px 20px;
+    }
+    .ws-modal-title {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 12px;
+    }
+    .ws-modal .ws-dir-list { flex: 1; min-height: 200px; }
+    .ws-modal .ws-form-actions { margin: 12px 0 0; }
+    /* 内嵌目录浏览器 */
+    .ws-dir-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .ws-dir-cur { font-size: 0.78rem; color: var(--text-secondary); font-family: Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+    .ws-dir-list {
+      max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+      border: 1px solid var(--glass-border); border-radius: 12px; padding: 6px; background: var(--bg-card2);
+    }
+    .ws-dir-item {
+      display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px;
+      font-size: 0.82rem; color: var(--text); cursor: pointer; transition: var(--transition);
+    }
+    .ws-dir-item:hover { background: var(--primary-a08); color: var(--primary); }
+    .ws-dir-item svg { width: 14px; height: 14px; flex-shrink: 0; opacity: .7; }
+    .ws-dir-empty { padding: 14px; text-align: center; color: var(--text-dim); font-size: 0.78rem; }
+    .ws-sum-head {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      font-size: 0.79rem; cursor: pointer; flex-wrap: wrap;
+    }
+    .ws-sum-head:hover { background: var(--primary-a06); }
+    .ws-sum-meta { color: var(--text-dim); font-size: 0.74rem; }
+    .ws-sum-body { display: none; border-top: 1px solid var(--glass-border); padding: 12px 16px; }
+    .ws-sum-item.open .ws-sum-body { display: block; }
+
+    /* ---------- 空状态 / 提示 ---------- */
+    .ws-none { text-align: center; padding: 26px 0; color: var(--text-dim); font-size: 0.84rem; }
+    .ws-offline-tip {
+      padding: 12px 16px; border-radius: 12px; font-size: 0.82rem;
+      background: var(--primary-a06); border: 1px solid var(--primary-a15); color: var(--text-secondary); line-height: 1.7;
+    }
+    .footer { text-align: center; padding: 22px 0 8px; font-size: 0.78rem; color: var(--text-dim); opacity: .75; }
+
+    @media (max-width: 640px) {
+      .container { padding: 16px 14px 28px; }
+      .panel { padding: 16px; }
+      .ws-form-row { flex-direction: column; }
+      .ws-field { min-width: 0; width: 100%; }
+      .ws-task-content { max-width: 100%; }
+      .ws-form-actions { flex-wrap: wrap; }
+      .ws-form-hint { margin-left: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-canvas">
+  <div class="scanline-overlay"></div>
+  <div class="orb"></div><div class="orb"></div><div class="orb"></div><div class="orb"></div>
+  <div class="stars" id="stars"></div>
+</div>
+<div class="app-wrapper">
+
+  <div class="header">
+    <div class="header-badge"><span class="dot"></span><span>WeChat · Scheduler</span></div>
+    <h1>微信工具</h1>
+    <p>零依赖 PowerShell 驱动 · 定时向微信好友/群发文字与文件 · 局域网共用 · 关机错过开机补发</p>
+  </div>
+
+  <div class="container">
+
+    <!-- 服务连接 -->
+    <section class="panel glass-card fade-up">
+      <div class="panel-head">
+        <h2 class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+          定时服务连接
+        </h2>
+        <div class="ws-status"><span class="s-dot" id="wsDot"></span><span id="wsStatusText">未连接</span></div>
+      </div>
+      <div class="ws-form-row">
+        <div class="ws-field">
+          <label>服务地址（本机默认即可；手机填 http://&lt;电脑IP&gt;:8765）</label>
+          <input class="ws-input" id="wsBase" type="text" placeholder="http://127.0.0.1:8765" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="ws-field" style="max-width:220px;">
+          <label>访问口令（服务端未设置则留空）</label>
+          <input class="ws-input" id="wsToken" type="password" placeholder="X-Api-Token" autocomplete="off">
+        </div>
+      </div>
+      <div class="ws-form-actions">
+        <button class="btn-primary" id="wsSaveBtn">保存并测试</button>
+        <button class="btn-mini" id="wsDoctorBtn" title="检查微信窗口/锁屏/定位模式等发送前提">环境体检</button>
+        <button class="btn-mini" id="wsGuideBtn" title="显示 / 隐藏服务启动指引">启动指引</button>
+        <span class="ws-form-hint" id="wsVersionHint"></span>
+      </div>
+      <div class="ws-form-hint" id="wsDoctorText" style="margin-top:8px;"></div>
+      <div class="ws-collapse-body" id="wsGuide">
+        <div class="ws-guide">
+          ① 在跑 PC 微信（3.9 或 4.x 均可）的电脑上安装 <code>Python 3.9+</code>（勾选 Add to PATH）——<b>除此之外零依赖</b>，发送由系统自带 PowerShell 驱动完成；<br>
+          ② 双击 <code>wechat_scheduler/start_wx_scheduler.bat</code>（自动定位 Python、检查端口、启动服务、出错回显日志）；<br>
+          ③ 保持 PC 微信<b>已登录且主窗口开着</b>（可最小化），服务机<b>不要锁屏</b>——锁屏时 Windows 不接受键盘输入，到点会失败并在补发窗口内自动重试；<br>
+          ④ 新任务先点上方「<b>环境体检</b>」确认微信窗口就绪，再在任务卡上点「<b>演练</b>」：会真实打开会话、把文字放进输入框并回读校验，但<b>不按回车、不发送</b>；<br>
+          ⑤ <b>关键约定（微信 4.x）</b>：界面自绘无法核对会话标题，请给定时对象设置<b>唯一前缀备注名</b>（如 <code>定-妈妈</code>）——既防发错人，也避开搜索下拉首行「搜一搜」抢回车的坑；<br>
+          ⑥ 手机与电脑连同一局域网 Wi-Fi，浏览器打开 <code>http://&lt;电脑IP&gt;:8765/wechat_schedule.html</code> 即为本页；<br>
+          调试体验：服务加 <code>--mock</code> 启动，无需微信即可走完全部流程。详见 <code>wechat_scheduler/USAGE.md</code>。
+        </div>
+      </div>
+    </section>
+
+    <!-- 未连接提示 -->
+    <div class="ws-offline-tip" id="wsOfflineTip" style="display:none;">
+      未连接到定时服务：任务数据保存在本机服务进程中，请先按「启动指引」把服务跑起来（<code>wechat_scheduler/start_wx_scheduler.bat</code>），再点上方「保存并测试」。
+    </div>
+
+    <!-- 新建任务 -->
+    <section class="panel glass-card fade-up" id="wsFormPanel">
+      <div class="panel-head">
+        <h2 class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="wsFormTitle">新建定时任务</span>
+        </h2>
+        <button class="btn-mini" id="wsResetFormBtn" style="display:none;">取消编辑</button>
+      </div>
+
+      <div class="ws-form-row">
+        <div class="ws-field">
+          <label>任务名称（可选，默认用接收人名）</label>
+          <input class="ws-input" id="wsName" type="text" placeholder="如：早安提醒 / 交物业费" maxlength="60">
+        </div>
+        <div class="ws-field">
+          <label>接收人（会话名称/唯一前缀备注名；装了 wechatauto-replica 可搜索选择）</label>
+          <div class="ws-receiver-wrap">
+            <input class="ws-input" id="wsReceiver" type="text" placeholder="如：定-妈妈 / 群名 / wxid_…" autocomplete="off">
+            <div class="ws-suggest" id="wsSuggest"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ws-form-row">
+        <div class="ws-field" style="width:100%;">
+          <label>消息内容（纯文本多行；占位符 {target} {date} {time} {note} 发送时自动替换）</label>
+          <textarea class="ws-input" id="wsContent" placeholder="如：{target}，生日快乐！" maxlength="5000"></textarea>
+        </div>
+      </div>
+
+      <div class="ws-form-row">
+        <div class="ws-field" style="width:100%;">
+          <label>附件（可选，每行一个文件路径，为服务所在电脑的本地路径；相对路径按 wechat_scheduler 目录解析）</label>
+          <textarea class="ws-input" id="wsFiles" style="min-height:52px;" placeholder="如：assets\shengri.png 或 D:\报告.pdf"></textarea>
+        </div>
+      </div>
+
+      <div class="ws-form-row">
+        <div class="ws-field">
+          <label>调度类型</label>
+          <div class="ws-seg" id="wsTypeSeg">
+            <button type="button" data-type="once">一次性</button>
+            <button type="button" data-type="daily" class="on">每天</button>
+            <button type="button" data-type="weekly">每周几</button>
+            <button type="button" data-type="monthly">每月</button>
+            <button type="button" data-type="yearly">每年</button>
+          </div>
+        </div>
+        <div class="ws-field" id="wsOnceWrap" style="display:none;">
+          <label>发送时间</label>
+          <input class="ws-input" id="wsOnceAt" type="datetime-local">
+        </div>
+        <div class="ws-field" id="wsDailyWrap">
+          <label>每日时间</label>
+          <input class="ws-input" id="wsDailyTime" type="time" value="08:30">
+        </div>
+      </div>
+      <div class="ws-form-row" id="wsMonthlyWrap" style="display:none;">
+        <div class="ws-field" style="width:100%;">
+          <label>每月几号 + 时间</label>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <input class="ws-input" id="wsMonthlyDay" type="number" min="1" max="31" value="1" style="width:90px;" title="1-31">
+            <span style="font-size:0.82rem; color:var(--text-dim);">日</span>
+            <input class="ws-input" id="wsMonthlyTime" type="time" value="08:30" style="width:150px;">
+            <label class="ws-risk-ack" style="margin:0;"><input type="checkbox" id="wsMonthlyClamp" checked>当月无此日提前到月末</label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-form-row" id="wsYearlyWrap" style="display:none;">
+        <div class="ws-field" style="width:100%;">
+          <label>每年月/日 + 时间（生日、纪念日；2-29 只在闰年发送）</label>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <input class="ws-input" id="wsYearlyMonth" type="number" min="1" max="12" value="1" style="width:80px;" title="月">
+            <span style="font-size:0.82rem; color:var(--text-dim);">月</span>
+            <input class="ws-input" id="wsYearlyDay" type="number" min="1" max="31" value="1" style="width:80px;" title="日">
+            <span style="font-size:0.82rem; color:var(--text-dim);">日</span>
+            <input class="ws-input" id="wsYearlyTime" type="time" value="08:30" style="width:150px;">
+          </div>
+        </div>
+      </div>
+      <div class="ws-form-row" id="wsWeeklyWrap" style="display:none;">
+        <div class="ws-field" style="width:100%;">
+          <label>选择星期（可多选）+ 时间</label>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <div class="ws-weekdays" id="wsWeekdays"></div>
+            <input class="ws-input" id="wsWeeklyTime" type="time" value="08:30" style="width:150px;">
+          </div>
+        </div>
+      </div>
+
+      <div class="ws-form-actions">
+        <button class="btn-primary" id="wsSaveTaskBtn">＋ 保存任务</button>
+        <span class="ws-form-hint">保存后由本机服务到点自动发送；服务停止（电脑关机）期间的任务将在下次启动时补发</span>
+      </div>
+
+      <div class="ws-risk" id="wsRisk" style="margin-top:14px;">
+        <div class="ws-risk-head">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          使用须知（首次使用请勾选确认）
+        </div>
+        <ul>
+          <li>发送由系统 PowerShell <b>模拟点击与粘贴</b>完成（不注入、不 hook、不改协议），风险低于协议类方案，但仍属非官方自动化，高频/营销式发送有被风控可能，重要账号先拿小号验证。</li>
+          <li>微信 4.x 界面自绘，<b>无法核对打开的会话是不是目标本人</b>——唯一前缀备注名 + 首次发送 8 秒倒计时（按 Esc 取消）+「演练」是三道保险。</li>
+          <li>电脑关机/锁屏/微信掉线期间<b>无法发送</b>；服务恢复后在补发窗口（默认 4 小时）内补发一次并加「【补发】」前缀，超窗自动放弃留痕，不轰炸收件人。</li>
+        </ul>
+        <label class="ws-risk-ack"><input type="checkbox" id="wsRiskAck">我了解以上风险与限制，继续使用</label>
+      </div>
+    </section>
+
+    <!-- 任务列表 -->
+    <section class="panel glass-card fade-up">
+      <div class="panel-head">
+        <h2 class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          定时任务 <span class="count" id="wsTaskCount"></span>
+        </h2>
+        <button class="btn-mini" id="wsReloadBtn">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          刷新
+        </button>
+      </div>
+      <div class="ws-list" id="wsTaskList"><div class="ws-none">加载中…</div></div>
+    </section>
+
+    <!-- 聊天记录 AI 总结 -->
+    <section class="panel glass-card fade-up" id="wsSumPanel">
+      <div class="panel-head">
+        <h2 class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg>
+          聊天记录 AI 总结
+        </h2>
+        <span class="ws-hint">本地解密读取微信记录 · 仅发送给你自配的 AI</span>
+      </div>
+
+      <!-- 大模型接口 -->
+      <div class="ws-sub-head">
+        <span class="ws-sub-title">大模型接口</span>
+        <span class="ws-api-status" id="wsAiStatus"><span class="dot"></span><span id="wsAiStatusText">未配置</span></span>
+        <button class="hn-toggle-btn collapsed" id="wsAiIcon" title="展开 / 收起">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <div class="ws-collapse-body" id="wsAiContent">
+        <div class="ws-api-grid">
+          <input class="ws-input" id="wsAiUrl" type="text" placeholder="Base URL，如：https://api.deepseek.com">
+          <input class="ws-input" id="wsAiKey" type="password" placeholder="API Key（sk-...）">
+          <input class="ws-input" id="wsAiModel" type="text" placeholder="模型名称，如：deepseek-chat">
+        </div>
+        <div class="ws-api-actions">
+          <button class="btn-primary" style="height:36px;font-size:.84rem;" id="wsAiSave">保存配置</button>
+          <span class="ws-hint">与其他模块共享同一份 API 配置（安装本插件时全端互通）</span>
+        </div>
+      </div>
+
+      <div class="ws-divider"></div>
+
+      <div class="ws-form-row">
+        <div class="ws-field">
+          <label>会话（个人好友 / 群，读取其本机聊天记录）</label>
+          <div class="ws-receiver-wrap">
+            <input class="ws-input" id="wsSumReceiver" type="text" placeholder="选择或输入会话名称…" autocomplete="off">
+            <div class="ws-suggest" id="wsSumSuggest"></div>
+          </div>
+        </div>
+        <div class="ws-field" style="max-width:460px;">
+          <label>时间范围</label>
+          <div class="ws-seg" id="wsRangeSeg">
+            <button type="button" data-range="today">今天</button>
+            <button type="button" data-range="yesterday">昨天</button>
+            <button type="button" data-range="3d">近3天</button>
+            <button type="button" data-range="7d" class="on">近7天</button>
+            <button type="button" data-range="custom">自定义</button>
+          </div>
+        </div>
+        <div class="ws-field" style="max-width:180px;flex:0 0 auto;">
+          <label>输出语言</label>
+          <select class="ws-input" id="wsSumLang" title="AI 总结的输出语言（全球常用语言）"></select>
+        </div>
+      </div>
+      <div class="ws-form-row" id="wsRangeCustom" style="display:none;">
+        <div class="ws-field"><label>开始时间</label><input class="ws-input" id="wsRangeStart" type="datetime-local"></div>
+        <div class="ws-field"><label>结束时间</label><input class="ws-input" id="wsRangeEnd" type="datetime-local"></div>
+      </div>
+      <div class="ws-form-actions">
+        <button class="btn-primary" id="wsReadBtn">读取聊天记录</button>
+        <button class="btn-primary" id="wsSumBtn" disabled style="opacity:.5;">✨ AI 总结</button>
+        <button class="btn-mini danger" id="wsClearSumBtn" style="display:none;" title="清除已加载的聊天记录与总结结果">清除</button>
+        <span class="ws-form-hint" id="wsSumStats">读取需 PC 微信保持登录；首次读取约 20 秒（本地密钥提取）</span>
+      </div>
+      <div class="ws-collapse-body" id="wsPreviewWrap" style="max-height:280px;">
+        <pre class="ws-preview" id="wsPreview"></pre>
+      </div>
+
+      <div id="wsSumResultWrap" style="display:none;">
+        <div class="ws-divider"></div>
+        <div class="panel-head" style="border:none;padding:0;margin-bottom:8px;">
+          <h2 class="panel-title">总结结果</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn-mini" id="wsSumCopyBtn">复制</button>
+            <button class="btn-mini" id="wsSumWxBtn" title="转成可直接粘贴微信的纯文本">微信格式</button>
+            <button class="btn-mini" id="wsSumDlMdBtn" title="下载原始 Markdown 文件">下载 Markdown</button>
+            <button class="btn-mini" id="wsSumDlHtmlBtn" title="下载独立排版的 HTML 报告（含任务表格，可直接浏览器打开/打印）">下载 HTML</button>
+          </div>
+        </div>
+        <div class="ws-md" id="wsSumResult"></div>
+        <!-- 微信格式展开区（结构/文案与工作报告页一致） -->
+        <div class="wechat-section" id="wsSumWechatSection" style="display:none;">
+          <div class="wechat-header">
+            <div class="wechat-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+              微信格式
+              <span class="wechat-meta">纯文本，可直接粘贴到微信发送</span>
+            </div>
+            <button class="btn-mini" id="wsSumCopyWechatBtn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              复制
+            </button>
+          </div>
+          <pre class="wechat-result" id="wsSumWechat"></pre>
+        </div>
+      </div>
+
+      <div class="ws-divider"></div>
+      <div class="panel-head" style="border:none;padding:0;margin-bottom:10px;">
+        <h2 class="panel-title" style="font-size:.85rem;">总结记录 <span class="count" id="wsSumCount"></span></h2>
+        <button class="btn-mini danger" id="wsSumClearBtn" style="display:none;">清空记录</button>
+      </div>
+      <div class="ws-list" id="wsSumList"><div class="ws-none">暂无总结记录</div></div>
+    </section>
+
+    <!-- 发送历史 -->
+    <section class="panel glass-card fade-up">
+      <div class="panel-head">
+        <h2 class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+          发送历史 <span class="count" id="wsHistCount">（最近 50 条）</span>
+        </h2>
+        <button class="btn-mini danger" id="wsClearHistBtn" title="清空全部发送记录（不影响任务）">清空全部</button>
+      </div>
+      <div class="ws-hist" id="wsHistList"><div class="ws-none">暂无记录</div></div>
+    </section>
+
+    <!-- 数据与云同步 -->
+    <section class="panel glass-card fade-up" id="wsCloudPanel">
+      <div class="panel-head">
+        <h2 class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+          数据与云同步 <span class="count" id="wsCloudLast"></span>
+        </h2>
+        <button class="btn-mini" id="wsBackupNowBtn" title="立即把当前全部数据写入 Google Drive 文件夹">立即备份</button>
+      </div>
+      <div class="ws-form-row">
+        <div class="ws-field">
+          <label>Google Drive 路径（桌面客户端同步目录；数据写入其下 LinguaFlow/ 子文件夹）</label>
+          <div style="display:flex;gap:8px;">
+            <input class="ws-input" id="wsDrivePath" type="text" placeholder="如：D:\Google Drive 或 C:\Users\你\GoogleDrive" autocomplete="off" style="flex:1;">
+            <button class="btn-mini" id="wsBrowseBtn" title="弹窗浏览本机目录选择文件夹" style="flex-shrink:0;height:42px;padding:0 16px;">浏览…</button>
+          </div>
+        </div>
+        <div class="ws-field" style="max-width:200px;flex:0 0 auto;">
+          <label>自动备份</label>
+          <div style="display:flex;align-items:center;gap:10px;height:42px;">
+            <label class="ws-switch"><input type="checkbox" id="wsAutoChk"><span class="ws-slider"></span></label>
+            <span class="ws-hint" id="wsAutoText">开</span>
+          </div>
+        </div>
+      </div>
+      <div class="ws-form-actions">
+        <button class="btn-primary" id="wsDriveSaveBtn">保存并测试</button>
+        <button class="btn-mini" id="wsRestoreDriveBtn" disabled title="用 Drive 中最新备份覆盖本地全部数据（恢复后页面自动刷新）">从 Drive 恢复</button>
+        <button class="btn-mini" id="wsImportBtn">导入本地 JSON</button>
+        <button class="btn-mini" id="wsExportBtn">导出本地 JSON</button>
+        <input type="file" id="wsImportFile" accept=".json,application/json" style="display:none;">
+      </div>
+      <div class="ws-hint" id="wsDriveHint" style="margin-top:8px;">⚠️ 备份包<b>永不包含 API Key 与服务口令</b>——新设备恢复后需在「API 设置」重新填一次 Key。数据变化后自动备份（去抖 5 秒），每日快照保留 14 份。</div>
+      <div class="ws-divider"></div>
+      <div class="panel-head" style="border:none;padding:0;margin-bottom:8px;">
+        <h2 class="panel-title" style="font-size:.85rem;">备份快照 <span class="count" id="wsSnapCount"></span></h2>
+      </div>
+      <div class="ws-list" id="wsSnapList"><div class="ws-none">未配置 Drive 或暂无快照</div></div>
+      <div class="ws-divider"></div>
+      <div class="ws-form-actions" style="margin-top:0;">
+        <button class="btn-mini" id="wsAutostartBtn">注册开机自启</button>
+        <button class="btn-mini" id="wsWakeBtn" style="display:none;" title="通过浏览器扩展原生通道拉起服务">一键拉起服务</button>
+        <span class="ws-hint" id="wsAutostartHint">注册后每次登录系统自动静默启动服务，无需再开 bat 窗口</span>
+      </div>
+    </section>
+
+    <div class="footer">AI Tool Box · 微信工具 — Local WeChat Scheduler</div>
+  </div>
+</div>
+
+<div class="toast" id="wsToast"></div>
+
+<!-- 目录选择弹窗（居中模态；原生系统对话框在部分会话环境不可见，改为页面内模态） -->
+<div class="ws-modal-backdrop" id="wsDirModal" style="display:none;">
+  <div class="ws-modal">
+    <div class="ws-modal-title">
+      选择 Google Drive 文件夹
+      <button class="btn-mini" id="wsDirClose" title="关闭">✕</button>
+    </div>
+    <div class="ws-dir-cur" id="wsDirPath">（选择盘符）</div>
+    <div class="ws-dir-list" id="wsDirList"></div>
+    <div class="ws-form-actions" style="margin:12px 0 0;">
+      <button class="btn-mini" id="wsDirUp" title="上一级">↑ 上一级</button>
+      <button class="btn-primary" id="wsDirPickBtn" style="margin-left:auto;" disabled>选用此目录</button>
+    </div>
+  </div>
+</div>
+
+<script src="ai-service.js"></script>
+<script src="markdown.js"></script>
+<script src="wechat_schedule.js"></script>
+<script src="data-sync.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

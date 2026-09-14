@@ -1104,11 +1104,11 @@
         </svg>
         AI 提示词
       </button>
-      <button class="tab-nav-btn" id="tabBtnHotNews" onclick="switchTab('hotnews')">
+      <button class="tab-nav-btn" id="tabBtnWxSchedule" onclick="switchTab('wxschedule')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
         </svg>
-        热点雷达
+        微信工具
       </button>
     </div>
 
@@ -1306,9 +1306,9 @@
       <iframe src="ai_prompts.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="aiPromptsIframe" title="AI 提示词"></iframe>
     </div>
 
-    <!-- Tab: Hot News Radar -->
-    <div class="tab-panel" id="tabHotNews">
-      <iframe src="hotnews.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="hotnewsIframe" title="热点雷达"></iframe>
+    <!-- Tab: WeChat Scheduler -->
+    <div class="tab-panel" id="tabWxSchedule">
+      <iframe src="wechat_schedule.html" style="width:100%;border:none;min-height:85vh;border-radius:16px;background:transparent;" id="wxscheduleIframe" title="微信工具"></iframe>
     </div>
   </div><!-- /app-wrapper -->
 
@@ -1319,6 +1319,7 @@
   <script src="ai-service.js"></script>
   <script src="markdown.js"></script>
   <script src="md-editor.js"></script>
+  <script src="data-sync.js"></script>
   <script src="theme.js"></script>
   <script>
     // ===== Languages =====
@@ -1426,9 +1427,9 @@
       } else if (tab === 'aiprompts') {
         document.getElementById('tabBtnAiPrompts').classList.add('active');
         document.getElementById('tabAiPrompts').classList.add('active');
-      } else if (tab === 'hotnews') {
-        document.getElementById('tabBtnHotNews').classList.add('active');
-        document.getElementById('tabHotNews').classList.add('active');
+      } else if (tab === 'wxschedule') {
+        document.getElementById('tabBtnWxSchedule').classList.add('active');
+        document.getElementById('tabWxSchedule').classList.add('active');
       }
     }
 
@@ -1488,7 +1489,7 @@
       setTimeout(() => document.getElementById('settingsPanel').classList.remove('open'), 600);
     }
 
-    // ===== 获取模型列表（GET {Base URL}/models → datalist 自动补全，与热点雷达同一模式）=====
+    // ===== 获取模型列表（GET {Base URL}/models → datalist 自动补全）=====
     // Token Plan / 智谱编码计划等专属网关只认特定模型 ID（如 qwen3.6-flash），手动输入易错
     async function fetchModelList() {
       const _as = window.AiService || {};

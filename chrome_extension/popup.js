@@ -224,10 +224,9 @@ safeBind('openAiPrompts', 'click', () => {
   chrome.tabs.create({ url: promptsUrl });
 });
 
-// Open Hot News Radar in new tab
-safeBind('openHotNews', 'click', () => {
-  const hotnewsUrl = chrome.runtime.getURL('hotnews.html');
-  chrome.tabs.create({ url: hotnewsUrl });
+safeBind('openWxSchedule', 'click', () => {
+  const wxscheduleUrl = chrome.runtime.getURL('wechat_schedule.html');
+  chrome.tabs.create({ url: wxscheduleUrl });
 });
 
 safeBind('saveSettings', 'click', () => {

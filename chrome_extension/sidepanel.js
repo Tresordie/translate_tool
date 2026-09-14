@@ -70,7 +70,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 // ===== Tab 切换 + iframe 懒加载（首次激活才挂载，避免一次加载全部子页面） =====
-const PANELS = ['translate', 'workreport', 'todolist', 'english', 'email', 'aiparse', 'aiprompts', 'hotnews'];
+const PANELS = ['translate', 'workreport', 'todolist', 'english', 'email', 'aiparse', 'aiprompts', 'wxschedule'];
 
 function switchTab(tab) {
   if (!PANELS.includes(tab)) return;

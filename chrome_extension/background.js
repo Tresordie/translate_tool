@@ -83,8 +83,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
 const RECORD_SYNC_KEYS = {
   todo_items: 'td_todo_items',              // 任务清单
   todo_cal_config: 'td_todo_cal_config',    // 任务清单日历配置
-  hn_cards: 'hn_cards',                     // 热点雷达卡片
-  hn_tavily_key: 'hn_tavily_key',           // 热点雷达 Tavily 搜索 Key（v0.25.8）
   history: 'translate_history',             // 智能翻译历史（popup/fullpage ↔ index）
   draft: 'translate_draft',                 // 智能翻译草稿（popup/fullpage ↔ index）
   work_records: 'wr_work_records',          // 工作报告记录
@@ -196,6 +194,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
     sendResponse({ ok: true });
     return;
+  }
+
+  // 一键拉起微信定时服务（v0.29.0 方案 B）：native host 检查端口，未启动则静默拉起 server.py
+  // 宿主注册脚本：wechat 仓库 chrome_extension/install_native_host_win.bat <扩展ID>
+  if (msg.action === 'linguaflow:startScheduler') {
+    try {
+      chrome.runtime.sendNativeMessage('com.linguaflow.launcher', { action: 'start-scheduler' }, (res) => {
+        const err = chrome.runtime.lastError;
+        sendResponse(err
+          ? { ok: false, error: '未安装拉起宿主：在 chrome_extension 目录运行 install_native_host_win.bat <扩展ID>' }
+          : (res || { ok: true }));
+      });
+    } catch (e) {
+      sendResponse({ ok: false, error: String(e) });
+    }
+    return true; // async sendResponse
   }
 
   // 网页记录反向同步（v0.25.0）：content.js 中继 → 写 chrome.storage → 扩展侧同步

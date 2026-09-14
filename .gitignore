@@ -24,3 +24,11 @@ node_modules/
 # Dev artifacts (keep for reference, uncomment to ignore)
 # fix_regex.py
 # request_prompt.txt
+
+# wechat_scheduler 运行时产物（任务/历史数据与日志，本机部署生成，不入库）
+wechat_scheduler/data/
+wechat_scheduler/wx_scheduler.log
+
+# 服务运行时生成（含本机绝对路径，不入库）
+wechat_scheduler/launch_hidden.vbs
+wechatauto_logs/

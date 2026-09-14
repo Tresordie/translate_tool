@@ -1,0 +1,7 @@
+# 零第三方依赖：调度服务与发送通道均为纯 Python 标准库 + 系统自带 PowerShell（UIAutomation/Win32）。
+# 直接运行：python server.py      （或双击 start_wx_scheduler.bat）
+# 演示模式：python server.py --mock
+#
+# 可选增强：联系人搜索下拉需要读微信本地库——
+#     pip install wechatauto-replica winsdk pypinyin
+# 不装也能用：接收人直接填会话名称（建议唯一前缀备注名，如「定-妈妈」）。

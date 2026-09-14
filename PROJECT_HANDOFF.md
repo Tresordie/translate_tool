@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.25.11 · 2026-09-11
+> **当前版本**：v0.29.0 · 2026-09-14
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -11,8 +11,9 @@
 
 LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接口）的 AI 翻译 + 效率工具集，包含两个形态：
 
-- **网页版** `index.html` — 8 个 Tab：智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结 / AI 解析 / AI 提示词 / 热点雷达
+- **网页版** `index.html` — 8 个 Tab：智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结 / AI 解析 / AI 提示词 / 微信工具
 - **Chrome 扩展** `chrome_extension/` — Popup 翻译弹窗 + Side Panel 侧边栏（同 8 个模块）+ 划词翻译 + 右键菜单
+- **本机服务** `wechat_scheduler/`（v0.26.0 起）— 微信定时消息后端：系统 PowerShell 模拟操作微信窗口发送（零 pip 依赖，引擎移植自 wxtimer）+ 定时调度 + 局域网静态托管（纯 Python 标准库，详见 §3.12）
 
 所有页面共用：
 - `theme.css` / `theme.js` — 6 款极简高级感主题（低饱和苹果风）+ 玻璃拟态/噪点质感
@@ -29,9 +30,9 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 | 邮件总结 | ✅ iframe | ✅ 信封图标按钮 | ✅ Tab 5 |
 | AI 解析 | ✅ iframe | ✅ 新标签页按钮 | ✅ Tab 6 |
 | AI 提示词 | ✅ iframe | ✅ 新标签页按钮 | ✅ Tab 7 |
-| 热点雷达 | ✅ iframe | ✅ 新标签页按钮 | ✅ Tab 8 |
+| 微信工具 | ✅ iframe | ✅ 新标签页按钮 | ✅ Tab 8 |
 
-> 上表所有模块的**记录与配置均跨端双向同步**（v0.25.x）：任一端产生的数据实时互通到另两端（机制见 §3.9），智能翻译历史/任务清单/热点雷达为实时上屏，其余模块落盘同步（刷新可见）。
+> 上表除「微信工具」外的模块，**记录与配置均跨端双向同步**（v0.25.x）：任一端产生的数据实时互通到另两端（机制见 §3.9），智能翻译历史/任务清单为实时上屏，其余模块落盘同步（刷新可见）。微信工具的任务/历史存于本机 `wechat_scheduler` 服务（REST API），多端访问天然一致，**不需要也不允许**再加进 RECORD_SYNC_KEYS 映射（见 §3.12）。
 >
 > **结果导出能力（v0.25.11）**：工作报告 / 邮件总结 / AI 解析 / AI 提示词四个模块的结果区均有「微信格式」按钮——一键把 AI 输出转成可直接粘贴到微信发送的纯文本（详见 §3.11）。
 
@@ -47,7 +48,7 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 
 实现位置：`ai-service.js` 的 `initConfigSync()`。v0.18.0 修复：`initConfigSync` 现在同步写入 `localStorage('translate_config')`，确保 `chat()` 读到的永远是最新配置（之前只更新内存变量，AI 解析/提示词页面无法立即生效）。
 
-⚠️ **v0.25.10 关键规则：`config` 是共享键的局部写入必须「读取-合并-写入」**。`chrome.storage.local.config` 有多个写入方：popup 写全字段（含 `enableSelectTranslate/sourceLang/targetLang`），而侧边栏、`AiService.saveConfig`（热点雷达/AI 解析/提示词）、网页设置页（`content.js → background` 的 `linguaflow:saveConfig` 桥）只携带 API 三字段。历史上这些局部写入整替换 config，把扩展侧字段静默抹掉——划词开关「关了又开」（判定为 `!== false` 默认开启语义）即此根因。**新增任何只携带部分字段的 config 保存路径时，一律先 `get(['config'])` 合并再 `set`**（参考 `background.js` 桥 / `sidepanel.js` / `ai-service.js` 的 v0.25.10 写法）；整对象写入方可直接 set（popup/fullpage）。
+⚠️ **v0.25.10 关键规则：`config` 是共享键的局部写入必须「读取-合并-写入」**。`chrome.storage.local.config` 有多个写入方：popup 写全字段（含 `enableSelectTranslate/sourceLang/targetLang`），而侧边栏、`AiService.saveConfig`（AI 解析/提示词等）、网页设置页（`content.js → background` 的 `linguaflow:saveConfig` 桥）只携带 API 三字段。历史上这些局部写入整替换 config，把扩展侧字段静默抹掉——划词开关「关了又开」（判定为 `!== false` 默认开启语义）即此根因。**新增任何只携带部分字段的 config 保存路径时，一律先 `get(['config'])` 合并再 `set`**（参考 `background.js` 桥 / `sidepanel.js` / `ai-service.js` 的 v0.25.10 写法）；整对象写入方可直接 set（popup/fullpage）。
 
 ### 3.3 主题同步
 - 网页版各 iframe 通过 `postMessage({type: 'theme-change', theme})` 从父页接收主题
@@ -115,14 +116,11 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 3. 根目录与 `chrome_extension/` 的页面副本必须同步修改：todolist 保留 3 处 CSP 差异（扩展版 Google Fonts 异步 + 2 处无 inline onclick），english_learning 保留 2 处差异（扩展版字体异步 + 外部 JS 引用，根目录为内联 JS）
 4. english_learning 根目录版的内联 JS = `chrome_extension/english_learning.js` 内容逐字一致（v0.21.0 消除分叉），改动任一侧需同步另一侧
 
-### 3.9 热点雷达 Tavily 检索链（v0.22.0 引入热榜，v0.25.8 切换 Tavily）
-`hotnews.html/js`（两份副本，JS 仅扩展版多 gfAsync 前导、HTML 仅字体加载差异）：
-- **检索链路（v0.25.8）**：① `extractKeywords(prompt)` — AI 提取 3-5 个搜索关键词（含同义词/相关词），按提示词缓存 30 分钟（`KEYWORDS_TTL`），AI 不可用时降级为提示词本身；② `searchOne(kw)` — 逐词 POST `https://api.tavily.com/search`（`topic:news, days:2, max_results:8`），按关键词缓存 5 分钟（`SEARCH_TTL`），映射为 {title/summary/url/source(域名)/score/published}；③ `aiAnalyze()` — 候选池（≤50 条）交 `AiService.chat()`，按「时效性(24h优先)/热度(频次·讨论量)/影响力(涉及范围)」三维度打分（40/30/30 权重），归类 ≤10 主题，每条输出 中文标题/40字摘要/来源/0-100 heat + url/published 原文；`extractGroups()` 容错解析（代码块剥离/尾逗号），AI 异常自动重试一次。**Tavily CORS 开放（2026-09-05 实测预检回显 Origin），网页版与扩展版均浏览器直连、不走代理桥**；401/429 有专门诊断。
-- **Tavily Key**：雷达设置卡「网页搜索（Tavily）」子区（`hnTavilyKey` 输入 + `tvly-` 前缀校验 + 连通测试按钮），存键 `hn_tavily_key`（扩展 chrome.storage.local / 网页 localStorage，均 JSON 序列化）；已加入 background `RECORD_SYNC_KEYS` 映射与 content.js 启动拉取列表（共 16 键），与卡片记录同样全端双向同步。未配置时引导自动展开，保存后自动重试失败卡片。
-- **卡片渲染**：`hn_cards` 每条卡片含 id/name/prompt/**groups**（[{category, items:[{title,summary,source,url,published,heat}]}]）/updatedAt；渲染含搜索词条（`.hn-kw`）、主题分组头（`.hn-cat`）、组内排名色阶（heat ≥85/≥70/≥55 → r1/r2/r3）、摘要行与相对发布时间（`fmtPublished`）。旧格式 items（title/source/hot/url/reason）经 `cardGroups()` 包装单组兼容展示，刷新后升级为新格式。
-- **退役说明（v0.25.8）**：60s/UApi 热榜板块、公共 CORS 代理回退链、必应 RSS 搜索层整体移除；`AiService.proxyFetch` 仅服务于 AI chat 与模型列表。
-- **存储键**：`hn_cards` + `hn_tavily_key`（扩展 chrome.storage.local / 网页 localStorage）；跨页同步监听同 todolist 模式。
-- **记录全端双向同步（v0.25.0）**：映射表 `RECORD_SYNC_KEYS` 在 background.js（chrome.storage 键 ↔ 网页 localStorage 键，覆盖 td_/wr_ 前缀及 popup 的 history/draft 命名差异）。网页适配器写入后 postMessage `save-record` → content.js → background 写 chrome.storage；扩展写入 → background onChanged 广播 `linguaflow:syncRecord` → 各标签页 content.js 写对应 localStorage → 页面既有 storage 监听自动刷新。**新增需同步的记录：在映射表加一行 + content.js 启动拉取列表加一个键 + 适配器写入处加一条 postMessage 即可。** 实时刷新仅覆盖已有 storage 监听的页面（任务清单/热点雷达/智能翻译历史），其余模块为落盘同步（刷新可见）。
+### 3.9 记录全端双向同步体系（原「热点雷达」章节，模块已于 v0.29.0 移除）
+> 热点雷达模块（hotnews.html/js、Tavily 检索链、hn_cards/hn_tavily_key 同步键、Side Panel「热点」Tab、Popup 入口）在 v0.29.0 整体下线；本节编号保留，内容改为纯记录同步体系说明（该机制与模块无关，全站仍在用）。
+
+- **记录全端双向同步（v0.25.0）**：映射表 `RECORD_SYNC_KEYS` 在 background.js（chrome.storage 键 ↔ 网页 localStorage 键，覆盖 td_/wr_ 前缀及 popup 的 history/draft 命名差异）。网页适配器写入后 postMessage `save-record` → content.js → background 写 chrome.storage；扩展写入 → background onChanged 广播 `linguaflow:syncRecord` → 各标签页 content.js 写对应 localStorage → 页面既有 storage 监听自动刷新。**新增需同步的记录：在映射表加一行 + content.js 启动拉取列表加一个键 + 适配器写入处加一条 postMessage 即可。** 实时刷新仅覆盖已有 storage 监听的页面（任务清单/智能翻译历史），其余模块为落盘同步（刷新可见）。
+
 ### 3.10 网页版跨域代理桥（v0.23.0 引入，超时策略 v0.25.4 修订）
 
 无 CORS 头的端点（**阿里云 Token Plan 专属网关**）在网页版会被浏览器拦截。若用户已装本扩展，请求可经 background 转发：
@@ -153,10 +151,43 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **网页版**：不直接调用 `readText()`。先经 `content.js` 新增的 `read-clipboard` 桥（页面 postMessage → content script 用扩展权限 `execCommand('paste')` 代读 → `e.source` 回包 `{type:'clipboard-text', requestId, text|error}`），**一键粘贴且不弹框**；桥不可用（无扩展/扩展未获文件访问权）时，仅当 `navigator.permissions.query({name:'clipboard-read'})` 已为 `granted` 才直接读取，否则聚焦输入框并提示按 `Ctrl+V`——**任何路径都不主动触发授权对话框**。桥的超时 400ms。
 - **注意**：`execCommand('paste')` 依赖扩展的 `clipboardRead` 权限，这是该权限的官方用途；content script 能以此读页面剪贴板已在真实浏览器实测通过（含 4 字节 emoji）。
 
+### 3.12 微信工具（原微信定时消息）· 本机服务架构（v0.26.0 引入，v0.27.0 换引擎，v0.28.0 加总结）
+
+**形态**：第 8 个模块「微信工具」（v0.26.0 引入时名「微信定时消息」，v0.29.0 更名）= 管理页 `wechat_schedule.html/js`（两副本，仅字体加载差异）+ 本机 Python 服务 `wechat_scheduler/`。**这是项目第一个带后端的模块**，但后端刻意做成「用户自己电脑上的一条命令」，项目本身仍是免安装前端。
+
+- **发送引擎来源（重要）**：v0.27.0 起默认通道 `psauto` **移植自用户真机打磨的 wxtimer 项目**（`I:\claude_code\wechat`）——`scripts/WeChatAuto.ps1` 以字节级复制为底（UTF-8+BOM+CRLF，勿用 UTF-8/LF 工具重写），**已带本地补丁（与上游分歧）**：wxtimer 原版 `Get-WindowCandidate` 用 `IsWindowVisible` 一票否决，而微信 4.x 关窗缩托盘是 `SW_HIDE`（不可见），导致「托盘自动唤回」承诺对 4.x 失效（code 10 死循环）。补丁在 `Find-WeChatWindow` 尾部加 Win32 兜底：`FindWindow(类名,'微信')` 精确匹配（失败再 `FindWindow(cls,null)`+`GetWindowTextW` 校验标题），`AutomationElement::FromHandle` 包成 UIA 元素交给既有 `Restore-WeChatWindow`（SW_RESTORE 实测可还原托盘窗）。上游修复合入后可整文件回退。Python↔PS 用 `ps_driver.py` 的 UTF-8 JSON 作业文件桥接（命令行不传文本，绕开中文编码坑）。驱动安全层：哨兵式剪贴板回读校验、前台断言、锁屏/登录窗识别、首次发送 8 秒倒计时、绝不按 Esc（会把微信关进托盘）。退出码表见 `ps_driver.CODE_TEXT` / README §四。
+- **通道与边界（重要 ⚠️）**：`wx_sender.py` 统一协议 `status()/contacts()/send(task, content)`（**task 是完整 dict**：receiver/files/options/sent_count），三实现：`PsAutoSender`（默认，零依赖）、`WechatAutoSender`（`--sender wechatauto`，可选增强：读微信本地库提供联系人列表；社区项目）、`MockSender`（`--mock`）。非官方自动化有风控风险，页面首次保存强制勾选确认（`ws_risk_ack`）。微信 4.x 界面自绘**无法核对会话标题**——唯一前缀备注名（如 `定-妈妈`）是硬约定，同时避开搜索下拉「搜一搜」抢回车坑。消息只能由登录中的微信发出：关机/锁屏/无窗口期间不发送。
+- **调度语义（v0.27.0 对齐 wxtimer）**：补发窗口 `catch_up_minutes`（默认 240，options 可调）——超窗**放弃留痕**不轰炸；周期任务整段停机只补最近 1 次；同一计划点连败 `MAX_RETRY_PER_SLOT=5` 次放弃推进；once 发完/放弃即停用；滞后 >90s 才加「【补发】」前缀。发送经 `data/.send.lock`（msvcrt 非阻塞锁）互斥；`sent_count` 字段控制首次倒计时。
+- **五种调度**：`schedule = {type: once|daily|weekly|monthly|yearly}`——weekly `weekdays[1..7]`(1=周一)；monthly `day 1..31` + `clamp`（当月无此日提前月末/跳过）；yearly `date "MM-DD"`（2-29 只在闰年）。纯函数在 `scheduler_logic.py`，时间字符串 `fmt_dt` **秒级精度**（分钟截断会让带秒的 once 提前触发——已踩坑）。内容占位符 `{target}{date}{time}{note}` 在触发时刻渲染（server.render_content，不用 str.format）。`files` 附件路径列表（相对路径按服务目录解析，发送前存在性校验）。
+- **服务（`server.py`，纯标准库）**：`ThreadingHTTPServer` 承担 ① REST API（`/api/status|doctor|probe|contacts|tasks|history` + `tasks/<id>/run|dryrun`，CORS `*`，可选 `--token`）② 秒级调度线程（通道未就绪**跳过不消耗触发时刻**）③ 静态托管项目根目录。**勿引入任何第三方依赖**（wechatauto-replica 也只作可选通道，惰性 import）。
+- **前端约定**：`ws_api_base`/`ws_api_token` 双写（扩展 chrome.storage.local / 网页 localStorage）；基址默认 http(s) 访问取 `location.origin`（手机零配置）否则 `http://127.0.0.1:8765`；15s 轮询。**任务数据在服务端，不走 RECORD_SYNC_KEYS/content.js 桥**。接收人允许纯名称（`receiver.wxid` 可空，psauto 按 name 搜索）；联系人下拉仅在装了 wechatauto-replica 时可用，否则手填。
+- **验证**：`tests/test_scheduler_logic.py`（含 monthly/yearly/clamp/闰年）+ `tests/test_wx_reader_clean.py`（XML 清洗 5 项，含真机双重转义样本）+ `tests/wx-scheduler-mock.e2e.mjs`（**31 项**：CRUD/到点触发/手动/窗口内补发/超窗放弃/演练拒绝/合法 start&end 不 400/静态托管/路径穿越/历史删除/总结 CRUD）。真机（微信 4.1.13.65 + pyenv-win 3.12.9）已全部闭环：doctor、托盘唤回、真实发送、群聊读取（XML 噪音清零）、假 AI 端点跑通总结→微信格式→复制全链。
+- ⚠️ **编码维护约定**：`start_wx_scheduler.bat` 必须 **GBK+CRLF**（cmd 按 ANSI 码页解析，UTF-8/LF 错位——`echo` 变 `cho`）；`scripts/WeChatAuto.ps1` 必须 **UTF-8+BOM+CRLF**（PS 5.1 无 BOM 中文注释乱码报错）。两者都别用 UTF-8/LF 工具顺手重写。bat 的 Python 探测链：`py -3`/`python`（排除 Store 桩 exit 49）→ pyenv `version` 全局 → `versions\*` 扫描 → `%LOCALAPPDATA%\Programs\Python\Python3*`。**findstr 坑**：`/R "a b"` 空格会拆成 OR 模式（端口检测恒误报），必须 `/C:"..."` 字面量或两段管道。⚠️ **`chrome_extension/` 目录内禁止出现下划线开头文件**（Chrome 加载解压缩扩展直接报错，`_locales`/`_metadata` 除外）——对 `native_host_launcher.py` 跑 `py_compile` 会生成 `__pycache__`，编译检查后务必删除（已入 .gitignore 但加载看的是磁盘实况）。
+- **聊天记录 AI 总结（v0.28.0）**：`wx_reader.py` 经 wechatauto-replica `WeChatDB`（单例 + 锁，首次密钥提取 ~20s）本地解密读消息，`GET /api/messages?target&start&end` 按时间窗口过滤（target 支持 wxid 直用/名称 `search_contact` 唯一匹配；未装依赖返回 502 可行动错误，页面降级手输名称）。**引用/卡片消息的协议 XML 由 `clean_content()` 清洗**：`_deep_unescape`（真机存在双重转义）+ 迭代提取 `<title>/<content>` 语义文本（≤3 层），纯噪音丢弃、无文本给 `[类型]` 占位（单测 `tests/test_wx_reader_clean.py`）。AI 调用在**页面端**走共享 `AiService.chat`（服务不存 API Key），语料 60k 预算保首尾；**输出语言**下拉复用 `AiService.OUTPUT_LANGS`（10 语种，同工作报告），选择持久化 `ws_sum_lang`；「清除」按钮重置本次读取/结果/预览（`clearSummary`）。总结记录存 `data/summaries.json`（POST/GET/DELETE `/api/summaries`，上限 100，多端一致）；发送历史同版加 `id` 迁移 + `DELETE /api/history/<id>` / `DELETE /api/history`。联系人列表带 localStorage 缓存 `ws_contacts_cache`（10 分钟，聚焦空列表即时触发拉取）。**下载**：「下载 Markdown」导出原始 md；「下载 HTML」由 `buildHtmlReport` 用共享 `renderMarkdown` 渲染（支持任务表格——workreport 本地 `markdownToHtml` 不支持表格，勿复用），独立文档含会话/时间范围/条数元信息头，文件名 `wx-summary-<会话>-<时间戳>`。模块 UI 更名「微信工具」（内部 id `wxschedule`、文件名不变）。
+- **部署/自启/故障排查**：见 `wechat_scheduler/README.md` 与 `USAGE.md`（含 `schtasks` 开机自启、坐标校准 §4.2、退出码表）。
+
+### 3.13 数据与云同步 + 服务自启（v0.29.0）
+
+**需求共识（与用户逐条确认）**：所有数据本地存储；服务作为枢纽镜像到 **Google Drive 桌面客户端的本地同步文件夹**（非 API/OAuth）；**自动备份 + 手动恢复**；「导入本地」= 选已导出的 JSON 文件；**备份包永不包含 API Key 与服务口令**（用户明确选最安全档）。
+
+- **`sync.py` SyncHub**：`data/settings.json`（drive_path/auto_backup/last_backup_*）+ `data/browser_state.json`（页面推送的浏览器数据）。备份包 = `browser_state` + `wechat{tasks,history,summaries}`，写 `<drive>/LinguaFlow/latest.json` + 当日快照 `backup-YYYY-MM-DD.json`（保留 14 份，`_prune`）。自动备份经 `schedule_backup` 去抖 5s，挂在所有数据变更点（record/任务 CRUD/总结/历史删除/browser-data/restore）。
+- **脱密双保险**：`strip_secrets`——整键剔除 `ws_api_token`/`hn_tavily_key`（遗留），`translate_config`/`config` 对象内 `apiKey` 置空（字符串形态自动往返）。客户端 `data-sync.js` 推送前也剥一遍。**e2e 有「备份文件 grep 不到明文密钥」断言，改脱密逻辑必须保过它。**
+- **`data-sync.js`**：注入 16 个页面（含扩展副本与 fullpage；popup/sidepanel 宿主不注入防重复）。收集 localStorage 全量 +（扩展环境）chrome.storage.local，脱密后 POST `/api/browser-data`。触发=加载后 4s / storage 事件去抖 / 60s 心跳；服务不可达完全静默（2.5s 超时 ping + 30s 可用性缓存）。`LinguaFlowDataSync.applyState` 供恢复流程写回双存储后 reload。
+- **恢复流**：`POST /api/restore {name}`（Drive 快照）或 `{bundle}`（上传文件）→ 服务替换 tasks/history/summaries + browser_state → 返回 browser_state 给页面 `applyState` + 2s 后 reload。恢复入口全部带 confirm。
+- **开机自启（A 必选）**：`POST /api/autostart {enable}`——服务用 `sys.executable` 生成 `launch_hidden.vbs`（**GBK+CRLF**，vbs 不认 UTF-8 中文）+ `schtasks /SC ONLOGON`；查询用 `schtasks /Query`。⚠️ vbs 生成两坑：① `ws.Run` 不解析 `>>` 重定向，必须 `ws.Run "cmd /c ""<py>"" server.py >> log 2>&1", 0, False`；② VBS 引号用双写转义，结构错了 wscript 静默失败（任务显示已注册但永不拉起）。
+- **目录选择用页面内嵌浏览器，不用原生对话框**：`GET /api/listdir?path=`（空=盘符；仅目录名，`abspath` 归一化，隐藏 `$`/`.` 前缀目录）+ 管理页「浏览…」展开下钻列表「选用此目录」回填。曾用 PowerShell FolderBrowserDialog 原生弹框，但**服务由 agent/非交互父进程拉起时子进程继承非交互窗口站，对话框创建了却不可见**（用户侧表现为点了没反应），且 DriveFS 客户端配置库（root_preference_sqlite.db roots 表）在本机为空不可依赖——原生方案已整体移除。
+- **一键拉起（B 可选）**：`chrome_extension/native_host_launcher.py`（stdio 协议：探测 8765 → 未监听则 `DETACHED_PROCESS` 拉起 server.py 并等端口就绪）+ `install_native_host_win.bat <扩展ID>`（生成 manifest + 写 HKCU 注册表）。链路：页面 `start-scheduler` → content.js → background `sendNativeMessage`。仅扩展浏览器可用，页面按钮按 `isExtension` 显隐。
+- **API 面**：`GET/PUT /api/settings`、`POST /api/backup`、`GET /api/backup/status|snapshot`、`POST/GET /api/browser-data`、`POST /api/restore`、`GET/POST /api/autostart`（全部走既有 CORS + token 门）。
+- **验证**：e2e 扩至 **44 项**（路径校验/脱密/落盘/零泄露/删任务后恢复/快照列表/autostart 查询）。
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.29.0 | **数据与云同步**：`sync.py`（Drive 文件夹镜像：自动备份去抖+每日快照×14+latest；备份=浏览器数据+微信数据；**永不含 API Key/口令**，e2e 零泄露断言）+ `data-sync.js` 注入 16 页静默推送 + 微信工具页「数据与云同步」卡片（路径试写/开关/立即备份/快照下载恢复/导入导出）；**服务自启**：开机计划任务注册（launch_hidden.vbs GBK+CRLF）+ 可选 native host 一键拉起（install_native_host_win.bat）；**移除热点雷达**（模块 9→8，§3.9 改为同步体系说明）；e2e 44 项；manifest 0.29.0 |
+| v0.28.0 | 微信工具新增**聊天记录 AI 总结**（wx_reader 本地解密读取 + 时间窗口 + 页面端 AiService 三段式总结 + 总结记录服务端存储/复制/微信格式）；发送历史支持单条删除与清空（条目 id 自动迁移）；模块更名「微信工具」；e2e 扩至 30 项；真机验证中文会话名读取；manifest 0.28.0 |
+| v0.27.0 | 微信定时消息换引擎 + 语义对齐 wxtimer：默认通道改 `psauto`（系统 PowerShell UIA/键盘驱动，移植 wxtimer 的 WeChatAuto.ps1——哨兵剪贴板回读校验/前台断言/锁屏与登录窗识别/首次发送倒计时/绝不按 Esc，**零 pip 依赖**；wechatauto 降为可选=联系人列表）；调度补 monthly/yearly（clamp、2-29 闰年）、占位符 {target}{date}{time}{note}、附件 files、补发窗口 catch_up_minutes（超窗放弃留痕）、同点连败 5 次放弃、发送互斥锁、sent_count；API 新增 doctor/probe/dryrun；页面新增环境体检/演练按钮与放弃/演练徽章；真机 doctor 验证通过（微信 4.1.13.65），真实发送待用户开窗口后演练；e2e 扩至 19 项；bat 重写为三步零依赖（含 findstr 误报修复）；manifest 0.27.0 |
+| v0.26.0 | 新增第 9 模块「微信定时消息」：管理页两副本 + index Tab + Side Panel Tab 9 + Popup 按钮；`wechat_scheduler/` 纯标准库服务（REST API + 秒级调度 + 开机补发 + 局域网静态托管 + `--mock`）；任务存服务端 data/*.json 不走记录同步体系；⚠️ 非官方自动化有封号风险、关机期间不发送只补发；tests 双脚本；（wcferry/wechatauto 通道均被 v0.27.0 的 psauto 取代） |
 | v0.25.11 | 四个模块（工作报告/邮件总结/AI 解析/AI 提示词）新增「微信格式」一键转换（共享 `markdown.js` 的 `markdownToWechat`，保留 emoji + 清除微信方框字符 + 代码块不缩进）；智能翻译原文输入框新增复制按钮（网页 + 扩展弹窗/全屏页/侧栏）；修复工作报告「输出语言选 English 却输出中文」（配置同步把 `config.outputLang` 重置为 zh 且不回写下拉框 → 现以界面下拉框为准，同步只更新连接信息并保留语言偏好）；修复粘贴按钮每次都弹剪贴板授权框（扩展声 `clipboardRead` + content.js `read-clipboard` 桥 `execCommand('paste')` 代读；网页未授权时降级聚焦 + Ctrl+V，绝不触发授权框）；Popup 新增「打开本地网页版」入口（路径可配置 + 未开文件访问权时给指引）；页面初始化加 `request-config` 握手修首开配置竞态 |
 | v0.25.10 | 修复划词开关失效：侧边栏/`AiService.saveConfig`/网页设置桥等**局部保存整替换 `chrome.storage.config`**，抹掉 popup 写入的 `enableSelectTranslate`（判定 `!== false` 默认开启 → 图标"复活"，sourceLang/targetLang 同丢），全部改「读取-合并-写入」；修复严格 CSP 站点划词「Failed to fetch」：content.js 页面上下文直连 fetch 受页面 CSP `connect-src` 约束，改经 `linguaflow:proxyFetch` 桥由 background 代发，`unwrapProxy` 分层错误诊断（归一化/推理门控/400 去参重试保留）|
 | v0.25.9 | 英语学习长内容模式重设计：材料模式提示词改返回 `{translation, words}`（全文中文翻译 + ≤20 较难词汇），结果区 = 全文翻译卡 + 词汇卡（词头喇叭按钮一键朗读，`resultContent` 事件委托）；**历史条目改存结构化解析结果**，恢复走 `displayResult` 与学习时一致（修复恢复显示原始 JSON 串），旧格式按 `{fallback}` / 原文 Markdown 兜底兼容；md/html 导出改结构化生成（删 htmlToText/extractText/extractSection/extractExamples 死函数）；修复「清空所有」误删 `learningHistory` + 清空经 `elRelayRecord` 同步防 chrome.storage 复活；「清空所有」无确认弹窗 |
@@ -258,6 +289,7 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 - [x] **推理模型参数自适应覆盖全模块** — v0.25.4 email_summary 已接入（本条原文「全仓库无任何模块调用」自该提交起过时）；v0.25.5 全部剩余调用点统一接入 `isReasoningModel` 门控 + 「400 报错含 temperature 则去参重试一次」（含 background/content 内联的 `lfIsReasoningModel` 副本——**修改 REASONING_RE 时两处内联副本需同步**）。仍需注意：正则按模型名子串匹配，GLM 系等以参数开思考的模型不在列（它们接受 temperature，不会 400；遇到拒绝 temperature 的新模型靠 400 重试兜底）。
 - [x] **「获取模型列表」进入主设置面板** — v0.25.5 index.html API 设置面板已加（经 proxyFetch，Token Plan 网页版可用）；扩展弹窗/侧边栏设置面板仍未加（低优先）。
 - [ ] **Token Plan 专属网关的真实 host 仓库内无记录** — 各处注释与 README 只出现「阿里云 Token Plan」这个名字，从未写出 Base URL，导致无法实测其 CORS 与响应特征。宜在 README 提供商表补一条真实地址（脱敏 Key）。
+- [x] **微信定时消息真机发送已闭环（v0.27.0，2026-09-13）** — 微信 4.1.13.65 真环境：`/api/doctor` 通过（含**托盘隐藏窗自动还原**，修复 wxtimer 上游 IsWindowVisible bug 后）；真实发送「副卡simon」成功（keyboard 模式，剪贴板回读校验通过）。一次性任务失败不再直接停用（保持启用由重试上限控制放弃）；启用过期 once 任务给明确中文报错。
 
 ### 测试环境
 

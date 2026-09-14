@@ -29,7 +29,7 @@
   function saveConfig(cfg) {
     try { localStorage.setItem('translate_config', JSON.stringify(cfg)); } catch (e) {}
     if (isExtension()) {
-      // 合并写入：调用方（热点雷达/AI 解析等）只携带 API 三字段，
+      // 合并写入：调用方（AI 解析/提示词等）只携带 API 三字段，
       // 整替换会抹掉 enableSelectTranslate/sourceLang（v0.25.10 修复划词开关失效）
       try {
         chrome.storage.local.get(['config'], function (res) {
@@ -150,7 +150,7 @@
   var _bridge = { available: null, seq: 0, pending: {}, extVersion: '' };
 
   // 桥消息发往顶层帧：content script 默认只注入顶层（manifest 不含 all_frames），
-  // 嵌在 index.html 里的 iframe 页面（如热点雷达）必须经 window.top 才能到达 content.js。
+  // 嵌在 index.html 里的 iframe 子页面必须经 window.top 才能到达 content.js。
   function bridgeTarget() {
     try { return window.top || window; } catch (e) { return window; }
   }

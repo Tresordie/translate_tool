@@ -27,7 +27,7 @@
   // 键列表须与 background.js 的 RECORD_SYNC_KEYS 值保持一致。
   try {
     const RECORD_LS_KEYS = [
-      'td_todo_items', 'td_todo_cal_config', 'hn_cards', 'hn_tavily_key', 'translate_history', 'translate_draft',
+      'td_todo_items', 'td_todo_cal_config', 'translate_history', 'translate_draft',
       'wr_work_records', 'wr_work_summaries', 'wr_work_config', 'wr_work_draft',
       'email_summary_history', 'email_summary_config',
       'learningHistory', 'englishLearningData', 'ai_parse_state', 'ai_prompts_state'
@@ -89,7 +89,7 @@
   });
 
   // ===== 网页跨域代理桥 + 配置反向同步（v0.23.0） =====
-  // 页面（index.html / hotnews.html 等）→ postMessage → 此处 → chrome.runtime → background
+  // 页面（index.html 及各模块 iframe）→ postMessage → 此处 → chrome.runtime → background
   // 注意：content script 默认只注入顶层帧，因此桥请求（发往 window.top）由本监听处理，
   // 回包必须发往 e.source（发起请求的帧，可能是 index.html 里的 iframe），而非本帧 window。
   const streamPorts = {};   // bridgeId → 长端口（流式桥接，v0.25.5）
@@ -254,6 +254,13 @@
     if (d.type === 'save-record' && d.key && d.value !== undefined) {
       try {
         chrome.runtime.sendMessage({ action: 'linguaflow:saveRecord', key: d.key, value: d.value }, () => {});
+      } catch (err) { /* ignore */ }
+    }
+
+    // 一键拉起微信定时服务（v0.29.0 方案 B）：网页版装了本扩展时，经 background → native host 静默启动
+    if (d.type === 'start-scheduler') {
+      try {
+        chrome.runtime.sendMessage({ action: 'linguaflow:startScheduler' }, () => { void chrome.runtime.lastError; });
       } catch (err) { /* ignore */ }
     }
   });

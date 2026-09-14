@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.25.10-blue)
+![Version](https://img.shields.io/badge/version-0.29.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -28,7 +28,7 @@
 - **数据本地化** — API 配置与历史记录保存在浏览器 localStorage，隐私安全
 - **响应式设计** — 完美适配桌面与移动端
 - **记录全端双向同步** — 网页版、Chrome 扩展弹窗与侧边栏三端的任务、卡片、各类历史记录实时互通（任一端增删改，另两端即时上屏），刷新后依然存在；AI 配置一处保存全端生效
-- **历史记录导出** — 智能翻译历史、工作报告、邮件总结、英语学习历史、热点雷达卡片均支持一键导出为本地 JSON 文件
+- **历史记录导出** — 智能翻译历史、工作报告、邮件总结、英语学习历史均支持一键导出为本地 JSON 文件
 - **微信格式一键转换** — 工作报告、邮件总结、AI 解析、AI 提示词四个模块的结果区新增「微信格式」按钮，一键把 AI 输出转成可直接粘贴到微信发送的纯文本：保留 emoji 与层级结构，去掉微信不渲染的 `#`/`**` 等 Markdown 符号（列表转 `•`、任务项转 `☑/☐`、表格转「值 | 值」），并清除微信会显示成方框的隐藏字符
 - **工作报告** — 内置工作报告生成器，支持 AI 一键总结、微信格式转换、历史记录管理、按日期筛选；总结输出语言可选 30 种（修复「选 English 仍输出中文」）
 - **任务清单** — 内置任务管理模块，支持添加/完成/删除任务、优先级标记、进度统计、Markdown 批量导入/导出（含 checkbox 语法）、Apple 提醒事项一键导入（URL Scheme 点击即运行 + AppleScript 文件备用）、Google Calendar 同步、.ics 日历下载
@@ -39,8 +39,10 @@
   - **超长内容自动截取** — 超过 6 万字符自动保留首尾、省略中间并标注，无需手动拆分
 - **AI 解析** — 新增第 6 个 Tab：经典模式（粘贴笔记/需求 → AI 抽取任务清单，可勾选后批量创建到待办，含优先级/标签/子步骤）+ 分析模式（填写需求说明或上传附件 → AI 生成结构化分析总结，支持 .eml 邮件线程自动识别），结果可复制 / 下载 Markdown / HTML / 转微信格式
 - **AI 提示词** — 新增第 7 个 Tab：输入粗略需求 → 生成专家级结构化提示词（含「📋 提示词」「⚠ 假设」「💡 使用建议」），支持单独复制提示词正文或全量复制、下载、微信格式转换
-- **热点雷达** — 新增第 8 个 Tab：用户创建多张热点卡片（每张卡片一个提示词），AI 按提示词提取 3-5 个关键词经 Tavily 实时全网新闻检索，按「时效性/热度/影响力」三维度打分并归类为 ≤10 个主题，每条给出中文标题、40 字摘要、来源与热度评分（0-100）；卡片含主题分组、来源标签、可点击原文链接、发布时间与刷新按钮（Tavily Key 在 tavily.com 免费注册，网页版直连无需扩展）
-- **页面复用架构** — 工作报告、任务清单、英语学习、邮件总结、AI 解析、AI 提示词、热点雷达 Tab 通过 iframe 嵌入独立页面，与 Chrome 扩展共用同一套代码
+- **微信工具** — 新增第 8 个 Tab：① **定时发送**——定时向指定微信好友/群发送**文字 + 图片/文件**，本机 `wechat_scheduler/` 服务负责调度与发送，**默认通道零 pip 依赖**（系统自带 PowerShell 模拟点击粘贴，不注入不 hook，含剪贴板回读校验/前台断言/锁屏识别/首次倒计时/演练 dry-run），支持一次性/每天/每周几/每月/每年五种调度与 `{target}{date}{time}{note}` 占位符；关机/锁屏错过在补发窗口（默认 4 小时）内补发（「【补发】」前缀），超窗或连败 5 次放弃留痕；② **聊天记录 AI 总结**——选取个人/群聊指定时间段的聊天记录（wechatauto-replica 本地解密读取，仅本机，协议噪音自动清洗），AI 输出「📌 内容重点 / ✅ 待执行任务 / ⏰ 关键时间点」三段式总结，可选 10 种输出语言，可复制、转微信格式、下载 Markdown/HTML，总结记录服务端存储多端一致。手机浏览器开 `http://<电脑IP>:8765/` 与电脑共用。⚠️ 非官方自动化有风控风险；微信 4.x 无法核对会话标题，务必给定时对象设唯一前缀备注名——完整教程见 `wechat_scheduler/USAGE.md`
+- **数据与云同步（Google Drive）** — 所有数据本地存储（浏览器 localStorage + 服务 data/*.json），wechat_scheduler 服务作为同步枢纽把「全模块浏览器数据 + 微信任务/历史/AI 总结」打包写入 Google Drive 桌面客户端的本地同步文件夹（自动备份去抖 5s + 每日快照保留 14 份 + latest.json）；设置入口在「微信工具」页「数据与云同步」卡片：配置 Drive 路径（保存即试写验证）、自动备份开关、立即备份、快照列表逐个下载/恢复、从 Drive 恢复、导入/导出本地 JSON。⚠️ 备份包**永不包含 API Key 与服务口令**，新设备恢复后重填一次 Key 即可
+- **微信服务免手动启动** — 微信工具页新增「注册开机自启」一键把服务写入 Windows 登录计划任务（静默启动，不再需要开 bat 窗口）；装了 Chrome 扩展还可注册 native host（`chrome_extension/install_native_host_win.bat <扩展ID>`）启用「一键拉起服务」按钮，页面检测到服务未运行时经扩展原生通道静默启动
+- **页面复用架构** — 工作报告、任务清单、英语学习、邮件总结、AI 解析、AI 提示词、微信工具 Tab 通过 iframe 嵌入独立页面，与 Chrome 扩展共用同一套代码
 - **零依赖** — 纯 HTML + CSS + JavaScript，无需安装任何环境
 
 ### Chrome 扩展版
@@ -61,9 +63,10 @@
 - **记录与配置全端互通** — 弹窗、侧边栏与网页版共享全部记录与配置：任一端产生的数据（含各模块历史）实时同步到其他端，历史支持导出为本地 JSON 文件
 - **语言偏好记忆** — 自动保存源语言和目标语言选择
 - **邮件总结入口** — Popup 头部新增信封图标，新标签页打开邮件总结页（与网页版功能一致，含 PDF 上传与 30 语言输出）
-- **Side Panel 侧边栏** — Chrome 114+ 专属侧边栏，内置智能翻译/工作报告/任务清单/英语学习/邮件总结/AI 解析/AI 提示词/热点雷达全部 8 个模块，Tab 一键切换，模块懒加载不卡顿；可通过 Popup 侧边栏按钮、快捷键 `Alt+Shift+L` 或右键菜单「在侧边栏打开 AI Tool Box」随时打开
+- **Side Panel 侧边栏** — Chrome 114+ 专属侧边栏，内置智能翻译/工作报告/任务清单/英语学习/邮件总结/AI 解析/AI 提示词/微信工具全部 8 个模块，Tab 一键切换，模块懒加载不卡顿；可通过 Popup 侧边栏按钮、快捷键 `Alt+Shift+L` 或右键菜单「在侧边栏打开 AI Tool Box」随时打开
 - **AI 解析 / AI 提示词** — 侧边栏新增「解析」「提示词」两个 Tab（懒加载）；Popup 新增两个入口按钮，点击在新标签页打开独立页面
-- **热点雷达** — Side Panel 新增「热点」Tab（懒加载）；Popup 新增入口按钮；卡片与检索结果通过 chrome.storage 跨页面同步
+- **数据与云同步** — 微信工具页「数据与云同步」卡片统一配置：Drive 路径/自动备份/快照恢复/导入导出；开机自启注册与「一键拉起服务」（需先跑 install_native_host_win.bat）
+- **微信工具** — Side Panel 新增「工具」Tab（懒加载）；Popup 新增入口按钮；任务数据存于本机 `wechat_scheduler` 服务（REST API），不经 localStorage 同步体系，多端访问天然一致
 
 ## 📸 界面预览
 
@@ -132,7 +135,7 @@
 2. **推理模型参数自适应** — 名字含 `reasoner`/`reasoning`/`thinking`/`qwq`/`kimi-k3`/`deepseek-v4`/`o1·o3·o4` 的模型自动不发送 `temperature`/`max_tokens`
 3. **400 去参重试** — 网关报错含 "temperature" 时自动去掉参数重试一次（正则漏判时的兜底）
 
-**专属网关（Token Plan / 编码计划）只认特定模型 ID**（如 `qwen3.6-flash`），填经典名会报 Model not exist——用 API 设置面板或热点雷达的「**获取模型列表**」按钮自动补全（请求 `{Base URL}/models`，网页版经代理桥同样可用）。
+**专属网关（Token Plan / 编码计划）只认特定模型 ID**（如 `qwen3.6-flash`），填经典名会报 Model not exist——用 API 设置面板的「**获取模型列表**」按钮自动补全（请求 `{Base URL}/models`，网页版经代理桥同样可用）。
 
 已知边界：
 
@@ -156,7 +159,7 @@
 
 ```
 translation_tool/
-├── index.html              # 网页版应用（翻译主页面，含 8 个 Tab：翻译/报告/清单/英语/邮件/AI 解析/AI 提示词/热点雷达）
+├── index.html              # 网页版应用（翻译主页面，含 8 个 Tab：翻译/报告/清单/英语/邮件/AI 解析/AI 提示词/微信工具）
 ├── workreport.html         # 工作报告页面（独立，与 Chrome 扩展共用）
 ├── workreport.js           # 工作报告核心逻辑（IIFE 封装）
 ├── english_learning.html    # 英语学习助手页面（独立，与 Chrome 扩展共用）
@@ -168,11 +171,12 @@ translation_tool/
 ├── ai_parse.js             # AI 解析页面逻辑
 ├── ai_prompts.html         # AI 提示词页面（输入需求 → 生成结构化提示词）
 ├── ai_prompts.js           # AI 提示词页面逻辑
-├── hotnews.html            # 热点雷达页面（卡片式全网热点 Top 10，AI 按提示词筛选）
-├── hotnews.js              # 热点雷达逻辑（热榜聚合抓取 + AI 归类 + 卡片管理）
+├── wechat_schedule.html    # 微信工具页（定时任务 CRUD/发送历史/聊天记录 AI 总结，依赖 wechat_scheduler 服务）
+├── wechat_schedule.js      # 微信工具页面逻辑（REST 客户端 + 联系人联想 + 调度表单 + AiService 总结）
 ├── install_url_scheme.sh     # Apple 提醒事项 URL Scheme 桥接器安装脚本
 ├── theme.css               # 共享主题系统（6 款极简高级感主题变量 + 各页面 UI 精修层 + 玻璃卡片/噪点/环境光等公共样式）
 ├── theme.js                # 主题切换器/data-mode 明暗标记/iframe 主题同步/旧主题迁移/Markdown 预览绑定
+├── data-sync.js            # 云同步客户端（各页面注入：收集 localStorage/chrome.storage 脱密后推给服务，静默）
 ├── markdown.js             # Markdown 渲染器
 ├── md-editor.js            # Markdown 编辑器组件
 ├── email_summary.html      # 邮件总结页面（独立，与 Chrome 扩展共用）
@@ -183,13 +187,28 @@ translation_tool/
 ├── preview.png             # 网页版截图
 ├── tests/                  # 验证脚本（无框架，直接 node 运行）
 │   ├── bridge-timeout.test.mjs        # 代理桥超时守卫（虚拟时钟，毫秒级）
-│   └── bridge-long-request.e2e.mjs    # 真实 Chromium + 扩展，验证 SW 长时间在途 fetch 存活
+│   ├── bridge-long-request.e2e.mjs    # 真实 Chromium + 扩展，验证 SW 长时间在途 fetch 存活
+│   ├── test_scheduler_logic.py        # 微信定时：调度/校验纯函数自测（python 直接运行）
+│   └── wx-scheduler-mock.e2e.mjs      # 微信定时：服务 mock 模式端到端（CRUD/定时/补发/静态托管）
+├── wechat_scheduler/       # 微信工具本机服务（纯 Python 标准库，默认通道零 pip 依赖）
+│   ├── server.py           # 入口：HTTP/CORS + 调度线程（补发窗口/重试上限/占位符/发送锁）+ 静态托管
+│   ├── scheduler_logic.py  # 纯函数：next_occurrence（once/daily/weekly/monthly/yearly）/校验/描述
+│   ├── store.py            # tasks.json / history.json 原子读写
+│   ├── ps_driver.py        # Python ↔ PowerShell 驱动桥（UTF-8 JSON 作业文件，退出码表）
+│   ├── wx_sender.py        # 通道统一接口：PsAutoSender(默认)/WechatAutoSender(可选)/MockSender
+│   ├── wx_reader.py        # 聊天记录本地读取（wechatauto-replica 解密，时间窗口过滤，供 AI 总结）
+│   ├── sync.py             # 云同步引擎（Drive 读写/每日快照/自动备份去抖/恢复/脱密/开机自启注册）
+│   ├── scripts/WeChatAuto.ps1  # 界面驱动（移植自 wxtimer）：找窗口/哨兵回读校验/前台断言/倒计时
+│   ├── assets/             # 示例附件（shengri.png）
+│   ├── start_wx_scheduler.bat  # 一键启动（定位 Python/端口检查/出错回显日志）
+│   ├── USAGE.md            # 详细使用教程（能做到/做不到、演练流程、options 校准、退出码、FAQ）
+│   └── README.md           # 部署/REST API/退出码（含风险声明与维护约定）
 ├── chrome_extension/       # Chrome 浏览器扩展
 │   ├── manifest.json       # 扩展配置
 │   ├── popup.html          # 弹窗界面
 │   ├── popup.css           # 弹窗样式
 │   ├── popup.js            # 弹窗逻辑
-│   ├── sidepanel.html      # 侧边栏入口页面（Chrome 114+，8 个 Tab）
+│   ├── sidepanel.html      # 侧边栏入口页面（Chrome 114+，9 个 Tab）
 │   ├── sidepanel.css       # 侧边栏样式（现代极简有质感设计）
 │   ├── sidepanel.js        # 侧边栏逻辑（Tab 切换/懒加载/配置同步）
 │   ├── ai-service.js       # AI Parse / AI Prompts 共享服务（与网页版共用）
@@ -210,6 +229,8 @@ translation_tool/
 │   ├── todolist.js         # 任务清单逻辑
 │   ├── email_summary.html  # 邮件总结页面
 │   ├── email_summary.js    # 邮件总结逻辑
+│   ├── wechat_schedule.html # 微信工具页面（扩展版）
+│   ├── wechat_schedule.js  # 微信定时消息逻辑（扩展版）
 │   ├── pdf.min.js          # pdf.js（PDF 解析，MV3 CSP 需本地打包）
 │   ├── pdf.worker.min.js   # pdf.js Worker
 │   ├── install_url_scheme.sh     # URL Scheme 桥接器安装脚本
@@ -262,7 +283,7 @@ translation_tool/
    - 点击 Popup 弹窗右上角的「侧边栏」按钮
    - 按快捷键 `Alt+Shift+L`
    - 在任意页面右键 → 「在侧边栏打开 AI Tool Box」
-2. 侧边栏顶部 Tab 栏可切换 8 个模块：智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结 / AI 解析 / AI 提示词 / 热点雷达
+2. 侧边栏顶部 Tab 栏可切换 8 个模块：智能翻译 / 工作报告 / 任务清单 / 英语学习 / 邮件总结 / AI 解析 / AI 提示词 / 微信工具
 3. 模块按需懒加载：首次打开的模块才加载对应页面，日常打开侧边栏不卡顿
 4. 侧边栏顶部「API 设置」保存后与弹窗、全屏页、各工具页实时同步配置与主题
 5. 侧边栏右下角圆形主题按钮可随时切换 6 款主题，实时同步到各模块
@@ -275,6 +296,28 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.29.0 (2026-09-14)
+- **新增：数据与云同步（Google Drive）** — 全部数据本地存储，`wechat_scheduler` 服务升级为同步枢纽（`sync.py`）：各页面经新注入的 `data-sync.js` 静默推送浏览器数据（localStorage 全量 + 扩展环境 chrome.storage），服务合并微信任务/发送历史/AI 总结为备份包写入 Google Drive 桌面客户端同步文件夹——**自动备份**（变化去抖 5s）+ 每日快照保留 14 份 + `latest.json`；「微信工具」页新增「数据与云同步」卡片：Drive 路径配置（保存即试写）、自动备份开关、立即备份、快照列表逐个下载/恢复、从 Drive 恢复、导入/导出本地 JSON。⚠️ 备份包**永不包含 API Key 与服务口令**（客户端与服务端双重剥离，e2e 有零泄露断言），新设备恢复后重填一次 Key。
+- **新增：微信服务免手动启动** — 微信工具页「注册开机自启」一键注册 Windows 登录计划任务（服务生成静默 vbs，免再开 bat 窗口）；可选「一键拉起服务」：`chrome_extension/install_native_host_win.bat <扩展ID>` 注册 native host 后，页面检测到服务未运行时经扩展原生通道静默拉起（端口探测防重复启动）。
+- **移除：热点雷达模块整体下线** — 页面（两份）、Tab、Side Panel/Popup 入口、`RECORD_SYNC_KEYS` 映射与 content 启动拉取键全部移除；历史 changelog 保留记录。模块数 9 → 8。
+- **验证** — e2e 扩至 **44 项**（新增 Drive 设置校验/浏览器数据脱密/备份落盘/零密钥泄露/删任务后从备份恢复/快照列表/autostart 查询）；逻辑与清洗单测全绿；代码层 `hotnews` 零引用。
+
+### v0.28.0 (2026-09-13)
+- **新增：聊天记录 AI 总结**（微信工具页新面板）——选取个人好友或群聊的指定时间段（今天/昨天/近3天/近7天/自定义），经 `wx_reader.py` 用 wechatauto-replica **本地解密**读取微信消息库（首次约 20s 密钥提取，之后秒级；引用/卡片消息自动清洗协议 XML 噪音只留语义文本，含双重转义），一键交 AI 输出三段式总结：📌 内容重点 / ✅ 待执行任务（表格含责任人·优先级·截止时间）/ ⏰ 关键时间点。**输出语言可选 10 种全球常用语言**（中/英/日/韩/法/德/西/俄/阿/葡，与工作报告同一份语言表）；**「清除」按钮**一键清空本次加载的记录与结果；总结记录服务端留存多端一致（展开回看/单条删除/清空）。结果可复制、转「微信格式」——展开区结构、样式与文案**与工作报告页完全一致**（独立复制按钮、新结果自动重置）。语料 6 万字符预算保首尾。
+- **新增：发送历史管理**——每条历史自动迁移出 `id`，支持行内 ✕ 单条删除与面板「清空全部」（不影响任务）；面板标题实时显示条数。
+- **优化：会话联系人自动加载**——点开会话输入框即弹出联系人/群列表（10 分钟本地缓存，重启后聚焦空列表即时触发拉取，不再需要手动等待）。
+- **新增：总结结果下载**——「下载 Markdown」导出原始语法文件；「下载 HTML」生成独立排版报告（共享 `renderMarkdown` 渲染含任务表格，附会话/时间范围/条数元信息头，浏览器直接打开/打印转发）。
+- **改名：模块「微信定时消息」→「微信工具」**——网页 Tab、页面标题、Side Panel「工具」Tab、Popup 入口同步更名（内部 id/文件名不变）。
+- **验证**——e2e 扩至 **31 项**（新增 messages 时间参数/错误路径、summaries CRUD、历史删除）+ `test_wx_reader_clean.py` XML 清洗 5 项；真机验收：群聊读取 XML 残留清零、假 AI 端点跑通「配置→读取→总结→微信格式→复制」全链、语言下拉与清除交互通过。
+
+### v0.27.0 (2026-09-13)
+- **新增：第 9 个模块「微信定时消息」** — 网页版第 9 个 Tab + 扩展 Side Panel「定时」Tab + Popup 入口按钮。定时向指定微信好友/群发送**文字 + 图片/文件**；支持一次性 / 每天 / 每周几 / 每月 / 每年五种调度（生日纪念日、2-29 只在闰年、当月无此日可选提前月末或跳过）、`{target}{date}{time}{note}` 占位符；管理页含服务连接自检、**环境体检**（微信窗口/锁屏/定位模式/版本）、联系人输入、任务启停 / **演练**（真实打开会话+输入框回读校验但不发送）/ 立即发送 / 编辑 / 删除、发送历史（补发/手动/演练/放弃/失败原因标记）与首次使用风险确认。
+- **新增：本机服务 `wechat_scheduler/`（纯 Python 标准库，默认通道零 pip 依赖）** — 发送引擎移植自真机打磨的 wxtimer：`scripts/WeChatAuto.ps1` 用系统 PowerShell（UIAutomation + Win32）**模拟点击与粘贴**操作微信窗口（不注入、不 hook、不改协议），带哨兵式剪贴板回读校验、前台断言、锁屏/登录窗识别、首次发送 8 秒倒计时（Esc 取消）、单实例发送锁。可选通道 `--sender wechatauto`（额外提供联系人列表）与 `--mock`（演示）。串行限速防风控；REST API 带 CORS，可选 `--token`。
+- **电脑与手机局域网共用** — 服务把整个项目静态托管为 `http://<电脑IP>:8765/`，手机浏览器直接访问全部页面；任务数据存于服务端，多端管理天然一致（不经 localStorage 同步体系，无需扩展桥）。
+- **补发窗口与放弃留痕** — 关机/锁屏/掉线期间无法发送；恢复后在补发窗口（默认 240 分钟可调）内补发最近 1 次并加「【补发】」前缀，超窗或同一计划点连败 5 次则放弃并在历史留痕，绝不轰炸收件人；一次性任务发完/放弃后自动停用。
+- **验证** — `tests/test_scheduler_logic.py`（五种调度/校验/clamp/闰年纯函数）与 `tests/wx-scheduler-mock.e2e.mjs`（mock 端到端 19 项：CRUD/到点触发/手动发送/窗口内补发/超窗放弃/演练拒绝/静态托管/路径穿越）全数通过；管理页真实浏览器冒烟；PS 驱动在本机真环境跑通体检（识别微信 4.1.13.65、PS 5.1 FullLanguage、窗口状态判定准确）。
+- **⚠️ 风险与约定** — 非官方自动化有风控风险，重要账号先小号验证；微信 4.x 界面自绘无法核对会话标题，**务必给定时对象设唯一前缀备注名**（如 `定-妈妈`，同时避开搜索下拉「搜一搜」抢回车的坑）；首次真实发送默认 8 秒倒计时。完整教程（demo 截图、演练流程、options 校准参数、退出码表、FAQ）见 `wechat_scheduler/USAGE.md`。
 
 ### v0.25.11 (2026-09-11)
 - **新增：四个模块「微信格式」一键转换（工作报告 / 邮件总结 / AI 解析 / AI 提示词）** — 结果区按钮行新增「微信格式」按钮，点击后在该页结果下方展开纯文本区域并提供「复制」，可直接粘贴到微信发送。微信不渲染 Markdown，转换会去掉语法符号但保留 emoji 与层级结构：标题去掉 `#` 保留 emoji、无序列表转 `•`、任务列表转 `☑/☐`、加粗编号 `**1. 标题** 详述` 转「1. 标题：详述」、引用转「「」」、表格转「值 | 值」、链接转「文本（url）」。emoji 全程按字符串级处理（不拆四字节代理对），仅清除微信会显示成方框/分离字符的隐藏字符（变体选择符 `U+FE0E/FE0F`、零宽连接符 `U+200D`、键帽包围符 `U+20E3`）；代码块保留正文且不加缩进，生成的提示词可直接使用。转换实现提升到共享 `markdown.js`（`window.markdownToWechat`），网页版与扩展副本共用一份。
