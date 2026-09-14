@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.30.0 · 2026-09-14
+> **当前版本**：v0.32.0 · 2026-09-15
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -195,10 +195,18 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **Linux Drive 边界**：无官方客户端 → 同步以 Win/Mac 为主；Linux 建议局域网访问主力机服务（用户确认此方案）。
 - **验证**：全模块 py_compile/node --check 通过；Windows 端功能回归不变（e2e 44 项绿）；mac/linux 驱动待用户对应设备实测。
 
+### 3.15 全模块云同步抽屉（v0.31.0）
+
+- **`cloud-sync.js`**：自包含右侧滑出抽屉（fixed 定位，不依赖宿主 DOM），把微信工具页的云同步控制搬到**每个模块页**——`data-sync.js` 注入的「☁」胶囊点击调 `LfCloudSync.toggle()`（无组件时回退跳 wechat_schedule.html）。功能：Drive 路径 + 内嵌目录选择弹窗（`/api/listdir`）、自动备份 switch、立即备份、从 Drive 恢复、快照逐个下载/恢复、导入/导出本地 JSON、开机自启（`/api/autostart`）；自带 toast 与 `lfcs-` 前缀样式（用 theme CSS 变量带 fallback）。恢复复用 `LinguaFlowDataSync.applyState` + reload。
+- **注入面**：`cloud-sync.js` 加在 `data-sync.js` 之后，覆盖 index + 6 模块页 + 微信工具页（根目录 + 扩展副本；chrome_extension 无 index.html）。**v0.32.0 起微信工具页不再有内联云卡片**——`data-sync.js` 去掉了对 wechat_schedule 的胶囊排除，全页面统一用抽屉；微信页特有的「一键拉起服务」按钮（native host，仅扩展环境显示）从云卡片挪进「定时服务连接」操作行，`wechat_schedule.js` 里云卡片逻辑（bindCloudCard/refreshCloud/loadDir 等 ~200 行）整体删除，仅保留精简版 `bindWake()`。至此云同步 UI 单一来源 = `cloud-sync.js`。
+- **验证**：e2e 46 项、逻辑 8、清洗 7 全绿；抽屉 API 面与微信页一致，未新增后端接口。
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.32.0 | **云同步入口统一**：删除微信工具页内联云卡片+目录模态（~200 行），`data-sync.js` 取消微信页胶囊排除，全页面统一用 `cloud-sync.js` 抽屉；「一键拉起服务」按钮挪入服务连接区，wechat_schedule.js 仅留精简 `bindWake()`。云同步 UI 单一来源 |
+| v0.31.0 | **全模块云同步抽屉**：新增自包含 `cloud-sync.js`（右侧滑出，☁ 胶囊触发），把 Drive 路径/目录浏览器/自动备份/立即备份/恢复/快照/导入导出/开机自启带到 index + 6 模块页（13 文件双副本），各页无需跳微信工具页即可管理同步；微信页保留内联卡片（同 API 两视图）。详见 §3.15 |
 | v0.30.0 | **跨平台化**：服务本体 SendLock(msvcrt/fcntl 双实现)、autostart 按 OS(schtasks/launchd/systemd-user)、`start_wx_scheduler.sh`、`/api/status` 报 platform+reader_available；发送通道按系统选默认(win=psauto已验证 / mac=macauto osascript / linux=linuxauto xdotool，后两者实验性待真机)；wx_reader 非 win 平台守卫给主力机/局域网指引；各页云同步状态 chip(data-sync.js 注入)；Linux 无官方 Drive 客户端→同步以 Win/Mac 为主。详见 §3.14 |
 | v0.29.0 | **数据与云同步**：`sync.py`（Drive 文件夹镜像：自动备份去抖+每日快照×14+latest；备份=浏览器数据+微信数据；**永不含 API Key/口令**，e2e 零泄露断言）+ `data-sync.js` 注入 16 页静默推送 + 微信工具页「数据与云同步」卡片（路径试写/开关/立即备份/快照下载恢复/导入导出）；**服务自启**：开机计划任务注册（launch_hidden.vbs GBK+CRLF）+ 可选 native host 一键拉起（install_native_host_win.bat）；**移除热点雷达**（模块 9→8，§3.9 改为同步体系说明）；e2e 44 项；manifest 0.29.0 |
 | v0.28.0 | 微信工具新增**聊天记录 AI 总结**（wx_reader 本地解密读取 + 时间窗口 + 页面端 AiService 三段式总结 + 总结记录服务端存储/复制/微信格式）；发送历史支持单条删除与清空（条目 id 自动迁移）；模块更名「微信工具」；e2e 扩至 30 项；真机验证中文会话名读取；manifest 0.28.0 |

@@ -367,9 +367,11 @@
         <button class="btn-primary" id="wsSaveBtn">保存并测试</button>
         <button class="btn-mini" id="wsDoctorBtn" title="检查微信窗口/锁屏/定位模式等发送前提">环境体检</button>
         <button class="btn-mini" id="wsGuideBtn" title="显示 / 隐藏服务启动指引">启动指引</button>
+        <button class="btn-mini" id="wsWakeBtn" style="display:none;" title="通过浏览器扩展原生通道拉起服务">一键拉起服务</button>
         <span class="ws-form-hint" id="wsVersionHint"></span>
       </div>
       <div class="ws-form-hint" id="wsDoctorText" style="margin-top:8px;"></div>
+      <div class="ws-hint" style="margin-top:6px;">📁 Google Drive 云同步、开机自启等设置已统一到本页左下角的 <b>「☁」胶囊</b>（点开的抽屉与所有模块页通用）。</div>
       <div class="ws-collapse-body" id="wsGuide">
         <div class="ws-guide">
           ① 在跑 PC 微信（3.9 或 4.x 均可）的电脑上安装 <code>Python 3.9+</code>（勾选 Add to PATH）——<b>除此之外零依赖</b>，发送由系统自带 PowerShell 驱动完成；<br>
@@ -631,78 +633,17 @@
       <div class="ws-hist" id="wsHistList"><div class="ws-none">暂无记录</div></div>
     </section>
 
-    <!-- 数据与云同步 -->
-    <section class="panel glass-card fade-up" id="wsCloudPanel">
-      <div class="panel-head">
-        <h2 class="panel-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-          数据与云同步 <span class="count" id="wsCloudLast"></span>
-        </h2>
-        <button class="btn-mini" id="wsBackupNowBtn" title="立即把当前全部数据写入 Google Drive 文件夹">立即备份</button>
-      </div>
-      <div class="ws-form-row">
-        <div class="ws-field">
-          <label>Google Drive 路径（桌面客户端同步目录；数据写入其下 LinguaFlow/ 子文件夹）</label>
-          <div style="display:flex;gap:8px;">
-            <input class="ws-input" id="wsDrivePath" type="text" placeholder="如：D:\Google Drive 或 C:\Users\你\GoogleDrive" autocomplete="off" style="flex:1;">
-            <button class="btn-mini" id="wsBrowseBtn" title="弹窗浏览本机目录选择文件夹" style="flex-shrink:0;height:42px;padding:0 16px;">浏览…</button>
-          </div>
-        </div>
-        <div class="ws-field" style="max-width:200px;flex:0 0 auto;">
-          <label>自动备份</label>
-          <div style="display:flex;align-items:center;gap:10px;height:42px;">
-            <label class="ws-switch"><input type="checkbox" id="wsAutoChk"><span class="ws-slider"></span></label>
-            <span class="ws-hint" id="wsAutoText">开</span>
-          </div>
-        </div>
-      </div>
-      <div class="ws-form-actions">
-        <button class="btn-primary" id="wsDriveSaveBtn">保存并测试</button>
-        <button class="btn-mini" id="wsRestoreDriveBtn" disabled title="用 Drive 中最新备份覆盖本地全部数据（恢复后页面自动刷新）">从 Drive 恢复</button>
-        <button class="btn-mini" id="wsImportBtn">导入本地 JSON</button>
-        <button class="btn-mini" id="wsExportBtn">导出本地 JSON</button>
-        <input type="file" id="wsImportFile" accept=".json,application/json" style="display:none;">
-      </div>
-      <div class="ws-hint" id="wsDriveHint" style="margin-top:8px;">⚠️ 备份包<b>永不包含 API Key 与服务口令</b>——新设备恢复后需在「API 设置」重新填一次 Key。数据变化后自动备份（去抖 5 秒），每日快照保留 14 份。</div>
-      <div class="ws-divider"></div>
-      <div class="panel-head" style="border:none;padding:0;margin-bottom:8px;">
-        <h2 class="panel-title" style="font-size:.85rem;">备份快照 <span class="count" id="wsSnapCount"></span></h2>
-      </div>
-      <div class="ws-list" id="wsSnapList"><div class="ws-none">未配置 Drive 或暂无快照</div></div>
-      <div class="ws-divider"></div>
-      <div class="ws-form-actions" style="margin-top:0;">
-        <button class="btn-mini" id="wsAutostartBtn">注册开机自启</button>
-        <button class="btn-mini" id="wsWakeBtn" style="display:none;" title="通过浏览器扩展原生通道拉起服务">一键拉起服务</button>
-        <span class="ws-hint" id="wsAutostartHint">注册后每次登录系统自动静默启动服务，无需再开 bat 窗口</span>
-      </div>
-    </section>
-
     <div class="footer">AI Tool Box · 微信工具 — Local WeChat Scheduler</div>
   </div>
 </div>
 
 <div class="toast" id="wsToast"></div>
 
-<!-- 目录选择弹窗（居中模态；原生系统对话框在部分会话环境不可见，改为页面内模态） -->
-<div class="ws-modal-backdrop" id="wsDirModal" style="display:none;">
-  <div class="ws-modal">
-    <div class="ws-modal-title">
-      选择 Google Drive 文件夹
-      <button class="btn-mini" id="wsDirClose" title="关闭">✕</button>
-    </div>
-    <div class="ws-dir-cur" id="wsDirPath">（选择盘符）</div>
-    <div class="ws-dir-list" id="wsDirList"></div>
-    <div class="ws-form-actions" style="margin:12px 0 0;">
-      <button class="btn-mini" id="wsDirUp" title="上一级">↑ 上一级</button>
-      <button class="btn-primary" id="wsDirPickBtn" style="margin-left:auto;" disabled>选用此目录</button>
-    </div>
-  </div>
-</div>
-
 <script src="ai-service.js"></script>
 <script src="markdown.js"></script>
 <script src="wechat_schedule.js"></script>
 <script src="data-sync.js"></script>
+<script src="cloud-sync.js"></script>
   <script src="theme.js"></script>
 </body>
 </html>

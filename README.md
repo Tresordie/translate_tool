@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.30.0-blue)
+![Version](https://img.shields.io/badge/version-0.32.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -40,7 +40,7 @@
 - **AI 解析** — 新增第 6 个 Tab：经典模式（粘贴笔记/需求 → AI 抽取任务清单，可勾选后批量创建到待办，含优先级/标签/子步骤）+ 分析模式（填写需求说明或上传附件 → AI 生成结构化分析总结，支持 .eml 邮件线程自动识别），结果可复制 / 下载 Markdown / HTML / 转微信格式
 - **AI 提示词** — 新增第 7 个 Tab：输入粗略需求 → 生成专家级结构化提示词（含「📋 提示词」「⚠ 假设」「💡 使用建议」），支持单独复制提示词正文或全量复制、下载、微信格式转换
 - **微信工具** — 新增第 8 个 Tab：① **定时发送**——定时向指定微信好友/群发送**文字 + 图片/文件**，本机 `wechat_scheduler/` 服务负责调度与发送，**默认通道零 pip 依赖**（系统自带 PowerShell 模拟点击粘贴，不注入不 hook，含剪贴板回读校验/前台断言/锁屏识别/首次倒计时/演练 dry-run），支持一次性/每天/每周几/每月/每年五种调度与 `{target}{date}{time}{note}` 占位符；关机/锁屏错过在补发窗口（默认 4 小时）内补发（「【补发】」前缀），超窗或连败 5 次放弃留痕；② **聊天记录 AI 总结**——选取个人/群聊指定时间段的聊天记录（wechatauto-replica 本地解密读取，仅本机，协议噪音自动清洗），AI 输出「📌 内容重点 / ✅ 待执行任务 / ⏰ 关键时间点」三段式总结，可选 10 种输出语言，可复制、转微信格式、下载 Markdown/HTML，总结记录服务端存储多端一致。手机浏览器开 `http://<电脑IP>:8765/` 与电脑共用。⚠️ 非官方自动化有风控风险；微信 4.x 无法核对会话标题，务必给定时对象设唯一前缀备注名——完整教程见 `wechat_scheduler/USAGE.md`
-- **数据与云同步（Google Drive）** — 所有数据本地存储（浏览器 localStorage + 服务 data/*.json），wechat_scheduler 服务作为同步枢纽把「全模块浏览器数据 + 微信任务/历史/AI 总结」打包写入 Google Drive 桌面客户端的本地同步文件夹（自动备份去抖 5s + 每日快照保留 14 份 + latest.json）；设置入口在「微信工具」页「数据与云同步」卡片：配置 Drive 路径（保存即试写验证）、自动备份开关、立即备份、快照列表逐个下载/恢复、从 Drive 恢复、导入/导出本地 JSON。⚠️ 备份包**永不包含 API Key 与服务口令**，新设备恢复后重填一次 Key 即可
+- **数据与云同步（Google Drive）** — 所有数据本地存储（浏览器 localStorage + 服务 data/*.json），wechat_scheduler 服务作为同步枢纽把「全模块浏览器数据 + 微信任务/历史/AI 总结」打包写入 Google Drive 桌面客户端的本地同步文件夹（自动备份去抖 5s + 每日快照保留 14 份 + latest.json）。**每个模块页**（工作报告/任务清单/英语学习/邮件总结/AI解析/AI提示词/主页/微信工具）左下角「☁」胶囊点开即滑出云同步抽屉（`cloud-sync.js`）：配置 Drive 路径（内嵌目录浏览器 + 保存即试写）、自动备份开关、立即备份、从 Drive 恢复、快照逐个下载/恢复、导入/导出本地 JSON、开机自启。⚠️ 备份包**永不包含 API Key 与服务口令**，新设备恢复后重填一次 Key 即可
 - **微信服务免手动启动** — 微信工具页「注册开机自启」按系统注册登录自启（Windows 计划任务 / macOS launchd / Linux systemd-user，静默启动免开窗口）；装了 Chrome 扩展还可注册 native host（`chrome_extension/install_native_host_win.bat <扩展ID>`）启用「一键拉起服务」按钮，页面检测到服务未运行时经扩展原生通道静默启动
 - **跨平台能力矩阵（微信工具）** — 服务本体/云同步/页面：Windows·macOS·Linux 全支持；定时发送：Windows 已验证（psauto），macOS（osascript）/Linux（xdotool）为实验性驱动需真机验证；聊天记录总结：仅 Windows 可解密本地库，其他系统经「Drive 同步查看结果」或「局域网访问 Windows 主力机服务」使用。Linux 无官方 Google Drive 客户端，同步以 Win/Mac 为主
 - **页面复用架构** — 工作报告、任务清单、英语学习、邮件总结、AI 解析、AI 提示词、微信工具 Tab 通过 iframe 嵌入独立页面，与 Chrome 扩展共用同一套代码
@@ -297,6 +297,13 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.32.0 (2026-09-15)
+- **云同步入口统一** — 移除微信工具页内联的「数据与云同步」卡片及其目录选择模态，改为与其他模块页完全一致：点左下角「☁」胶囊滑出 `cloud-sync.js` 抽屉（同一套 API，单一入口）。`data-sync.js` 不再在微信页隐藏胶囊，全部页面（含微信工具页）统一；页面特有的「一键拉起服务」按钮挪入「定时服务连接」区。净删重复代码 ~200 行。
+
+### v0.31.0 (2026-09-14)
+- **全模块云同步控制** — 新增自包含组件 `cloud-sync.js`：工作报告/任务清单/英语学习/邮件总结/AI解析/AI提示词/主页 与微信工具页一样，点各页左下角「☁」胶囊即滑出**云同步抽屉**（Drive 路径 + 内嵌目录选择弹窗、自动备份开关、立即备份、从 Drive 恢复、快照逐个下载/恢复、导入/导出本地 JSON、开机自启），无需跳转即可在任意模块页管理同步。数据本就在备份包内，至此每页都有完整控制入口。
+- **验证** — 全模块编译/语法通过；e2e 46 项、逻辑 8 项、清洗 7 项全绿。
 
 ### v0.30.0 (2026-09-14)
 - **跨平台化：微信工具服务支持 Windows / macOS / Linux** — 服务本体（调度/REST/云同步/页面）纯标准库跨平台；发送锁 `msvcrt`/`fcntl` 双实现；开机自启按 OS 注册（Windows 计划任务 / macOS launchd / Linux systemd --user）；新增 `start_wx_scheduler.sh`（macOS/Linux 启动脚本，自动定位 python3 + 端口检查）。默认发送通道按系统自动选：Windows=`psauto`（已真机验证）、macOS=`macauto`（osascript + System Events）、Linux=`linuxauto`（xdotool）——**后两者为实验性实现，需在真实 Mac/Linux 桌面验证**（权限、窗口类名、快捷键）。

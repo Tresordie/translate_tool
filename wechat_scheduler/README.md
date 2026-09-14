@@ -132,7 +132,8 @@ start_wx_scheduler.bat
 
 ## 六、数据云同步与服务自启（v0.29.0）
 
-- **Google Drive 镜像**：设置 Drive 路径（Google Drive 桌面客户端的本地同步文件夹）后，服务把「浏览器数据 + 微信任务/历史/总结」写入 `<Drive>/<用户目录>/LinguaFlow/`：`latest.json` + 每日快照（保留 14 份）。数据变化去抖 5 秒自动备份；恢复/导入/导出均在管理页「数据与云同步」卡片操作。**备份包永不含 API Key 与访问口令**（客户端+服务端双重剥离）。
+- **Google Drive 镜像**：设置 Drive 路径（Google Drive 桌面客户端的本地同步文件夹）后，服务把「浏览器数据 + 微信任务/历史/总结」写入 `<Drive>/<用户目录>/LinguaFlow/`：`latest.json` + 每日快照（保留 14 份）。数据变化去抖 5 秒自动备份；恢复/导入/导出均在云同步面板操作。**备份包永不含 API Key 与访问口令**（客户端+服务端双重剥离）。
+- **全模块入口（v0.31.0，v0.32.0 统一）**：`cloud-sync.js` 云同步抽屉——**每个模块页（含微信工具页）**左下角「☁」胶囊点开即得完整控制（Drive 路径/目录浏览器/自动备份/立即备份/恢复/快照/导入导出/开机自启），单一入口、单一实现；微信工具页不再有独立云卡片，「一键拉起服务」按钮在其「定时服务连接」区。
 - **开机自启（推荐）**：管理页「注册开机自启」= 服务生成 `launch_hidden.vbs`（静默、用当前解释器绝对路径）并注册 `schtasks /SC ONLOGON`；此后登录系统即有服务，无需再开 bat 窗口。
 - **一键拉起（可选）**：`chrome_extension/install_native_host_win.bat <扩展ID>` 注册 native host 后，装了扩展的浏览器在服务未启动时可点「一键拉起服务」（宿主探测 8765 端口，未监听则脱离会话启动 server.py）。卸载：`reg delete "HKCU\Software\Google\Chrome\NativeMessagingHosts\com.linguaflow.launcher" /f`。
 

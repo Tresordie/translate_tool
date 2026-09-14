@@ -154,7 +154,6 @@
     });
   }
   function mountChip() {
-    if (/wechat_schedule\.html/.test(location.pathname)) return;
     if (document.getElementById('lfSyncChip')) return;
     chipStyle();
     var el = document.createElement('div');
@@ -162,6 +161,7 @@
     el.textContent = '☁ …';
     el.title = '数据与云同步 · 点击前往设置（Google Drive / 备份 / 恢复）';
     el.addEventListener('click', function () {
+      if (global.LfCloudSync) { global.LfCloudSync.toggle(); return; }
       try { location.href = new URL('wechat_schedule.html', location.href).href; } catch (e) {}
     });
     document.body.appendChild(el);

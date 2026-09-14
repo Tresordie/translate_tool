@@ -417,7 +417,7 @@
     store.set(K_BASE, state.base); store.set(K_TOKEN, state.token);
     refreshStatus().then(function () {
       showToast('连接成功', 'success');
-      refreshContacts(true); refreshTasks(); refreshHistory(); refreshCloud();
+      refreshContacts(true); refreshTasks(); refreshHistory();
     }).catch(function (e) { showToast(apiFail(e), 'error'); });
   }
   function defaultBase() {
@@ -799,203 +799,37 @@
     els.sumDlHtmlBtn.addEventListener('click', function () { downloadSummary('html'); });
   }
 
-  // ===== 数据与云同步 =====
-  function setAutoSwitch(on) {
-    els.autoChk.checked = !!on;
-    els.autoText.textContent = on ? '开' : '关';
-  }
-  function fmtSize(n) { return n > 1024 * 1024 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
-  function downloadJson(obj, filename) {
-    var blob = new Blob([JSON.stringify(obj, null, 1)], { type: 'application/json' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
-  }
-  function applyRestoreResult(d, sourceName) {
-    if (window.LinguaFlowDataSync && d.browser_state) LinguaFlowDataSync.applyState(d.browser_state);
-    showToast('已恢复（' + sourceName + '），2 秒后刷新页面…', 'success');
-    setTimeout(function () { location.reload(); }, 2000);
-  }
-  function restoreFrom(name, bundle, label) {
-    if (!confirm('确定用「' + label + '」覆盖本地全部数据（任务/历史/总结/浏览器记录）？\nAPI Key 不在备份内，恢复后需重填。')) return;
-    var body = bundle ? { bundle: bundle } : { name: name };
-    api('POST', '/api/restore', body).then(function (d) { applyRestoreResult(d, label); })
-      .catch(function (e) { showToast('恢复失败：' + apiFail(e), 'error'); });
-  }
-  function renderSnaps(snaps) {
-    els.snapCount.textContent = snaps.length ? '（' + snaps.length + '）' : '';
-    if (!snaps.length) { els.snapList.innerHTML = '<div class="ws-none">未配置 Drive 或暂无快照</div>'; return; }
-    els.snapList.innerHTML = snaps.map(function (s) {
-      return '<div class="ws-hist-row" style="grid-template-columns:78px minmax(0,1fr) auto auto;">' +
-        '<span class="ws-hist-time">' + esc(s.mtime.slice(5, 16)) + '</span>' +
-        '<span class="ws-hist-main"><span class="ws-hist-line1"><span class="ws-hist-task">' + esc(s.name) + '</span>' +
-          '<span class="ws-hist-to">' + fmtSize(s.size) + '</span></span></span>' +
-        '<button class="btn-mini act-snap-dl">下载</button>' +
-        (s.name === 'latest.json' ? '' : '<button class="btn-mini act-snap-re">恢复</button>') +
-        '</div>';
-    }).join('');
-  }
-  function refreshCloud() {
-    api('GET', '/api/settings').then(function (d) {
-      var s = d.settings || {};
-      els.drivePath.value = s.drive_path || '';
-      setAutoSwitch(s.auto_backup !== false);
-      els.cloudLast.textContent = s.last_backup_at ? '（最近备份 ' + fmtTime(s.last_backup_at) + '）' : '（从未备份）';
-      els.restoreDriveBtn.disabled = !s.drive_path;
-      if (s.last_backup_error) showToast('上次备份失败：' + s.last_backup_error, 'error');
-    }).catch(function () {});
-    api('GET', '/api/backup/status').then(function (d) { renderSnaps(d.snapshots || []); }).catch(function () {});
-    api('GET', '/api/autostart').then(function (d) {
-      cloudRegistered = !!d.registered;
-      els.autostartBtn.textContent = cloudRegistered ? '取消开机自启' : '注册开机自启';
-      els.autostartHint.textContent = cloudRegistered
-        ? '已注册：每次登录系统自动静默启动服务 ✓'
-        : '注册后每次登录系统自动静默启动服务，无需再开 bat 窗口';
-    }).catch(function () {});
-  }
-  var cloudRegistered = false;
-  // ---- 内嵌目录浏览器（服务端 /api/listdir；原生对话框在部分会话环境不可见，故页面内选） ----
-  var dirState = { path: '', parent: null };
-  function joinDir(p, name) { return /[\\/]$/.test(p) ? p + name : p + '\\' + name; }
-  function loadDir(p) {
-    els.dirList.innerHTML = '<div class="ws-dir-empty">加载中…</div>';
-    api('GET', '/api/listdir?path=' + encodeURIComponent(p || '')).then(function (d) {
-      dirState = { path: d.path || '', parent: d.parent };
-      els.dirPath.textContent = d.path || '（选择盘符）';
-      els.dirPath.title = d.path || '';
-      els.dirUp.style.visibility = d.path ? '' : 'hidden';
-      els.dirPickBtn.disabled = !d.path;
-      if (!d.dirs.length) { els.dirList.innerHTML = '<div class="ws-dir-empty">此文件夹没有子目录，可直接「选用此目录」</div>'; return; }
-      var folderSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
-      els.dirList.innerHTML = d.dirs.map(function (n) {
-        return '<div class="ws-dir-item">' + folderSvg + '<span>' + esc(n) + '</span></div>';
-      }).join('');
-      Array.prototype.forEach.call(els.dirList.children, function (el, i) {
-        el.addEventListener('click', function () {
-          loadDir(d.path ? joinDir(d.path, d.dirs[i]) : d.dirs[i] + '\\');
+  // ===== 一键拉起服务（扩展环境专属；云同步设置已统一到 ☁ 抽屉）=====
+  function bindWake() {
+    if (!isExtension) return;
+    els.wakeBtn.style.display = '';
+    els.wakeBtn.addEventListener('click', function () {
+      els.wakeBtn.disabled = true;
+      var startPoll = function () {
+        var tries = 0;
+        var iv = setInterval(function () {
+          tries++;
+          api('GET', '/api/status').then(function () {
+            clearInterval(iv); els.wakeBtn.disabled = false;
+            showToast('服务已拉起 ✓', 'success'); refreshAll();
+          }).catch(function () {
+            if (tries > 12) { clearInterval(iv); els.wakeBtn.disabled = false; showToast('拉起未成功，请手动运行 start_wx_scheduler.bat', 'error'); }
+          });
+        }, 1000);
+      };
+      try {
+        chrome.runtime.sendMessage({ action: 'linguaflow:startScheduler' }, function (r) {
+          if (chrome.runtime.lastError || (r && r.ok === false)) {
+            els.wakeBtn.disabled = false;
+            showToast('拉起失败：' + ((r && r.error) || (chrome.runtime.lastError && chrome.runtime.lastError.message) || '未知'), 'error');
+            return;
+          }
+          startPoll();
         });
-      });
-    }).catch(function (e) {
-      els.dirList.innerHTML = '<div class="ws-dir-empty">读取目录失败：' + esc(apiFail(e)) + '</div>';
-    });
-  }
-  function bindDirBrowser() {
-    els.browseBtn.addEventListener('click', function () {
-      els.dirModal.style.display = 'flex';
-      var cur = els.drivePath.value.trim();
-      loadDir(cur || '');
-    });
-    els.dirClose.addEventListener('click', function () { els.dirModal.style.display = 'none'; });
-    els.dirModal.addEventListener('click', function (e) { if (e.target === els.dirModal) els.dirModal.style.display = 'none'; });
-    els.dirUp.addEventListener('click', function () { loadDir(dirState.parent == null ? '' : dirState.parent); });
-    els.dirPickBtn.addEventListener('click', function () {
-      if (!dirState.path) return;
-      els.drivePath.value = dirState.path;
-      els.dirModal.style.display = 'none';
-      showToast('已填入路径，点「保存并测试」生效', 'success');
+      } catch (e) { els.wakeBtn.disabled = false; showToast('拉起不可用：' + e.message, 'error'); }
     });
   }
 
-  function bindCloudCard() {
-    bindDirBrowser();
-    els.driveSaveBtn.addEventListener('click', function () {
-      var p = els.drivePath.value.trim();
-      if (p && !/[\\/]:?[\\/]?/.test(p) && !/^[\\/]{2}/.test(p)) { showToast('路径格式不正确（示例 D:\\Google Drive）', 'error'); return; }
-      els.driveSaveBtn.disabled = true;
-      api('PUT', '/api/settings', { drive_path: p, test: !!p }).then(function (d) {
-        if (d.test_error) showToast('路径可用但试写失败：' + d.test_error, 'error');
-        else if (p) showToast('Drive 路径已保存并完成首次备份', 'success');
-        else showToast('已清除 Drive 路径（停止云备份）', 'success');
-        refreshCloud();
-      }).catch(function (e) { showToast('保存失败：' + apiFail(e), 'error'); })
-        .finally(function () { els.driveSaveBtn.disabled = false; });
-    });
-    els.autoChk.addEventListener('change', function () {
-      var on = els.autoChk.checked;
-      api('PUT', '/api/settings', { auto_backup: on }).then(function () { setAutoSwitch(on); showToast('自动备份已' + (on ? '开启' : '关闭'), 'success'); refreshCloud(); })
-        .catch(function (e) { showToast(apiFail(e), 'error'); setAutoSwitch(!on); });
-    });
-    els.backupNowBtn.addEventListener('click', function () {
-      els.backupNowBtn.disabled = true;
-      api('POST', '/api/backup').then(function (d) {
-        showToast(d.ok ? '已备份到 Google Drive 文件夹' : '备份失败：' + d.error, d.ok ? 'success' : 'error');
-        refreshCloud();
-      }).catch(function (e) { showToast(apiFail(e), 'error'); })
-        .finally(function () { els.backupNowBtn.disabled = false; });
-    });
-    els.restoreDriveBtn.addEventListener('click', function () { restoreFrom('latest.json', null, 'Drive 最新备份'); });
-    els.exportBtn.addEventListener('click', function () {
-      api('GET', '/api/backup/snapshot?name=latest.json').then(function (d) {
-        downloadJson(d.bundle, 'linguaflow-backup-' + new Date().toISOString().slice(0, 10) + '.json');
-        showToast('已导出备份 JSON', 'success');
-      }).catch(function (e) { showToast('导出失败：' + apiFail(e) + '（可能还没有任何备份，先点「立即备份」）', 'error'); });
-    });
-    els.importBtn.addEventListener('click', function () { els.importFile.click(); });
-    els.importFile.addEventListener('change', function () {
-      var f = els.importFile.files && els.importFile.files[0];
-      els.importFile.value = '';
-      if (!f) return;
-      var reader = new FileReader();
-      reader.onload = function () {
-        try { restoreFrom(null, JSON.parse(reader.result), '本地文件 ' + f.name); }
-        catch (e) { showToast('JSON 解析失败：' + e.message, 'error'); }
-      };
-      reader.readAsText(f, 'utf-8');
-    });
-    els.snapList.addEventListener('click', function (ev) {
-      var row = ev.target.closest('.ws-hist-row');
-      if (!row) return;
-      var name = row.querySelector('.ws-hist-task').textContent;
-      if (ev.target.closest('.act-snap-dl')) {
-        api('GET', '/api/backup/snapshot?name=' + encodeURIComponent(name)).then(function (d) {
-          downloadJson(d.bundle, name);
-        }).catch(function (e) { showToast(apiFail(e), 'error'); });
-      } else if (ev.target.closest('.act-snap-re')) {
-        restoreFrom(name, null, '快照 ' + name);
-      }
-    });
-    els.autostartBtn.addEventListener('click', function () {
-      var enable = !cloudRegistered;
-      if (!enable && !confirm('取消后开机将不再自动启动服务（不影响手动启动），确定？')) return;
-      els.autostartBtn.disabled = true;
-      api('POST', '/api/autostart', { enable: enable }).then(function (d) {
-        showToast(d.ok ? (enable ? '已注册开机自启 ✓' : '已取消开机自启') : '操作失败：' + (d.error || '需要以当前用户权限运行 schtasks'), d.ok ? 'success' : 'error');
-        refreshCloud();
-      }).catch(function (e) { showToast(apiFail(e), 'error'); })
-        .finally(function () { els.autostartBtn.disabled = false; });
-    });
-    // 扩展环境专属：服务未启动时经 native host 一键拉起（扩展页直连 runtime；网页版由 content.js 桥接）
-    if (isExtension) {
-      els.wakeBtn.style.display = '';
-      els.wakeBtn.addEventListener('click', function () {
-        els.wakeBtn.disabled = true;
-        var startPoll = function () {
-          var tries = 0;
-          var iv = setInterval(function () {
-            tries++;
-            api('GET', '/api/status').then(function () {
-              clearInterval(iv); els.wakeBtn.disabled = false;
-              showToast('服务已拉起 ✓', 'success'); refreshAll(); refreshCloud();
-            }).catch(function () {
-              if (tries > 12) { clearInterval(iv); els.wakeBtn.disabled = false; showToast('拉起未成功，请手动运行 start_wx_scheduler.bat', 'error'); }
-            });
-          }, 1000);
-        };
-        try {
-          chrome.runtime.sendMessage({ action: 'linguaflow:startScheduler' }, function (r) {
-            if (chrome.runtime.lastError || (r && r.ok === false)) {
-              els.wakeBtn.disabled = false;
-              showToast('拉起失败：' + ((r && r.error) || (chrome.runtime.lastError && chrome.runtime.lastError.message) || '未知'), 'error');
-              return;
-            }
-            startPoll();
-          });
-        } catch (e) { els.wakeBtn.disabled = false; showToast('拉起不可用：' + e.message, 'error'); }
-      });
-    }
-  }
 
   // ===== 初始化 =====
   function init() {
@@ -1025,13 +859,7 @@
       sumWechatSection: $('wsSumWechatSection'), sumCopyWechatBtn: $('wsSumCopyWechatBtn'),
       aiUrl: $('wsAiUrl'), aiKey: $('wsAiKey'), aiModel: $('wsAiModel'), aiSave: $('wsAiSave'),
       aiStatus: $('wsAiStatus'), aiStatusText: $('wsAiStatusText'), aiIcon: $('wsAiIcon'), aiContent: $('wsAiContent'),
-      cloudLast: $('wsCloudLast'), backupNowBtn: $('wsBackupNowBtn'), drivePath: $('wsDrivePath'), browseBtn: $('wsBrowseBtn'),
-      dirModal: $('wsDirModal'), dirUp: $('wsDirUp'), dirPath: $('wsDirPath'), dirPickBtn: $('wsDirPickBtn'),
-      dirClose: $('wsDirClose'), dirList: $('wsDirList'),
-      autoChk: $('wsAutoChk'), autoText: $('wsAutoText'), driveSaveBtn: $('wsDriveSaveBtn'), restoreDriveBtn: $('wsRestoreDriveBtn'),
-      importBtn: $('wsImportBtn'), exportBtn: $('wsExportBtn'), importFile: $('wsImportFile'),
-      snapList: $('wsSnapList'), snapCount: $('wsSnapCount'),
-      autostartBtn: $('wsAutostartBtn'), autostartHint: $('wsAutostartHint'), wakeBtn: $('wsWakeBtn')
+      wakeBtn: $('wsWakeBtn')
     };
 
     store.init(function () {
@@ -1068,7 +896,7 @@
       bindHistoryActions();
 
       // 聊天记录总结
-      bindAiCard(); bindSummaryList(); bindResultActions(); bindCloudCard(); refreshSummaries(); refreshCloud();
+      bindAiCard(); bindSummaryList(); bindResultActions(); bindWake(); refreshSummaries();
       els.readBtn.addEventListener('click', readSummary);
       els.sumBtn.addEventListener('click', aiSummarize);
       els.clearSumBtn.addEventListener('click', clearSummary);
