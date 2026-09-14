@@ -182,10 +182,26 @@ class WechatAutoSender:
                 return False, str(e)
 
 
+def default_sender():
+    """按操作系统选默认通道：Windows=psauto（已验证）；macOS=macauto / Linux=linuxauto（实验性）。"""
+    import sys
+    if sys.platform == "darwin":
+        return "macauto"
+    if sys.platform.startswith("linux"):
+        return "linuxauto"
+    return "psauto"
+
+
 def create_sender(name):
-    """name: 'psauto'(默认) | 'wechatauto' | 'mock'"""
+    """name: 'psauto' | 'macauto' | 'linuxauto' | 'wechatauto' | 'mock'"""
     if name == "mock":
         return MockSender()
     if name == "wechatauto":
         return WechatAutoSender()
+    if name == "macauto":
+        from mac_sender import MacAutoSender
+        return MacAutoSender()
+    if name == "linuxauto":
+        from linux_sender import LinuxAutoSender
+        return LinuxAutoSender()
     return PsAutoSender()

@@ -196,12 +196,13 @@ task.json 结构与 schedule 五种模型见 [README.md](README.md) §三。
 1. **封号风险**：虽不注入不 hook，仍属非官方自动化；只用于给熟人发提醒祝福，控制频率（内置 ≥1s 间隔与重试上限）。重要账号先小号验证。
 2. **数据与权限**：任务/历史明文在 `data/`；默认无鉴权，公网/办公网环境务必 `--token`。
 3. **别在另一台机器同时跑两个服务连同一个微信**——有发送锁互斥，但体验会互相干扰。
+4. **跨平台边界（v0.30.0）**：服务与云同步全平台可跑；**发送**在 Windows 已验证，macOS(osascript)/Linux(xdotool) 为实验性驱动、需真机验证（Linux 纯 Wayland 不可用）；**聊天记录总结**仅 Windows 能解密本地库——其他系统经 Drive 同步查看结果，或浏览器直接访问 Windows 主力机服务（`http://<主力机IP>:8765/`）使用。Linux 无官方 Google Drive 客户端，同步建议以 Win/Mac 为主力。
 
 ## 14. 自检与回归（开发者）
 
 ```bat
 python tests\test_scheduler_logic.py                    :: 排期纯函数（含 monthly/yearly/clamp/闰年）
-node tests\wx-scheduler-mock.e2e.mjs                    :: mock 端到端 19 项（CRUD/定时/补发/超窗放弃/演练拒绝/静态托管）
+node tests\wx-scheduler-mock.e2e.mjs                    :: mock 端到端 44 项（CRUD/定时/补发/超窗放弃/演练拒绝/云同步脱密/备份恢复/静态托管）
 python server.py --mock                                 :: 手动走 UI 流程
 curl http://127.0.0.1:8765/api/doctor                   :: 真机体检（psauto）
 ```

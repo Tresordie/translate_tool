@@ -119,6 +119,58 @@
 
   global.LinguaFlowDataSync = { push: push, collect: collect, applyState: applyState, base: base, token: token };
 
+  // ===== 云同步状态 chip（非微信工具页自动注入；点击跳控制中心）=====
+  function chipStyle() {
+    if (document.getElementById('lf-sync-chip-style')) return;
+    var st = document.createElement('style');
+    st.id = 'lf-sync-chip-style';
+    st.textContent = '#lfSyncChip{position:fixed;left:12px;bottom:12px;z-index:99999;cursor:pointer;' +
+      'font:11px/1.6 -apple-system,"Segoe UI","Noto Sans SC",sans-serif;padding:5px 12px;border-radius:999px;' +
+      'background:rgba(20,24,32,.72);color:#cfd6e4;border:1px solid rgba(255,255,255,.14);' +
+      'backdrop-filter:blur(10px);box-shadow:0 4px 14px rgba(0,0,0,.25);opacity:.85;transition:opacity .2s}' +
+      '#lfSyncChip:hover{opacity:1}#lfSyncChip.warn{color:#e8b25a}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+  function chipSet(text, warn) {
+    var el = document.getElementById('lfSyncChip');
+    if (!el) return;
+    el.textContent = text;
+    el.className = warn ? 'warn' : '';
+  }
+  function refreshChip() {
+    var h = { 'Content-Type': 'application/json' };
+    if (token()) h['X-Api-Token'] = token();
+    fetch(base() + '/api/status', { headers: h }).then(function (r) {
+      if (!r.ok) throw new Error('down');
+      avail = { ok: true, at: Date.now() };
+      return fetch(base() + '/api/settings', { headers: h }).then(function (r2) { return r2.json(); });
+    }).then(function (d) {
+      var s = (d && d.settings) || {};
+      if (!s.drive_path) { chipSet('☁ 未配置 Drive', true); return; }
+      chipSet(s.last_backup_at ? '☁ 已同步 ' + String(s.last_backup_at).slice(5, 16).replace('T', ' ') : '☁ 待首次备份');
+    }).catch(function () {
+      avail = { ok: false, at: Date.now() };
+      chipSet('☁ 同步服务未启动', true);
+    });
+  }
+  function mountChip() {
+    if (/wechat_schedule\.html/.test(location.pathname)) return;
+    if (document.getElementById('lfSyncChip')) return;
+    chipStyle();
+    var el = document.createElement('div');
+    el.id = 'lfSyncChip';
+    el.textContent = '☁ …';
+    el.title = '数据与云同步 · 点击前往设置（Google Drive / 备份 / 恢复）';
+    el.addEventListener('click', function () {
+      try { location.href = new URL('wechat_schedule.html', location.href).href; } catch (e) {}
+    });
+    document.body.appendChild(el);
+    refreshChip();
+    setInterval(refreshChip, 60000);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountChip);
+  else mountChip();
+
   // 触发：加载后延迟推一次；storage 变更去抖推；心跳兜底
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedulePush);
   else schedulePush();

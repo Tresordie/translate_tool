@@ -270,41 +270,116 @@ def _vbs_path():
     return HERE / "launch_hidden.vbs"
 
 
+def _launchd_path():
+    return Path.home() / "Library" / "LaunchAgents" / "com.linguaflow.wxscheduler.plist"
+
+
+def _systemd_unit_path():
+    return Path.home() / ".config" / "systemd" / "user" / "linguaflow-wxscheduler.service"
+
+
+def _os():
+    if sys.platform.startswith(("win", "cygwin", "msys")):
+        return "windows"
+    if sys.platform == "darwin":
+        return "macos"
+    return "linux"
+
+
 def autostart_status():
+    os_kind = _os()
     try:
-        r = subprocess.run(["schtasks", "/Query", "/TN", TASK_NAME], capture_output=True, text=True, encoding="gbk", errors="replace", timeout=15)
-        return {"registered": r.returncode == 0, "task": TASK_NAME}
+        if os_kind == "windows":
+            r = subprocess.run(["schtasks", "/Query", "/TN", TASK_NAME],
+                               capture_output=True, text=True, encoding="gbk", errors="replace", timeout=15)
+            return {"registered": r.returncode == 0, "task": TASK_NAME, "os": os_kind}
+        if os_kind == "macos":
+            return {"registered": _launchd_path().exists(), "task": "com.linguaflow.wxscheduler", "os": os_kind}
+        if _systemd_unit_path().exists():
+            r = subprocess.run(["systemctl", "--user", "is-enabled", "linguaflow-wxscheduler.service"],
+                               capture_output=True, text=True, timeout=15)
+            return {"registered": r.returncode == 0, "task": "linguaflow-wxscheduler", "os": os_kind}
+        return {"registered": False, "task": "linguaflow-wxscheduler", "os": os_kind}
     except (OSError, subprocess.TimeoutExpired):
-        return {"registered": False, "task": TASK_NAME, "error": "schtasks 不可用"}
+        return {"registered": False, "task": TASK_NAME, "os": os_kind, "error": "自启状态查询不可用"}
 
 
 def autostart_enable():
-    """生成静默启动 vbs（用当前解释器绝对路径）并注册登录时计划任务。
-
-    要点：ws.Run 不解析重定向，必须经 `cmd /c` 执行 `python server.py >> log 2>&1`；
-    VBS 字符串内引号用「双写」转义。vbs 含中文注释 → 必须 GBK 编码（wscript 按 ANSI 读）。
-    """
-    vbs = _vbs_path()
+    """按 OS 注册登录自启：Windows 计划任务 / macOS launchd / Linux systemd --user。"""
+    os_kind = _os()
     py = sys.executable or "python"
-    vbs.write_text(
-        "' LinguaFlow 微信定时服务静默启动（开机自启用，勿手动删除）\r\n"
-        "Set ws = CreateObject(\"Wscript.Shell\")\r\n"
-        "ws.CurrentDirectory = \"%s\"\r\n"
-        "ws.Run \"cmd /c \"\"%s\"\" server.py >> wx_scheduler.log 2>&1\", 0, False\r\n"
-        % (str(HERE), py),
-        encoding="gbk",
-    )
-    r = subprocess.run(
-        ["schtasks", "/Create", "/F", "/TN", TASK_NAME, "/TR", 'wscript.exe "%s"' % str(vbs), "/SC", "ONLOGON"],
-        capture_output=True, text=True, encoding="gbk", errors="replace", timeout=30)
+    if os_kind == "windows":
+        vbs = _vbs_path()
+        vbs.write_text(
+            "' LinguaFlow 微信定时服务静默启动（开机自启用，勿手动删除）\r\n"
+            "Set ws = CreateObject(\"Wscript.Shell\")\r\n"
+            "ws.CurrentDirectory = \"%s\"\r\n"
+            "ws.Run \"cmd /c \"\"%s\"\" server.py >> wx_scheduler.log 2>&1\", 0, False\r\n"
+            % (str(HERE), py),
+            encoding="gbk",
+        )
+        r = subprocess.run(
+            ["schtasks", "/Create", "/F", "/TN", TASK_NAME, "/TR", 'wscript.exe "%s"' % str(vbs), "/SC", "ONLOGON"],
+            capture_output=True, text=True, encoding="gbk", errors="replace", timeout=30)
+        return (r.returncode == 0, None if r.returncode == 0 else (r.stderr or r.stdout or "").strip()[:200])
+    if os_kind == "macos":
+        _launchd_path().parent.mkdir(parents=True, exist_ok=True)
+        _launchd_path().write_text(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+            '<plist version="1.0"><dict>\n'
+            '<key>Label</key><string>com.linguaflow.wxscheduler</string>\n'
+            '<key>ProgramArguments</key><array>\n'
+            '<string>%s</string><string>server.py</string>\n'
+            '</array>\n'
+            '<key>WorkingDirectory</key><string>%s</string>\n'
+            '<key>RunAtLoad</key><true/>\n'
+            '<key>StandardOutPath</key><string>%s/wx_scheduler.log</string>\n'
+            '<key>StandardErrorPath</key><string>%s/wx_scheduler.log</string>\n'
+            '</dict></plist>\n' % (py, str(HERE), str(HERE), str(HERE)),
+            encoding="utf-8")
+        r = subprocess.run(["launchctl", "load", str(_launchd_path())], capture_output=True, text=True, timeout=30)
+        # 已加载时 launchctl 报错但视为成功
+        if r.returncode != 0 and "already loaded" not in (r.stderr or "").lower():
+            return False, (r.stderr or r.stdout or "").strip()[:200]
+        return True, None
+    # linux: systemd user unit
+    _systemd_unit_path().parent.mkdir(parents=True, exist_ok=True)
+    _systemd_unit_path().write_text(
+        "[Unit]\nDescription=LinguaFlow WeChat Scheduler\nAfter=default.target\n\n"
+        "[Service]\nType=simple\nWorkingDirectory=%s\nExecStart=%s server.py\n"
+        "Restart=on-failure\nRestartSec=5\nStandardOutput=append:%s/wx_scheduler.log\n"
+        "StandardError=append:%s/wx_scheduler.log\n\n"
+        "[Install]\nWantedBy=default.target\n" % (str(HERE), py, str(HERE), str(HERE)),
+        encoding="utf-8")
+    subprocess.run(["systemctl", "--user", "daemon-reload"], capture_output=True, timeout=30)
+    r = subprocess.run(["systemctl", "--user", "enable", "--now", "linguaflow-wxscheduler.service"],
+                       capture_output=True, text=True, timeout=30)
     if r.returncode != 0:
         return False, (r.stderr or r.stdout or "").strip()[:200]
     return True, None
 
 
 def autostart_disable():
-    r = subprocess.run(["schtasks", "/Delete", "/F", "/TN", TASK_NAME],
-                       capture_output=True, text=True, encoding="gbk", errors="replace", timeout=30)
+    os_kind = _os()
+    if os_kind == "windows":
+        r = subprocess.run(["schtasks", "/Delete", "/F", "/TN", TASK_NAME],
+                           capture_output=True, text=True, encoding="gbk", errors="replace", timeout=30)
+    elif os_kind == "macos":
+        r = subprocess.run(["launchctl", "unload", str(_launchd_path())], capture_output=True, text=True, timeout=30)
+        if r.returncode == 0:
+            try:
+                _launchd_path().unlink()
+            except OSError:
+                pass
+    else:
+        r = subprocess.run(["systemctl", "--user", "disable", "--now", "linguaflow-wxscheduler.service"],
+                           capture_output=True, text=True, timeout=30)
+        if r.returncode == 0:
+            try:
+                _systemd_unit_path().unlink()
+            except OSError:
+                pass
     if r.returncode != 0:
         return False, (r.stderr or r.stdout or "").strip()[:200]
     return True, None

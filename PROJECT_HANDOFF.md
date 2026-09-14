@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.29.0 · 2026-09-14
+> **当前版本**：v0.30.0 · 2026-09-14
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -180,10 +180,26 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **API 面**：`GET/PUT /api/settings`、`POST /api/backup`、`GET /api/backup/status|snapshot`、`POST/GET /api/browser-data`、`POST /api/restore`、`GET/POST /api/autostart`（全部走既有 CORS + token 门）。
 - **验证**：e2e 扩至 **44 项**（路径校验/脱密/落盘/零泄露/删任务后恢复/快照列表/autostart 查询）。
 
+### 3.14 跨平台化（v0.30.0）
+
+**需求共识**：用户希望微信工具在 Windows/macOS/Linux 均可用（微信可跨系统登录），且要求跨平台总结；经逐条确认——发送驱动接受"mac/linux 实验性需真机验证"，总结因仅 Windows 有解密方案，跨平台靠"结果同步查看 + 局域网访问主力机服务"满足。
+
+- **服务本体跨平台**：`server.py` 纯标准库天然可移植；`SendLock` 双实现（Windows `msvcrt.locking` / POSIX `fcntl.flock`，`HERE/data/.send.lock`）；`/api/status` 增 `platform`(sys.platform) + `reader_available`(仅 win/cygwin/msys)。
+- **发送通道按 OS 选默认**（`wx_sender.default_sender()`）：win→`psauto`(已验证)、darwin→`macauto`、linux→`linuxauto`。`--sender` 五选。
+  - `mac_sender.py`（osascript + System Events）：`tell application "WeChat" to activate` → Cmd+F 搜索 → 粘贴名 → Return → 哨兵剪贴板回读校验（`the clipboard` 往返）→ 粘贴正文 → Return(key code 36)。需辅助功能+自动化授权。
+  - `linux_sender.py`（xdotool）：`search --class wechat|weixin` → `windowactivate` → `key ctrl+f` → `type`（自带 Unicode）→ Return。**Wayland 原生窗口 xdotool 注入不了**（需 ydotool/uinput，未内置），仅 X11/XWayland 可用。
+  - ⚠️ 两者**均未经真机验证**（开发在 Windows）：窗口类名、快捷键、mac 进程名 "WeChat" vs "微信" 等需用户实测调参；`contacts()` 在非 win 直接抛可行动错误（无库读取方案）。
+- **`wx_reader` 平台守卫**：`_get_db()` 非 win 抛 ReaderError，指引"Windows 主力机总结 + Drive 同步查看 / 局域网访问主力机服务"，不再盲目 import 失败。
+- **启动脚本**：新增 `start_wx_scheduler.sh`（mac/linux，定位 python3 + 端口检查 + 日志）；bat 仍 Windows。`autostart_enable/disable/status` 按 `_os()` 分派：win=schtasks+vbs(GBK+CRLF)、mac=launchd plist(`~/Library/LaunchAgents/com.linguaflow.wxscheduler.plist`)、linux=systemd user unit(`~/.config/systemd/user/linguaflow-wxscheduler.service`, WantedBy=default.target)。
+- **云同步状态 chip**：`data-sync.js` 在非 wechat_schedule 页注入左下角「☁」胶囊（`#lfSyncChip`），显示 已同步时间/未配置 Drive/服务未启动，点击跳 wechat_schedule.html，60s 刷新。六大模块数据本在备份包内，至此状态可见。
+- **Linux Drive 边界**：无官方客户端 → 同步以 Win/Mac 为主；Linux 建议局域网访问主力机服务（用户确认此方案）。
+- **验证**：全模块 py_compile/node --check 通过；Windows 端功能回归不变（e2e 44 项绿）；mac/linux 驱动待用户对应设备实测。
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.30.0 | **跨平台化**：服务本体 SendLock(msvcrt/fcntl 双实现)、autostart 按 OS(schtasks/launchd/systemd-user)、`start_wx_scheduler.sh`、`/api/status` 报 platform+reader_available；发送通道按系统选默认(win=psauto已验证 / mac=macauto osascript / linux=linuxauto xdotool，后两者实验性待真机)；wx_reader 非 win 平台守卫给主力机/局域网指引；各页云同步状态 chip(data-sync.js 注入)；Linux 无官方 Drive 客户端→同步以 Win/Mac 为主。详见 §3.14 |
 | v0.29.0 | **数据与云同步**：`sync.py`（Drive 文件夹镜像：自动备份去抖+每日快照×14+latest；备份=浏览器数据+微信数据；**永不含 API Key/口令**，e2e 零泄露断言）+ `data-sync.js` 注入 16 页静默推送 + 微信工具页「数据与云同步」卡片（路径试写/开关/立即备份/快照下载恢复/导入导出）；**服务自启**：开机计划任务注册（launch_hidden.vbs GBK+CRLF）+ 可选 native host 一键拉起（install_native_host_win.bat）；**移除热点雷达**（模块 9→8，§3.9 改为同步体系说明）；e2e 44 项；manifest 0.29.0 |
 | v0.28.0 | 微信工具新增**聊天记录 AI 总结**（wx_reader 本地解密读取 + 时间窗口 + 页面端 AiService 三段式总结 + 总结记录服务端存储/复制/微信格式）；发送历史支持单条删除与清空（条目 id 自动迁移）；模块更名「微信工具」；e2e 扩至 30 项；真机验证中文会话名读取；manifest 0.28.0 |
 | v0.27.0 | 微信定时消息换引擎 + 语义对齐 wxtimer：默认通道改 `psauto`（系统 PowerShell UIA/键盘驱动，移植 wxtimer 的 WeChatAuto.ps1——哨兵剪贴板回读校验/前台断言/锁屏与登录窗识别/首次发送倒计时/绝不按 Esc，**零 pip 依赖**；wechatauto 降为可选=联系人列表）；调度补 monthly/yearly（clamp、2-29 闰年）、占位符 {target}{date}{time}{note}、附件 files、补发窗口 catch_up_minutes（超窗放弃留痕）、同点连败 5 次放弃、发送互斥锁、sent_count；API 新增 doctor/probe/dryrun；页面新增环境体检/演练按钮与放弃/演练徽章；真机 doctor 验证通过（微信 4.1.13.65），真实发送待用户开窗口后演练；e2e 扩至 19 项；bat 重写为三步零依赖（含 findstr 误报修复）；manifest 0.27.0 |

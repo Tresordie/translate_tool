@@ -5,6 +5,17 @@ LinguaFlow「微信定时消息」模块的后端：定时驱动 **PC 微信**�
 
 > 📖 **完整使用教程（demo 截图、演练流程、FAQ、退出码）见 [USAGE.md](USAGE.md)**。本文偏部署与接口。
 
+**跨平台能力矩阵（v0.30.0）**：
+
+| 能力 | Windows | macOS | Linux |
+|---|---|---|---|
+| 服务本体（调度/REST/云同步/页面） | ✅ | ✅ | ✅ |
+| 定时发送 | ✅ `psauto`（已验证） | 🧪 `macauto` osascript（需真机验证 + 辅助功能授权） | 🧪 `linuxauto` xdotool（需 X11/XWayland；纯 Wayland 不可用） |
+| 聊天记录总结 | ✅ wechatauto-replica | ❌（经 Drive 查看结果 / 局域网访问 Win 主力机） | ❌（同左） |
+| Drive 云同步 | ✅ 官方客户端 | ✅ 官方客户端 | ⚠️ 无官方客户端（建议局域网访问主力机） |
+
+默认发送通道按系统自动选；`--sender` 可覆盖。开机自启按 OS 注册（计划任务/launchd/systemd-user）。
+
 **发送通道（默认零依赖）**：
 
 | 通道 | 启动参数 | 依赖 | 特点 |

@@ -41,14 +41,18 @@ from scheduler_logic import (  # noqa: E402
 from store import TaskStore  # noqa: E402
 from sync import SyncHub, autostart_disable, autostart_enable, autostart_status, list_dirs  # noqa: E402
 from wx_reader import ReaderError, read_messages  # noqa: E402
-from wx_sender import create_sender  # noqa: E402
+from wx_sender import create_sender, default_sender  # noqa: E402
 
 try:
     import msvcrt  # Windows：发送互斥锁
 except ImportError:
     msvcrt = None
+try:
+    import fcntl  # Linux/macOS：发送互斥锁
+except ImportError:
+    fcntl = None
 
-SERVICE_VERSION = "0.29.0"
+SERVICE_VERSION = "0.30.0"
 HERE = Path(__file__).resolve().parent
 CATCH_UP_MINUTES_DEFAULT = 240   # 补发窗口：计划点滞后超过该分钟数则放弃补发
 MAX_RETRY_PER_SLOT = 5           # 同一计划点连续失败上限，达到即放弃并推进
@@ -115,18 +119,19 @@ def resolve_files(task):
 
 
 class SendLock:
-    """data/.send.lock 互斥：同一时刻只允许一个进程操作微信窗口。"""
+    """data/.send.lock 互斥：同一时刻只允许一个进程操作微信。Windows msvcrt / POSIX fcntl。"""
 
     def __init__(self):
         self._fh = None
 
     def __enter__(self):
-        if msvcrt is None:
-            return True
         try:
             (HERE / "data").mkdir(parents=True, exist_ok=True)
             self._fh = open(HERE / "data" / ".send.lock", "a+b")
-            msvcrt.locking(self._fh.fileno(), msvcrt.LK_NBLCK, 1)
+            if msvcrt:
+                msvcrt.locking(self._fh.fileno(), msvcrt.LK_NBLCK, 1)
+            elif fcntl:
+                fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             return True
         except OSError:
             self.close()
@@ -139,7 +144,10 @@ class SendLock:
     def close(self):
         if self._fh:
             try:
-                msvcrt.locking(self._fh.fileno(), msvcrt.LK_UNLCK, 1)
+                if msvcrt:
+                    msvcrt.locking(self._fh.fileno(), msvcrt.LK_UNLCK, 1)
+                elif fcntl:
+                    fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)
             except OSError:
                 pass
             try:
@@ -577,6 +585,8 @@ class Handler(BaseHTTPRequestHandler):
                 "service": "linguaflow-wx-scheduler",
                 "server_time": fmt_dt(now()),
                 "wechat": SENDER.status(),
+                "platform": sys.platform,
+                "reader_available": sys.platform.startswith(("win", "cygwin", "msys")),
                 "tasks": {"total": len(tasks), "enabled": sum(1 for t in tasks if t.get("enabled"))},
                 "next_fire": next_soon,
             })
@@ -737,8 +747,11 @@ def main():
     ap = argparse.ArgumentParser(description="LinguaFlow 微信定时消息本机服务（纯标准库，默认通道零 pip 依赖）")
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=8765)
-    ap.add_argument("--sender", choices=["psauto", "wechatauto", "mock"], default="psauto",
-                    help="发送通道：psauto=系统 PowerShell UIA/键盘驱动（默认，零依赖）；wechatauto=可选（含联系人列表）；mock=演示")
+    ap.add_argument("--sender", choices=["psauto", "macauto", "linuxauto", "wechatauto", "mock"],
+                    default=default_sender(),
+                    help="发送通道（默认按系统自动选）：psauto=Windows PowerShell 驱动（已验证）；"
+                         "macauto=macOS osascript / linuxauto=Linux xdotool（均实验性，需真机验证）；"
+                         "wechatauto=可选增强（联系人列表）；mock=演示")
     ap.add_argument("--mock", action="store_true", help="等价 --sender mock")
     ap.add_argument("--token", default="", help="API 访问口令；空 = 信任局域网")
     ap.add_argument("--data-dir", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "data"))
