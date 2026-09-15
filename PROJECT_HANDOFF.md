@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.32.0 · 2026-09-15
+> **当前版本**：v0.33.0 · 2026-09-15
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -205,6 +205,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.33.0 | **云同步抽屉质感升级**：`cloud-sync.js` 重构为主题自适应玻璃拟态（渐变头部/状态胶囊圆点/强调条分区/卡片字段/渐变按钮+微动效/快照图标/定制滚动条/transform 滑入）；修浅色主题输入框按钮偏暗（`--bg-card`→`--bg-card2`），6 主题明暗均适配 |
 | v0.32.0 | **云同步入口统一**：删除微信工具页内联云卡片+目录模态（~200 行），`data-sync.js` 取消微信页胶囊排除，全页面统一用 `cloud-sync.js` 抽屉；「一键拉起服务」按钮挪入服务连接区，wechat_schedule.js 仅留精简 `bindWake()`。云同步 UI 单一来源 |
 | v0.31.0 | **全模块云同步抽屉**：新增自包含 `cloud-sync.js`（右侧滑出，☁ 胶囊触发），把 Drive 路径/目录浏览器/自动备份/立即备份/恢复/快照/导入导出/开机自启带到 index + 6 模块页（13 文件双副本），各页无需跳微信工具页即可管理同步；微信页保留内联卡片（同 API 两视图）。详见 §3.15 |
 | v0.30.0 | **跨平台化**：服务本体 SendLock(msvcrt/fcntl 双实现)、autostart 按 OS(schtasks/launchd/systemd-user)、`start_wx_scheduler.sh`、`/api/status` 报 platform+reader_available；发送通道按系统选默认(win=psauto已验证 / mac=macauto osascript / linux=linuxauto xdotool，后两者实验性待真机)；wx_reader 非 win 平台守卫给主力机/局域网指引；各页云同步状态 chip(data-sync.js 注入)；Linux 无官方 Drive 客户端→同步以 Win/Mac 为主。详见 §3.14 |

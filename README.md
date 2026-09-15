@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.32.0-blue)
+![Version](https://img.shields.io/badge/version-0.33.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -297,6 +297,9 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.33.0 (2026-09-15)
+- **云同步抽屉质感升级** — `cloud-sync.js` 抽屉重构为**主题自适应玻璃拟态**：渐变头部图标 + 状态胶囊（绿/橙/红圆点随备份状态变化）、强调条分区标题、卡片化字段、渐变主按钮与悬浮微动效、快照行文件图标、定制滚动条、抽屉/弹窗/toast 统一 blur+saturate 质感。修正此前硬编码深色叠加导致**浅色主题下输入框/按钮偏暗**的问题（`--bg-card`→`--bg-card2`），6 款主题明暗两系均协调；滑入动画改用 `transform` + cubic-bezier 更顺滑。
 
 ### v0.32.0 (2026-09-15)
 - **云同步入口统一** — 移除微信工具页内联的「数据与云同步」卡片及其目录选择模态，改为与其他模块页完全一致：点左下角「☁」胶囊滑出 `cloud-sync.js` 抽屉（同一套 API，单一入口）。`data-sync.js` 不再在微信页隐藏胶囊，全部页面（含微信工具页）统一；页面特有的「一键拉起服务」按钮挪入「定时服务连接」区。净删重复代码 ~200 行。

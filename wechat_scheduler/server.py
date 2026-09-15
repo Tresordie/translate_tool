@@ -52,7 +52,7 @@ try:
 except ImportError:
     fcntl = None
 
-SERVICE_VERSION = "0.32.0"
+SERVICE_VERSION = "0.33.0"
 HERE = Path(__file__).resolve().parent
 CATCH_UP_MINUTES_DEFAULT = 240   # 补发窗口：计划点滞后超过该分钟数则放弃补发
 MAX_RETRY_PER_SLOT = 5           # 同一计划点连续失败上限，达到即放弃并推进
