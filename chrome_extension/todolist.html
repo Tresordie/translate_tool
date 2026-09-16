@@ -5,16 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Tool Box · 任务清单</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" media="print" id="gfAsync">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" media="print" id="gfAsync">
   <link rel="stylesheet" href="theme.css">
   <style>
-    /* ============================================================
-       任务清单 · Dashboard 风格重设计（v0.21.0）
-       单一连贯样式层：变量取自 theme.css，跟随 6 主题明暗自适应
-       ============================================================ */
+    /* =========================================================
+       任务清单 · 看板 v0.37.0 — 按《网页设计灵感参考库》规范重排
+       布局范式：Bento 指标面板（KPI 左色条 + 等宽数字 + 缓动进度条）
+       字体策略：无衬线界面 + JetBrains Mono 数字（tabular-nums 防抖动）
+       质感：1px 半透明描边 + 分层柔和投影，强调色 ≤10% 面积（60-30-10）
+       ========================================================= */
 
     /* ---------- 变量补充 & Reset ---------- */
-    :root { --radius: 20px; }
+    :root {
+      --radius: 20px;
+      --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace;
+    }
 
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -30,370 +35,491 @@
 
     button { font-family: inherit; }
 
-    /* ---------- 页头（iframe 内由 theme.css 隐藏） ---------- */
-    .header { text-align: center; padding: 34px 16px 6px; }
-    .header-badge {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 6px 16px; border-radius: 999px;
-      background: var(--primary-a08); border: 1px solid var(--primary-a15);
-      color: var(--primary); font-size: 0.72rem; font-weight: 600;
-      letter-spacing: 0.14em; text-transform: uppercase;
+    @keyframes kbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes kbFadeUp {
+      from { opacity: 0; transform: translateY(14px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
-    .header-badge .dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--primary); animation: pulse 2.2s ease-in-out infinite;
+    @keyframes kbCardIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
-    .header h1 {
-      margin-top: 14px;
-      font-size: clamp(1.8rem, 3.4vw, 2.5rem);
-      font-weight: 800;
+    @keyframes kbEmptyPulse {
+      0%, 100% { border-color: var(--glass-border); }
+      50% { border-color: var(--primary-a25); }
     }
-    .header p { margin-top: 8px; color: var(--text-dim); font-size: 0.94rem; }
 
-    /* ---------- 布局骨架 ---------- */
-    .container { max-width: 1400px; margin: 0 auto; padding: 26px 24px 36px; }
-    html.in-iframe .container { padding-top: 18px; }
+    .container { max-width: 1560px; margin: 0 auto; padding: 22px 22px 30px; }
+    html.in-iframe .container { padding-top: 16px; }
 
-    .stats-grid {
-      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 16px; margin-bottom: 20px;
-    }
-    .layout {
-      display: grid; grid-template-columns: minmax(0, 1fr) 296px;
-      gap: 20px; align-items: start;
-    }
-    .main-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+    /* ---------- 顶栏（灵感库 .topbar/.brand 语言） ---------- */
+    .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 
-    /* ---------- KPI 统计卡 ---------- */
-    .stat-card {
-      display: flex; align-items: center; gap: 14px;
-      padding: 18px 20px; min-width: 0;
-    }
-    .stat-info { display: flex; flex-direction: column; min-width: 0; }
-    .stat-value {
-      font-size: 1.65rem; font-weight: 800; line-height: 1.1;
-      letter-spacing: -0.5px; color: var(--text);
-      font-variant-numeric: tabular-nums;
-    }
-    .stat-value.orange  { color: var(--orange); }
-    .stat-value.green   { color: var(--neon-green); }
-    .stat-value.purple  { color: var(--accent2); }
-    .stat-label { margin-top: 4px; font-size: 0.78rem; color: var(--text-dim); white-space: nowrap; }
-    .stat-sub   { margin-top: 4px; font-size: 0.72rem; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; }
-
-    .stat-icon {
-      width: 42px; height: 42px; flex-shrink: 0;
+    .brand { display: flex; align-items: center; gap: 15px; margin-right: 4px; }
+    /* v0.39.0 mini-hero：工具箱渐变图标砖 + 实色字标（与 .page-hero 同语言） */
+    .brand-tile {
+      width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      border-radius: 12px;
+      background: var(--btn-gradient); color: #fff;
+      box-shadow: 0 6px 18px rgba(var(--primary-rgb), 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      transition: transform var(--transition), box-shadow var(--transition);
     }
-    .stat-icon svg { width: 20px; height: 20px; }
-    .stat-icon.orange { color: var(--orange);     background: var(--bg-card2); background: color-mix(in srgb, var(--orange) 11%, transparent); }
-    .stat-icon.green  { color: var(--neon-green); background: var(--green-a10); }
-    .stat-icon.purple { color: var(--accent2);    background: var(--accent2-a10); }
-
-    /* 进度环卡 */
-    .progress-ring { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
-    .progress-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-    .progress-ring circle { fill: none; stroke-width: 9; stroke-linecap: round; }
-    .progress-ring .bg { stroke: var(--primary-a08); }
-    .progress-ring .fg {
-      stroke: var(--primary);
-      transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-      filter: drop-shadow(0 0 6px var(--primary-a25));
+    .brand-tile:hover { transform: translateY(-1px) rotate(-3deg); box-shadow: 0 9px 24px rgba(var(--primary-rgb), 0.45); }
+    .brand-tile svg { width: 24px; height: 24px; }
+    .brand-text h1 {
+      font-family: 'Plus Jakarta Sans', 'Inter', 'Noto Sans SC', sans-serif;
+      font-size: clamp(1.35rem, 2.6vw, 1.8rem); font-weight: 800; letter-spacing: -0.025em;
+      color: var(--text-strong);
+      line-height: 1.1;
     }
-    .progress-pct {
-      position: absolute; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.9rem; font-weight: 800; color: var(--primary);
-      letter-spacing: -0.5px; font-variant-numeric: tabular-nums;
+    .brand-text small {
+      display: block; font-size: 0.62rem; font-weight: 600;
+      color: var(--text-dim); letter-spacing: 0.14em; text-transform: uppercase;
+      margin-top: 1px;
     }
 
-    /* ---------- 面板通用 ---------- */
-    .panel { padding: 20px 22px; }
-    .panel-head {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; padding-bottom: 13px; margin-bottom: 16px;
-      border-bottom: 1px solid var(--glass-border);
-    }
-    .panel-title {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 0.95rem; font-weight: 700; color: var(--text); letter-spacing: 0.01em;
-    }
-    .panel-title svg { width: 16px; height: 16px; color: var(--primary); flex-shrink: 0; }
+    .topbar-spacer { flex: 1 1 12px; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-    /* ---------- 表单控件 ---------- */
-    .input-bar input,
-    .input-bar select,
-    .settings-panel input,
-    .token-row input {
-      height: 42px; padding: 0 14px;
-      background: var(--bg-card2);
-      border: 1px solid transparent; border-radius: 11px;
-      color: var(--text); font-size: 0.9rem; font-family: inherit;
-      outline: none; min-width: 0;
-      transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
-    }
-    .input-bar input::placeholder,
-    .settings-panel input::placeholder,
-    .token-row input::placeholder { color: var(--text-dim); }
-    .input-bar input:focus,
-    .input-bar select:focus,
-    .settings-panel input:focus,
-    .token-row input:focus {
-      background: var(--bg-card);
-      border-color: var(--primary-a25);
-      box-shadow: var(--focus-ring);
-    }
-    .input-bar select {
-      appearance: none; -webkit-appearance: none; cursor: pointer;
-      padding-right: 32px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 12px center;
-    }
-
-    /* ---------- 快速添加 ---------- */
-    .input-bar { display: flex; flex-wrap: wrap; gap: 10px; }
-    #todoTitle { flex: 1 1 220px; }
-    .date-pick, .time-pick { flex: 0 0 138px; width: 138px; }
-    #todoPriority { flex: 0 0 122px; width: 122px; }
-
-    .btn-add {
-      height: 42px; padding: 0 24px; border: none; border-radius: 11px;
-      background: var(--btn-gradient); background-size: 150% 130%; background-position: 0% 50%;
-      color: #fff; font-size: 0.9rem; font-weight: 600; cursor: pointer;
-      box-shadow: 0 4px 14px var(--primary-a25);
-      transition: background-position 0.35s ease, box-shadow var(--transition), transform 0.08s ease;
-      white-space: nowrap;
-    }
-    .btn-add:hover { background-position: 100% 50%; box-shadow: 0 6px 20px var(--primary-a25); }
-    .btn-add:active { transform: scale(0.97); }
-    .btn-add.editing {
-      background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
-      box-shadow: 0 4px 14px var(--green-a20);
-    }
-
-    .btn-import-toggle {
-      display: inline-flex; align-items: center; gap: 6px;
-      height: 42px; padding: 0 16px; border-radius: 11px;
-      border: 1px solid var(--glass-border); background: transparent;
-      color: var(--text-secondary); font-size: 0.85rem; cursor: pointer;
-      transition: var(--transition); white-space: nowrap;
-    }
-    .btn-import-toggle svg { width: 15px; height: 15px; }
-    .btn-import-toggle:hover { border-color: var(--primary-a25); background: var(--primary-a06); color: var(--text); }
-    .btn-import-toggle.active { border-color: var(--primary-a25); background: var(--primary-a08); color: var(--primary); }
-
-    /* ---------- Markdown 导入面板 ---------- */
-    .md-panel { display: none; margin-top: 14px; }
-    .md-panel.open { display: block; animation: fadeUp 0.35s ease; }
-    .md-panel-inner {
-      background: var(--bg-card2); border: 1px solid var(--glass-border);
-      border-radius: 14px; padding: 12px;
-    }
-    .md-editor {
-      min-height: 130px; max-height: 320px; overflow-y: auto;
-      padding: 10px 12px; font-size: 0.84rem; line-height: 1.6;
-      color: var(--text); cursor: text; outline: none;
-      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-      background: var(--bg-card); border: 1px solid var(--glass-border);
-      border-radius: 10px; transition: var(--transition);
-    }
-    .md-editor:focus-within { border-color: var(--primary-a25); box-shadow: var(--focus-ring); }
-    .md-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-    .icon-btn {
-      width: 32px; height: 32px; border-radius: 9px;
-      display: inline-flex; align-items: center; justify-content: center;
-      border: 1px solid var(--glass-border); background: transparent;
-      color: var(--text-secondary); cursor: pointer; transition: var(--transition);
-    }
-    .icon-btn:hover { border-color: var(--primary-a25); background: var(--primary-a06); color: var(--primary); }
-    .btn-import {
-      height: 32px; padding: 0 16px; border: none; border-radius: 9px;
-      background: var(--btn-gradient); color: #fff; font-size: 0.82rem; font-weight: 600;
-      cursor: pointer; transition: filter var(--transition), transform 0.08s ease;
-    }
-    .btn-import:hover { filter: saturate(1.1) brightness(1.05); }
-    .btn-import:active { transform: scale(0.97); }
-    .btn-cancel {
-      height: 32px; padding: 0 14px; border-radius: 9px;
-      border: 1px solid var(--glass-border); background: transparent;
-      color: var(--text-secondary); font-size: 0.82rem; cursor: pointer; transition: var(--transition);
-    }
-    .btn-cancel:hover { border-color: var(--red-a12); background: var(--red-a08); color: var(--red); }
-    .md-hint { margin-left: auto; font-size: 0.75rem; color: var(--text-dim); }
-    .md-hint code {
-      background: var(--md-code-bg); color: var(--md-code-color);
-      padding: 1px 6px; border-radius: 6px; font-size: 0.72rem;
-    }
-
-    /* ---------- 同步设置面板 ---------- */
-    .btn-settings {
-      display: inline-flex; align-items: center; gap: 6px;
-      height: 32px; padding: 0 13px; border-radius: 9px;
-      border: 1px solid var(--glass-border); background: transparent;
-      color: var(--text-secondary); font-size: 0.8rem; cursor: pointer; transition: var(--transition);
-    }
-    .btn-settings svg { width: 14px; height: 14px; }
-    .btn-settings:hover { border-color: var(--primary-a25); background: var(--primary-a06); color: var(--primary); }
-
-    .settings-panel {
-      max-height: 0; opacity: 0; overflow: hidden;
-      transition: max-height 0.35s ease, opacity 0.3s ease, margin-top 0.35s ease;
-    }
-    .settings-panel.open { max-height: 420px; opacity: 1; margin-bottom: 16px; }
-    .settings-inner {
-      background: var(--bg-card2); border: 1px solid var(--glass-border);
-      border-radius: 14px; padding: 16px;
-    }
-    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .settings-field { display: flex; flex-direction: column; gap: 6px; }
-    .settings-field label { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
-    .settings-field input { width: 100%; }
-    .settings-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
-    .btn-save {
-      height: 34px; padding: 0 20px; border: none; border-radius: 9px;
-      background: var(--btn-gradient); color: #fff; font-size: 0.84rem; font-weight: 600;
-      cursor: pointer; transition: filter var(--transition), transform 0.08s ease;
-    }
-    .btn-save:hover { filter: saturate(1.1) brightness(1.05); }
-    .btn-save:active { transform: scale(0.97); }
-
-    /* ---------- 工具栏：过滤 + 同步 ---------- */
-    .toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
     .filter-group {
-      display: inline-flex; gap: 4px; padding: 4px;
+      display: inline-flex; gap: 3px; padding: 3px;
       background: var(--bg-card2); border-radius: 12px;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08), var(--glass-shadow);
     }
     .pill {
-      height: 32px; padding: 0 16px; border: none; border-radius: 9px;
+      height: 30px; padding: 0 14px; border: none; border-radius: 9px;
       background: transparent; color: var(--text-secondary);
-      font-size: 0.84rem; cursor: pointer; transition: var(--transition);
-      white-space: nowrap;
+      font-size: 0.82rem; cursor: pointer; transition: var(--transition); white-space: nowrap;
     }
     .pill:hover { color: var(--text); }
     .pill.active {
-      background: var(--primary-a12); color: var(--primary); font-weight: 600;
-      box-shadow: inset 0 0 0 1px var(--primary-a18);
+      background: var(--btn-gradient); color: #fff; font-weight: 600;
+      box-shadow: 0 3px 10px rgba(var(--primary-rgb), 0.35);
     }
 
-    .sync-btns { display: flex; flex-wrap: wrap; gap: 8px; }
-    .btn-sync, .btn-md, .btn-apple {
+    .tool-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 30px; padding: 0 11px; border-radius: 9px;
+      border: 1px solid var(--glass-border); background: var(--glass-bg);
+      color: var(--text-secondary); font-size: 0.78rem; cursor: pointer;
+      transition: transform 0.12s ease, box-shadow var(--transition), border-color var(--transition),
+                  background var(--transition), color var(--transition);
+      white-space: nowrap; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    }
+    .tool-btn svg { width: 14px; height: 14px; flex-shrink: 0; transition: transform 0.18s ease; }
+    .tool-btn:hover {
+      border-color: var(--primary-a25); background: var(--primary-a06); color: var(--text);
+      transform: translateY(-1px); box-shadow: 0 5px 14px rgba(var(--primary-rgb), 0.16);
+    }
+    .tool-btn:hover svg { transform: scale(1.12); }
+    .tool-btn:active { transform: translateY(0) scale(0.97); }
+    .tool-btn.t-ics svg    { color: var(--neon-cyan); }
+    .tool-btn.t-google svg { color: var(--blue); }
+    .tool-btn.t-md svg     { color: var(--accent2); }
+    .tool-btn.t-apple svg  { color: var(--red); }
+
+    .btn-primary {
       display: inline-flex; align-items: center; gap: 6px;
-      height: 32px; padding: 0 13px; border-radius: 9px;
-      border: 1px solid var(--glass-border); background: transparent;
-      color: var(--text-secondary); font-size: 0.8rem; cursor: pointer;
-      transition: var(--transition); white-space: nowrap;
+      height: 34px; padding: 0 18px; border: none; border-radius: 10px;
+      background: var(--btn-gradient); background-size: 170% 130%; background-position: 0% 50%;
+      color: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      box-shadow: 0 4px 14px rgba(var(--primary-rgb), 0.35),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      transition: background-position 0.4s ease, box-shadow var(--transition),
+                  transform 0.12s ease, filter var(--transition);
+      white-space: nowrap;
     }
-    .btn-sync svg, .btn-md svg { width: 15px; height: 15px; flex-shrink: 0; }
-    .btn-sync:hover, .btn-md:hover, .btn-apple:hover {
-      border-color: var(--primary-a25); background: var(--primary-a06);
-      color: var(--text); transform: translateY(-1px);
+    .btn-primary:hover {
+      background-position: 100% 50%; transform: translateY(-1px);
+      box-shadow: 0 9px 24px rgba(var(--primary-rgb), 0.45),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.22);
     }
-    .btn-ics svg    { color: var(--neon-cyan); }
-    .btn-google svg { color: var(--blue); }
-    .btn-md svg     { color: var(--accent2); }
-    .btn-apple svg  { color: var(--red); }
+    .btn-primary:active { transform: translateY(0) scale(0.97); }
+    .btn-primary svg { width: 15px; height: 15px; }
 
-    /* ---------- Token 输入 ---------- */
-    .token-section { display: none; margin-bottom: 14px; }
-    .token-section.show { display: block; animation: fadeUp 0.3s ease; }
-    .token-row {
-      display: flex; flex-wrap: wrap; gap: 8px;
-      background: var(--bg-card2); border: 1px solid var(--glass-border);
-      border-radius: 12px; padding: 12px;
-    }
-    .token-row input { flex: 1 1 180px; height: 34px; font-size: 0.84rem; }
-    .token-row a { font-size: 0.85rem; }
-    .btn-token-apply {
-      height: 34px; padding: 0 18px; border: none; border-radius: 9px;
-      background: var(--btn-gradient); color: #fff; font-size: 0.82rem; font-weight: 600; cursor: pointer;
-      transition: filter var(--transition);
-    }
-    .btn-token-apply:hover { filter: saturate(1.1) brightness(1.05); }
-    .btn-token-cancel {
-      height: 34px; padding: 0 14px; border-radius: 9px;
-      border: 1px solid var(--glass-border); background: transparent;
-      color: var(--text-secondary); font-size: 0.82rem; cursor: pointer; transition: var(--transition);
-    }
-    .btn-token-cancel:hover { border-color: var(--red-a12); background: var(--red-a08); color: var(--red); }
+    /* ---------- Bento KPI 指标卡（灵感库 demo-02 · 工作报告范式） ---------- */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 
-    /* ---------- 任务列表 ---------- */
-    .todo-list { display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
-    .todo-item {
-      position: relative; display: flex; align-items: flex-start; gap: 12px;
-      padding: 13px 14px 13px 20px;
+    .kpi-card {
+      position: relative; overflow: hidden;
       background: var(--bg-card); border: 1px solid var(--glass-border);
-      border-radius: 14px; overflow: hidden;
-      transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition), opacity var(--transition);
+      border-radius: 14px; padding: 14px 16px 14px 20px;
+      box-shadow: var(--glass-shadow);
+      transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
     }
-    .todo-item::before {
-      content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
-      border-radius: 3px; background: var(--primary-a25);
+    .kpi-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: var(--kpi-accent, var(--primary));
     }
-    .todo-item.pri-high::before { background: var(--red); }
-    .todo-item.pri-low::before  { background: var(--neon-cyan); }
-    .todo-item:hover {
-      transform: translateY(-2px);
-      border-color: var(--primary-a18);
-      box-shadow: 0 8px 24px var(--primary-a10);
+    .kpi-card:hover {
+      transform: translateY(-2px); border-color: var(--primary-a18);
+      box-shadow: 0 14px 32px rgba(var(--primary-rgb), 0.13), var(--glass-shadow);
     }
-    .todo-item.completed { opacity: 0.6; }
-    .todo-item.completed::before { background: var(--neon-green); }
-    .todo-item.completed:hover { transform: none; box-shadow: none; }
+    .kpi-blue   { --kpi-accent: var(--primary); }
+    .kpi-teal   { --kpi-accent: var(--neon-cyan); }
+    .kpi-violet { --kpi-accent: var(--neon-purple); }
+    .kpi-green  { --kpi-accent: var(--neon-green); }
 
-    .todo-check {
-      appearance: none; -webkit-appearance: none;
-      width: 20px; height: 20px; margin-top: 2px; flex-shrink: 0;
-      border: 1.5px solid var(--glass-border); border-radius: 6px;
-      background: var(--bg-card2); cursor: pointer;
-      transition: var(--transition);
+    .kpi-body { display: flex; flex-direction: column; height: 100%; }
+    .kpi-label {
+      font-size: 0.66rem; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--text-dim);
     }
-    .todo-check:hover { border-color: var(--primary-a25); }
-    .todo-check:checked {
-      border-color: transparent;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E"), var(--btn-gradient);
-      background-size: 13px 13px, 100% 100%;
-      background-position: center;
-      background-repeat: no-repeat;
-    }
-
-    .todo-body { flex: 1; min-width: 0; }
-    .todo-title { font-size: 0.94rem; line-height: 1.5; color: var(--text); word-break: break-word; }
-    .todo-item.completed .todo-title { text-decoration: line-through; color: var(--text-dim); }
-    .todo-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
-    .todo-meta span {
-      font-size: 0.73rem; color: var(--text-dim);
-      background: var(--bg-card2); padding: 2.5px 9px; border-radius: 999px;
+    .kpi-value {
+      margin-top: 7px;
+      font-family: var(--font-mono); font-size: 1.72rem; font-weight: 700;
+      letter-spacing: -0.02em; line-height: 1.1; color: var(--text);
       font-variant-numeric: tabular-nums;
     }
-    .todo-meta .meta-sync.google { color: var(--blue); background: var(--primary-a08); font-weight: 600; }
-    .todo-meta .meta-sync.ics    { color: var(--neon-cyan); background: var(--cyan-a08); font-weight: 600; }
+    .kpi-track {
+      margin-top: 11px; height: 7px; border-radius: 99px;
+      background: var(--bg-card2); overflow: hidden;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+    }
+    .kpi-fill {
+      display: block; height: 100%; width: 0; border-radius: 99px;
+      background: linear-gradient(90deg, var(--primary), var(--neon-purple));
+      transition: width 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .kpi-sub {
+      margin-top: auto; padding-top: 9px;
+      font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+      color: var(--accent2); font-variant-numeric: tabular-nums;
+    }
 
-    .todo-actions { display: flex; gap: 6px; opacity: 0; transition: opacity 0.2s ease; }
-    .todo-item:hover .todo-actions,
-    .todo-item:focus-within .todo-actions { opacity: 1; }
-    @media (hover: none) { .todo-actions { opacity: 1; } }
-    .btn-edit, .btn-del {
-      width: 30px; height: 30px; border-radius: 8px;
-      display: inline-flex; align-items: center; justify-content: center;
+    /* ---------- 看板 ---------- */
+    .board { display: flex; gap: 14px; align-items: flex-start; overflow-x: auto; padding: 2px 2px 14px; }
+    .board::-webkit-scrollbar { height: 8px; }
+    .board::-webkit-scrollbar-track { background: transparent; }
+    .board::-webkit-scrollbar-thumb { background: var(--primary-a15); border-radius: 99px; }
+    .board::-webkit-scrollbar-thumb:hover { background: var(--primary-a25); }
+
+    .kb-col {
+      position: relative;
+      flex: 0 0 302px; min-width: 302px;
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      box-shadow: var(--glass-shadow);
+      backdrop-filter: blur(20px) saturate(1.3); -webkit-backdrop-filter: blur(20px) saturate(1.3);
+      transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+    }
+    /* 顶部状态色发丝线（渐变淡出） */
+    .kb-col::before {
+      content: ''; position: absolute; top: -1px; left: 18px; right: 18px; height: 2px;
+      border-radius: 2px; pointer-events: none; opacity: 0.75;
+      background: linear-gradient(90deg, transparent, var(--kb-accent, var(--primary)), transparent);
+    }
+    .col-todo       { --kb-accent: var(--primary); }
+    .col-inprogress { --kb-accent: var(--neon-cyan); }
+    .col-done       { --kb-accent: var(--neon-green); }
+    .col-paused     { --kb-accent: var(--orange); }
+
+    .kb-col.drag-over {
+      border-color: var(--primary-a25);
+      box-shadow: 0 0 0 1px var(--primary-a25), 0 0 28px rgba(var(--primary-rgb), 0.18);
+      background: var(--primary-a04);
+    }
+    .col-inprogress.drag-over { box-shadow: 0 0 0 1px var(--cyan-a20), 0 0 28px var(--cyan-a15); background: var(--cyan-a06); }
+    .col-done.drag-over       { box-shadow: 0 0 0 1px var(--green-a15), 0 0 28px var(--green-a10); background: var(--green-a08); }
+    .col-paused.drag-over     { box-shadow: 0 0 0 1px color-mix(in srgb, var(--orange) 25%, transparent), 0 0 28px color-mix(in srgb, var(--orange) 14%, transparent); background: color-mix(in srgb, var(--orange) 5%, transparent); }
+
+    .kb-col-head { display: flex; align-items: center; gap: 9px; padding: 14px 13px 11px; }
+    .kb-col-icon {
+      width: 26px; height: 26px; border-radius: 9px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: color-mix(in srgb, var(--kb-accent) 12%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kb-accent) 16%, transparent);
+      color: var(--kb-accent);
+    }
+    .kb-col-icon svg { width: 14px; height: 14px; }
+    .kb-col-name { font-size: 0.88rem; font-weight: 700; color: var(--text); letter-spacing: 0.01em; }
+    .kb-col-count {
+      font-family: var(--font-mono);
+      font-size: 0.73rem; font-weight: 700; color: var(--kb-accent);
+      background: color-mix(in srgb, var(--kb-accent) 10%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kb-accent) 16%, transparent);
+      padding: 1.5px 9px; border-radius: 999px;
+      font-variant-numeric: tabular-nums;
+    }
+    .kb-col-add {
+      margin-left: auto; width: 27px; height: 27px; flex-shrink: 0;
+      border: none; border-radius: 9px; background: transparent; color: var(--text-dim);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: var(--transition);
+    }
+    .kb-col-add svg { width: 15px; height: 15px; }
+    .kb-col-add:hover {
+      background: var(--btn-gradient); color: #fff;
+      box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.4);
+      transform: scale(1.06);
+    }
+    .kb-col-add:active { transform: scale(0.95); }
+
+    .kb-col-body {
+      display: flex; flex-direction: column; gap: 10px;
+      padding: 3px 10px 13px; min-height: 66px;
+      max-height: calc(100vh - 320px); overflow-y: auto;
+    }
+    .kb-col-body::-webkit-scrollbar { width: 5px; }
+    .kb-col-body::-webkit-scrollbar-track { background: transparent; }
+    .kb-col-body::-webkit-scrollbar-thumb { background: var(--primary-a15); border-radius: 99px; }
+    .kb-col-body::-webkit-scrollbar-thumb:hover { background: var(--primary-a25); }
+
+    .kb-empty {
+      border: 1.5px dashed var(--glass-border); border-radius: 13px;
+      padding: 20px 10px 18px; text-align: center; user-select: none;
+      animation: kbEmptyPulse 3.2s ease-in-out infinite;
+      transition: background var(--transition);
+    }
+    .kb-empty svg { width: 26px; height: 26px; color: var(--text-dim); opacity: 0.65; }
+    .kb-empty p { margin-top: 7px; font-size: 0.78rem; color: var(--text-dim); }
+
+    /* ---------- 卡片 ---------- */
+    .kb-card {
+      position: relative;
+      background: var(--bg-card); border: 1px solid var(--glass-border);
+      border-radius: 14px; padding: 13px 14px 12px 17px; cursor: grab;
+      box-shadow: var(--glass-shadow);
+      transition: transform var(--transition), box-shadow var(--transition),
+                  border-color var(--transition), opacity var(--transition);
+    }
+    /* 左侧优先级渐变条 */
+    .kb-card::before {
+      content: ''; position: absolute; left: 0; top: 13px; bottom: 13px; width: 3px;
+      border-radius: 0 3px 3px 0;
+      background: var(--kb-pri, var(--primary-a25));
+      box-shadow: 0 0 8px var(--kb-pri-glow, transparent);
+    }
+    .pri-high { --kb-pri: var(--red);      --kb-pri-glow: color-mix(in srgb, var(--red) 40%, transparent); }
+    .pri-mid  { --kb-pri: var(--accent2);  --kb-pri-glow: color-mix(in srgb, var(--accent2) 40%, transparent); }
+    .pri-low  { --kb-pri: var(--neon-cyan);--kb-pri-glow: color-mix(in srgb, var(--neon-cyan) 40%, transparent); }
+    .kb-card.is-done::before { background: var(--neon-green); box-shadow: 0 0 8px var(--green-a20); }
+
+    .kb-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--primary-a18);
+      box-shadow: 0 14px 32px rgba(var(--primary-rgb), 0.13), var(--glass-shadow);
+    }
+    .kb-card:active { cursor: grabbing; }
+    .kb-card.dragging {
+      opacity: 0.5; cursor: grabbing;
+      transform: rotate(1.5deg) scale(0.98);
+      box-shadow: var(--shadow-4);
+    }
+    .kb-card.is-done { opacity: 0.74; }
+    .kb-card.is-done:hover { opacity: 1; }
+
+    .kb-card.kb-enter { animation: kbCardIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+    .kb-head { display: flex; align-items: flex-start; gap: 9px; }
+    .kb-emoji {
+      width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.02rem; line-height: 1;
+      background: var(--bg-card2);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), var(--shadow-1);
+    }
+    .kb-title {
+      flex: 1; min-width: 0; font-size: 0.9rem; font-weight: 600;
+      line-height: 1.45; color: var(--text); word-break: break-word; padding-top: 4px;
+    }
+    .kb-card.is-done .kb-title { text-decoration: line-through; color: var(--text-dim); }
+    .kb-flag { flex-shrink: 0; margin-top: 6px; opacity: 0.9; }
+    .kb-flag svg { width: 14px; height: 14px; display: block; }
+    .pri-high .kb-flag { color: var(--red); }
+    .pri-mid  .kb-flag { color: var(--accent2); }
+    .pri-low  .kb-flag { color: var(--neon-cyan); }
+    .pri-high .kb-flag svg { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--red) 45%, transparent)); }
+    .pri-mid  .kb-flag svg { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent2) 45%, transparent)); }
+    .pri-low  .kb-flag svg { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--neon-cyan) 45%, transparent)); }
+
+    .kb-desc {
+      margin-top: 8px; font-size: 0.79rem; line-height: 1.55; color: var(--text-dim);
+      word-break: break-word; white-space: pre-line;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+
+    .kb-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 11px; }
+    .kb-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.69rem; padding: 2.5px 9px; border-radius: 999px;
+      background: var(--bg-card2); color: var(--text-dim);
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+      box-shadow: inset 0 0 0 1px var(--glass-border);
+    }
+    .kb-chip svg { width: 10.5px; height: 10.5px; flex-shrink: 0; }
+    .kb-chip.overdue {
+      color: var(--red); background: var(--red-a08); font-weight: 600;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 22%, transparent);
+    }
+    .kb-chip.today-chip {
+      color: var(--primary); background: var(--primary-a08); font-weight: 600;
+      box-shadow: inset 0 0 0 1px var(--primary-a18);
+    }
+    .kb-chip.sync-g {
+      color: var(--blue); background: var(--primary-a08); font-weight: 600;
+      box-shadow: inset 0 0 0 1px var(--primary-a18);
+    }
+    .kb-chip.sync-i {
+      color: var(--neon-cyan); background: var(--cyan-a08); font-weight: 600;
+      box-shadow: inset 0 0 0 1px var(--cyan-a15);
+    }
+
+    .tag {
+      display: inline-flex; align-items: center; font-size: 0.7rem; font-weight: 600;
+      padding: 2.5px 10px; border-radius: 999px;
+    }
+    .tag-high {
+      color: var(--red); background: var(--red-a10);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 22%, transparent);
+    }
+    .tag-mid  {
+      color: var(--accent2); background: var(--accent2-a10);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent2) 22%, transparent);
+    }
+    .tag-low  {
+      color: var(--neon-cyan); background: var(--cyan-a08);
+      box-shadow: inset 0 0 0 1px var(--cyan-a15);
+    }
+
+    .kb-actions {
+      position: absolute; top: 8px; right: 8px;
+      display: flex; gap: 2px; opacity: 0; transition: opacity 0.18s ease;
+      background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px; padding: 2.5px; box-shadow: var(--shadow-2);
+    }
+    .kb-card:hover .kb-actions, .kb-card:focus-within .kb-actions { opacity: 1; }
+    @media (hover: none) { .kb-actions { opacity: 1; } }
+    .kb-act {
+      width: 25px; height: 25px; border: none; border-radius: 8px;
+      background: transparent; color: var(--text-dim); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: var(--transition);
+    }
+    .kb-act svg { width: 13px; height: 13px; }
+    .kb-act:hover { background: var(--primary-a08); color: var(--primary); transform: scale(1.05); }
+    .kb-act.act-done:hover { background: var(--green-a08); color: var(--neon-green); }
+    .kb-act.act-del:hover  { background: var(--red-a08); color: var(--red); }
+    .kb-act:active { transform: scale(0.92); }
+
+    /* ---------- 弹层 ---------- */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 90;
+      display: none; align-items: center; justify-content: center; padding: 20px;
+      background: rgba(8, 10, 16, 0.5);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+    .modal-overlay.open { display: flex; animation: kbFadeIn 0.2s ease; }
+
+    .modal {
+      width: min(580px, 100%); max-height: calc(100vh - 48px); overflow-y: auto;
+      background: var(--bg-card); border: 1px solid var(--glass-border);
+      border-radius: 18px; padding: 20px 22px;
+      box-shadow: var(--glass-shadow), var(--shadow-4);
+      animation: kbFadeUp 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .modal::-webkit-scrollbar { width: 6px; }
+    .modal::-webkit-scrollbar-track { background: transparent; }
+    .modal::-webkit-scrollbar-thumb { background: var(--primary-a15); border-radius: 99px; }
+
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid var(--glass-border);
+      position: relative;
+    }
+    /* 渐变发丝线（与列头同语言） */
+    .modal-head::after {
+      content: ''; position: absolute; left: 0; bottom: -1px; width: 64px; height: 2px;
+      border-radius: 2px; background: var(--btn-gradient);
+    }
+    .modal-title { display: flex; align-items: center; gap: 9px; font-size: 0.98rem; font-weight: 700; color: var(--text); }
+    .modal-title svg {
+      width: 30px; height: 30px; padding: 7px; border-radius: 9px; box-sizing: border-box;
+      background: var(--btn-gradient); color: #fff; flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.35);
+    }
+    .modal-close {
+      width: 28px; height: 28px; border: none; border-radius: 8px;
+      background: transparent; color: var(--text-dim); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: var(--transition);
+    }
+    .modal-close svg { width: 15px; height: 15px; }
+    .modal-close:hover { background: var(--red-a08); color: var(--red); transform: rotate(90deg); }
+    .modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+    .btn-ghost {
+      height: 34px; padding: 0 16px; border-radius: 9px;
       border: 1px solid var(--glass-border); background: transparent;
-      color: var(--text-dim); cursor: pointer; transition: var(--transition);
+      color: var(--text-secondary); font-size: 0.83rem; cursor: pointer; transition: var(--transition);
     }
-    .btn-edit svg, .btn-del svg { width: 14px; height: 14px; }
-    .btn-edit:hover { border-color: var(--primary-a25); background: var(--primary-a06); color: var(--primary); }
-    .btn-del:hover  { border-color: var(--red-a12); background: var(--red-a08); color: var(--red); }
-
-    /* 空状态 */
-    .todo-empty { text-align: center; padding: 52px 20px; }
-    .todo-empty .emoji {
-      display: inline-block; font-size: 3rem; line-height: 1;
-      filter: drop-shadow(0 6px 16px var(--primary-a25));
+    .btn-ghost:hover { border-color: var(--primary-a25); background: var(--primary-a06); color: var(--text); transform: translateY(-1px); }
+    .btn-grad {
+      height: 34px; padding: 0 22px; border: none; border-radius: 9px;
+      background: var(--btn-gradient); background-size: 170% 130%; background-position: 0% 50%;
+      color: #fff; font-size: 0.83rem; font-weight: 600; cursor: pointer;
+      box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
+      transition: background-position 0.4s ease, box-shadow var(--transition), transform 0.1s ease;
     }
-    .empty-title { margin-top: 14px; font-size: 1rem; font-weight: 700; color: var(--text); }
-    .empty-hint  { margin-top: 6px; font-size: 0.85rem; color: var(--text-dim); }
+    .btn-grad:hover {
+      background-position: 100% 50%; transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(var(--primary-rgb), 0.4);
+    }
+    .btn-grad:active { transform: scale(0.97); }
 
-    /* ---------- 同步指南（侧栏） ---------- */
-    .side-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+    /* ---------- 表单 ---------- */
+    .form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 13px; }
+    .form-field label { font-size: 0.76rem; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.02em; }
+
+    .field-input {
+      width: 100%; height: 40px; padding: 0 13px;
+      background: var(--bg-card2); border: 1px solid transparent; border-radius: 11px;
+      color: var(--text); font-size: 0.88rem; font-family: inherit; outline: none;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+      transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+    }
+    textarea.field-input { height: auto; min-height: 64px; padding: 10px 13px; resize: vertical; line-height: 1.55; }
+    .field-input::placeholder { color: var(--text-dim); }
+    .field-input:hover { border-color: var(--glass-border); }
+    .field-input:focus {
+      background: var(--bg-card); border-color: var(--primary-a25);
+      box-shadow: var(--focus-ring), inset 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+    select.field-input {
+      appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 32px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center;
+    }
+    .form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .form-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+    .emoji-row { display: flex; flex-wrap: wrap; gap: 5px; }
+    .emoji-opt {
+      width: 34px; height: 34px; padding: 0;
+      border: 1px solid var(--glass-border); border-radius: 10px;
+      background: var(--bg-card2); font-size: 1.05rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.12s ease, border-color var(--transition),
+                  background var(--transition), box-shadow var(--transition);
+    }
+    .emoji-opt:hover { border-color: var(--primary-a25); transform: translateY(-2px); box-shadow: var(--shadow-2); }
+    .emoji-opt:active { transform: scale(0.94); }
+    .emoji-opt.selected {
+      border-color: transparent; background: var(--primary-a12);
+      box-shadow: 0 0 0 1.5px var(--primary), 0 4px 12px rgba(var(--primary-rgb), 0.25);
+    }
+
+    /* ---------- 设置弹层 & 同步指南 ---------- */
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .settings-field { display: flex; flex-direction: column; gap: 6px; }
+    .settings-field label { font-size: 0.76rem; font-weight: 600; color: var(--text-secondary); }
+    .oauth-link-row { display: none; margin-top: 12px; }
+    .oauth-link-row.show { display: block; animation: kbFadeUp 0.3s ease; }
+    .oauth-link-row a { color: var(--neon-cyan); font-size: 0.85rem; word-break: break-all; }
+    .oauth-link-row p { margin-top: 6px; font-size: 0.75rem; color: var(--text-dim); }
+
     .guide-block + .guide-block { margin-top: 6px; }
     .guide-collapse {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -403,24 +529,22 @@
       transition: var(--transition); user-select: none;
     }
     .guide-collapse:hover { background: var(--primary-a06); color: var(--text); }
-    .guide-collapse .arrow {
-      font-size: 0.62rem; color: var(--text-dim);
-      transition: transform 0.3s ease;
-    }
+    .guide-collapse .arrow { font-size: 0.62rem; color: var(--text-dim); transition: transform 0.3s ease; }
     .guide-collapse.open .arrow { transform: rotate(90deg); color: var(--primary); }
     .guide-collapse.open { color: var(--primary); }
     .guide-content { max-height: 0; overflow: hidden; padding: 0 4px; transition: max-height 0.4s ease; }
     .guide-content.open { max-height: 900px; }
     .guide-section { padding: 12px 10px 4px; }
     .guide-section + .guide-section { border-top: 1px dashed var(--glass-border); }
-    .guide-section h4 { font-size: 0.8rem; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .guide-section h3 { font-size: 0.8rem; font-weight: 700; color: var(--text); margin-bottom: 8px; }
     .guide-step, .apple-guide {
       display: flex; gap: 8px; align-items: baseline;
       font-size: 0.79rem; line-height: 1.65; color: var(--text-secondary);
     }
     .guide-step + .guide-step, .apple-guide + .apple-guide { margin-top: 5px; }
     .guide-step .num, .apple-guide .num {
-      color: var(--primary); font-weight: 700; flex-shrink: 0; font-size: 0.76rem;
+      font-family: var(--font-mono);
+      color: var(--primary); font-weight: 700; flex-shrink: 0; font-size: 0.74rem;
     }
     .guide-content a { color: var(--primary); text-decoration: none; border-bottom: 1px solid var(--primary-a25); }
     .guide-content a:hover { border-bottom-color: var(--primary); }
@@ -430,38 +554,80 @@
     }
     .guide-content .apple-guide .num { color: var(--red); }
     .guide-content .apple-guide code { background: var(--red-a08); color: var(--red); }
+    .guide-divider { border: none; border-top: 1px solid var(--glass-border); margin: 16px 0 14px; }
+
+    /* ---------- MD 批量导入弹层 ---------- */
+    .md-editor {
+      min-height: 140px; max-height: 300px; overflow-y: auto;
+      padding: 10px 12px; font-size: 0.84rem; line-height: 1.6;
+      color: var(--text); cursor: text; outline: none;
+      font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace;
+      background: var(--bg-card2); border: 1px solid var(--glass-border);
+      border-radius: 10px; transition: var(--transition);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+    .md-editor:focus-within { border-color: var(--primary-a25); box-shadow: var(--focus-ring); }
+    .md-preview-panel {
+      display: none; margin-top: 10px;
+      background: var(--bg-card2); border: 1px solid var(--glass-border); border-radius: 10px;
+      overflow: hidden;
+    }
+    .md-preview-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; border-bottom: 1px solid var(--glass-border);
+    }
+    .md-preview-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.72rem; font-weight: 600; color: var(--primary); letter-spacing: 0.06em;
+    }
+    .md-preview-close {
+      width: 24px; height: 24px; border: none; border-radius: 7px;
+      background: transparent; color: var(--text-dim); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: var(--transition);
+    }
+    .md-preview-close:hover { background: var(--red-a08); color: var(--red); }
+    .md-preview-content { max-height: 240px; overflow-y: auto; padding: 10px 14px; font-size: 0.84rem; }
+    .md-preview-content::-webkit-scrollbar { width: 5px; }
+    .md-preview-content::-webkit-scrollbar-thumb { background: var(--primary-a15); border-radius: 99px; }
+    .md-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .icon-btn {
+      width: 32px; height: 32px; border-radius: 9px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid var(--glass-border); background: transparent;
+      color: var(--text-secondary); cursor: pointer; transition: var(--transition);
+    }
+    .icon-btn:hover { border-color: var(--primary-a25); background: var(--primary-a06); color: var(--primary); }
+    .icon-btn.active {
+      border-color: transparent; background: var(--primary-a12); color: var(--primary);
+      box-shadow: 0 0 0 1px var(--primary-a25);
+    }
+    .md-hint { margin-left: auto; font-size: 0.75rem; color: var(--text-dim); }
+    .md-hint code {
+      background: var(--md-code-bg); color: var(--md-code-color);
+      padding: 1px 6px; border-radius: 6px; font-size: 0.72rem;
+    }
 
     /* ---------- Footer ---------- */
-    .footer { text-align: center; padding: 30px 0 8px; font-size: 0.78rem; color: var(--text-dim); opacity: 0.75; }
+    .footer { text-align: center; padding: 26px 0 6px; font-size: 0.78rem; color: var(--text-dim); opacity: 0.75; }
 
     /* ---------- 响应式 ---------- */
-    @media (max-width: 1080px) {
-      .layout { grid-template-columns: minmax(0, 1fr); }
+    @media (max-width: 1180px) {
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-    @media (max-width: 920px) {
-      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    @media (max-width: 900px) {
+      .kb-col { flex: 0 0 282px; min-width: 282px; }
     }
     @media (max-width: 560px) {
-      .container { padding: 16px 14px 28px; }
-      .panel { padding: 16px; }
-      .stats-grid { gap: 10px; margin-bottom: 16px; }
-      .stat-card { padding: 14px 15px; gap: 11px; }
-      .stat-value { font-size: 1.35rem; }
-      .progress-ring { width: 60px; height: 60px; }
-      .progress-pct { font-size: 0.78rem; }
-      .layout { gap: 14px; }
-      .input-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      #todoTitle { grid-column: 1 / -1; }
-      .date-pick, .time-pick, #todoPriority { width: 100%; }
-      .btn-import-toggle { grid-column: 2; grid-row: 3; justify-content: center; }
-      .btn-add { grid-column: 1 / -1; grid-row: 4; }
-      .toolbar { flex-direction: column; align-items: stretch; }
-      .filter-group { display: flex; }
-      .filter-group .pill { flex: 1; min-width: 0; }
-      .sync-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .sync-btns .btn-sync, .sync-btns .btn-md, .sync-btns .btn-apple { width: 100%; min-width: 0; justify-content: center; }
+      .container { padding: 14px 12px 24px; }
+      .brand-text h1 { font-size: 1.2rem; }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+      .kpi-card { padding: 12px 13px 12px 17px; }
+      .kpi-value { font-size: 1.4rem; }
+      .kb-col { flex: 0 0 86%; min-width: 86%; }
+      .kb-col-body { max-height: calc(100vh - 360px); }
+      .form-row, .form-row-3 { grid-template-columns: 1fr; }
       .md-hint { margin-left: 0; width: 100%; }
-      .todo-actions { opacity: 1; }
+      .settings-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -477,361 +643,405 @@
 </div>
 <div class="app-wrapper">
 
-  <!-- 页头（iframe 内由 theme.css 自动隐藏） -->
-  <div class="header">
-    <div class="header-badge">
-      <span class="dot"></span><span>Todo · Calendar</span>
-    </div>
-    <h1>任务清单</h1>
-    <p>管理每日任务 · 同步到 Google Calendar / 导出 .ics 日历</p>
-  </div>
-
   <div class="container">
 
-    <!-- ============ KPI 统计卡 ============ -->
-    <section class="stats-grid fade-up">
-
-      <div class="stat-card glass-card">
-        <div class="progress-ring">
-          <svg viewBox="0 0 100 100">
-            <circle class="bg" cx="50" cy="50" r="42"/>
-            <circle class="fg" id="progressCircle" cx="50" cy="50" r="42"
-                    stroke-dasharray="263.89" stroke-dashoffset="263.89"/>
-          </svg>
-          <span class="progress-pct" id="progressPct">0%</span>
-        </div>
-        <div class="stat-info">
-          <span class="stat-label">今日进度</span>
-          <span class="stat-sub">Today</span>
+    <!-- ============ 顶栏 ============ -->
+    <div class="topbar fade-up">
+      <div class="brand">
+        <span class="brand-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/><path d="M12 12v2"/></svg></span>
+        <div class="brand-text">
+          <h1>任务清单</h1>
+          <small>Todo · Kanban Board</small>
         </div>
       </div>
 
-      <div class="stat-card glass-card">
-        <div class="stat-icon orange">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8" y1="2" x2="8" y2="6"/>
-            <line x1="3" y1="10" x2="21" y2="10"/>
-          </svg>
+      <div class="topbar-spacer"></div>
+
+      <div class="topbar-right">
+        <div class="filter-group" id="filterGroup">
+          <button class="pill active" data-filter="all">全部</button>
+          <button class="pill" data-filter="today">今日</button>
+          <button class="pill" data-filter="high">高优先级</button>
         </div>
-        <div class="stat-info">
-          <span class="stat-value orange" id="statToday">0</span>
-          <span class="stat-label">今日到期</span>
+        <button class="tool-btn t-md" id="openMdImportBtn" title="从 Markdown 批量导入任务">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          导入
+        </button>
+        <button class="tool-btn t-md" id="exportMdBtn" title="复制全部任务为 Markdown">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          导出
+        </button>
+        <button class="tool-btn t-ics" id="downloadIcsBtn" title="下载 .ics 导入日历">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          .ics
+        </button>
+        <button class="tool-btn t-google" id="syncGoogleBtn" title="同步到 Google Calendar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Google
+        </button>
+        <button class="tool-btn t-apple" id="syncAppleBtn" title="一键导入 Apple 提醒事项">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          Apple
+        </button>
+        <button class="tool-btn" id="openSettingsBtn" title="同步设置与指南">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          设置
+        </button>
+        <button class="btn-primary" id="newTaskBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          新建任务
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ Bento KPI 指标卡 ============ -->
+    <section class="kpi-grid fade-up">
+
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-body">
+          <span class="kpi-label">今日进度 · Today</span>
+          <span class="kpi-value" id="kpiTodayPct">0%</span>
+          <div class="kpi-track"><i class="kpi-fill" id="kpiTodayBar"></i></div>
+          <span class="kpi-sub" id="kpiTodaySub">今日 0/0</span>
         </div>
       </div>
 
-      <div class="stat-card glass-card">
-        <div class="stat-icon green">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-            <polyline points="22 4 12 14.01 9 11.01"/>
-          </svg>
-        </div>
-        <div class="stat-info">
-          <span class="stat-value green" id="statDone">0</span>
-          <span class="stat-label">已完成</span>
+      <div class="kpi-card kpi-teal">
+        <div class="kpi-body">
+          <span class="kpi-label">待办 · Todo</span>
+          <span class="kpi-value" id="kpiTodo">0</span>
+          <span class="kpi-sub" id="kpiTodoSub">逾期 0</span>
         </div>
       </div>
 
-      <div class="stat-card glass-card">
-        <div class="stat-icon purple">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="8" y1="6" x2="21" y2="6"/>
-            <line x1="8" y1="12" x2="21" y2="12"/>
-            <line x1="8" y1="18" x2="21" y2="18"/>
-            <line x1="3" y1="6" x2="3.01" y2="6"/>
-            <line x1="3" y1="12" x2="3.01" y2="12"/>
-            <line x1="3" y1="18" x2="3.01" y2="18"/>
-          </svg>
+      <div class="kpi-card kpi-violet">
+        <div class="kpi-body">
+          <span class="kpi-label">进行中 · Doing</span>
+          <span class="kpi-value" id="kpiDoing">0</span>
+          <span class="kpi-sub" id="kpiDoingSub">高优先级 0</span>
         </div>
-        <div class="stat-info">
-          <span class="stat-value purple" id="statAll">0</span>
-          <span class="stat-label">全部任务</span>
+      </div>
+
+      <div class="kpi-card kpi-green">
+        <div class="kpi-body">
+          <span class="kpi-label">已完成 · Done</span>
+          <span class="kpi-value" id="kpiDone">0</span>
+          <span class="kpi-sub" id="kpiDoneSub">完成率 0%</span>
         </div>
       </div>
 
     </section>
 
-    <div class="layout">
+    <!-- ============ 看板 ============ -->
+    <div class="board fade-up" id="board">
 
-      <!-- ============ 主列 ============ -->
-      <div class="main-col">
-
-        <!-- 快速添加 -->
-        <section class="panel glass-card fade-up">
-          <div class="panel-head">
-            <h2 class="panel-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-              快速添加
-            </h2>
-          </div>
-
-          <div class="input-bar">
-            <input id="todoTitle" type="text" placeholder="添加新任务，回车快速创建…">
-            <input id="todoDate" type="date" class="date-pick">
-            <input id="todoTime" type="time" class="time-pick" value="09:00">
-            <select id="todoPriority">
-              <option value="mid">中优先级</option>
-              <option value="high">高优先级</option>
-              <option value="low">低优先级</option>
-            </select>
-            <button class="btn-add" id="addTodoBtn">＋ 添加</button>
-            <button class="btn-import-toggle" id="toggleMdPanel" title="从 Markdown 批量导入任务">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              批量导入
-            </button>
-          </div>
-
-          <!-- Markdown 导入面板 -->
-          <div class="md-panel" id="mdPanel">
-            <div class="md-panel-inner">
-              <div id="mdInput" class="md-editor"></div>
-              <div class="md-preview-panel" id="mdPreviewPanel" style="display:none;">
-                <div class="md-preview-header">
-                  <div class="md-preview-badge">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    实时预览
-                  </div>
-                  <button class="md-preview-close" title="关闭预览">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
-                </div>
-                <div class="md-preview-content md-rendered" id="mdPreviewContent"></div>
-              </div>
-              <div class="md-actions">
-                <button class="icon-btn preview-btn" id="previewToggleBtn" title="Markdown 预览">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </button>
-                <button class="btn-import" id="btnMdImport">导入任务</button>
-                <button class="btn-cancel" id="btnMdCancel">取消</button>
-                <span class="md-hint">支持 <code>- [ ]</code> <code>- [x]</code> <code>@日期 @时间 #优先级</code></span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 任务面板 -->
-        <section class="panel glass-card fade-up">
-          <div class="panel-head">
-            <h2 class="panel-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              任务列表
-            </h2>
-            <button class="btn-settings" id="toggleSettingsBtn" title="Google Calendar 同步配置">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              同步设置
-            </button>
-          </div>
-
-          <!-- 设置面板 -->
-          <div class="settings-panel" id="settingsPanel">
-            <div class="settings-inner">
-              <div class="settings-grid">
-                <div class="settings-field">
-                  <label>Google Client ID</label>
-                  <input id="googleClientId" placeholder="xxx.apps.googleusercontent.com">
-                </div>
-                <div class="settings-field">
-                  <label>Access Token（手动粘贴）</label>
-                  <input id="googleToken" placeholder="ya29.xxx...">
-                </div>
-              </div>
-              <div class="settings-actions">
-                <button class="btn-save" id="saveSettingsBtn">保存配置</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 工具栏 -->
-          <div class="toolbar">
-            <div class="filter-group">
-              <button class="pill active" data-filter="all">全部</button>
-              <button class="pill" data-filter="today">今日</button>
-              <button class="pill" data-filter="completed">已完成</button>
-            </div>
-            <div class="sync-btns">
-              <button class="btn-sync btn-ics" id="downloadIcsBtn" title="下载 .ics 导入日历">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                .ics
-              </button>
-              <button class="btn-sync btn-google" id="syncGoogleBtn" title="同步到 Google Calendar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2"/>
-                  <line x1="16" y1="2" x2="16" y2="6"/>
-                  <line x1="8" y1="2" x2="8" y2="6"/>
-                  <line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-                Google
-              </button>
-              <button class="btn-md" id="exportMdBtn" title="导出为 Markdown">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="16" y1="13" x2="8" y2="13"/>
-                  <line x1="16" y1="17" x2="8" y2="17"/>
-                </svg>
-                MD
-              </button>
-              <button class="btn-apple" id="syncAppleBtn" title="一键导入 Apple 提醒事项">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5"/>
-                  <path d="M2 12l10 5 10-5"/>
-                </svg>
-                Apple 提醒
-              </button>
-            </div>
-          </div>
-
-          <!-- Token 输入 -->
-          <div class="token-section" id="tokenSection">
-            <div class="token-row">
-              <input id="manualToken" type="text" placeholder="粘贴 Google Access Token (ya29...)">
-              <button class="btn-token-apply" id="applyTokenBtn">同步</button>
-              <button class="btn-token-cancel" id="cancelTokenBtn">取消</button>
-            </div>
-          </div>
-
-          <!-- 任务列表 -->
-          <div class="todo-list" id="todoList">
-            <div class="todo-empty">
-              <span class="emoji">📝</span>
-              <p class="empty-title" id="emptyMsg">还没有任务</p>
-              <p class="empty-hint">点击上方「＋ 添加」创建第一个任务</p>
-            </div>
-          </div>
-        </section>
-
+      <div class="kb-col col-todo" data-status="todo">
+        <div class="kb-col-head">
+          <span class="kb-col-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
+          </span>
+          <span class="kb-col-name">待办</span>
+          <span class="kb-col-count" id="count-todo">0</span>
+          <button class="kb-col-add" data-status="todo" title="添加到待办">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <div class="kb-col-body" data-status="todo"></div>
       </div>
 
-      <!-- ============ 侧栏：同步指南 ============ -->
-      <aside class="side-col fade-up">
-        <section class="panel glass-card">
-          <div class="panel-head">
-            <h2 class="panel-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-              同步指南
-            </h2>
-          </div>
+      <div class="kb-col col-inprogress" data-status="inprogress">
+        <div class="kb-col-head">
+          <span class="kb-col-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          </span>
+          <span class="kb-col-name">进行中</span>
+          <span class="kb-col-count" id="count-inprogress">0</span>
+          <button class="kb-col-add" data-status="inprogress" title="添加到进行中">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <div class="kb-col-body" data-status="inprogress"></div>
+      </div>
 
-          <div class="guide-block">
-            <div class="guide-collapse" id="guideToggleGoogle">
-              <span>Google Calendar</span>
-              <span class="arrow">▶</span>
-            </div>
-            <div class="guide-content" id="guideContentGoogle">
-              <div class="guide-section">
-                <h4>方式一：手动粘贴 Token（推荐）</h4>
-                <div class="guide-step">
-                  <span class="num">1.</span>
-                  <span>打开 <a href="https://developers.google.com/oauthplayground" target="_blank">Google OAuth Playground</a></span>
-                </div>
-                <div class="guide-step">
-                  <span class="num">2.</span>
-                  <span>左侧选 <code>Calendar API v3</code> → <code>.../auth/calendar.events</code></span>
-                </div>
-                <div class="guide-step">
-                  <span class="num">3.</span>
-                  <span>「Authorize APIs」→ 登录授权</span>
-                </div>
-                <div class="guide-step">
-                  <span class="num">4.</span>
-                  <span>「Exchange authorization code」→ 复制 <code>Access token</code></span>
-                </div>
-                <div class="guide-step">
-                  <span class="num">5.</span>
-                  <span>粘贴到同步设置 → 点击「Google」同步</span>
-                </div>
-              </div>
-              <div class="guide-section">
-                <h4>方式二：OAuth 自动授权</h4>
-                <div class="guide-step">
-                  <span class="num">1.</span>
-                  <span><a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> 创建 OAuth 客户端 ID</span>
-                </div>
-                <div class="guide-step">
-                  <span class="num">2.</span>
-                  <span>重定向 URI: <code id="guideRedirectUri">当前页面地址</code></span>
-                </div>
-                <div class="guide-step">
-                  <span class="num">3.</span>
-                  <span>Client ID 填入同步设置 → 点击同步</span>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div class="kb-col col-done" data-status="done">
+        <div class="kb-col-head">
+          <span class="kb-col-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </span>
+          <span class="kb-col-name">已完成</span>
+          <span class="kb-col-count" id="count-done">0</span>
+          <button class="kb-col-add" data-status="done" title="添加到已完成">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <div class="kb-col-body" data-status="done"></div>
+      </div>
 
-          <div class="guide-block">
-            <div class="guide-collapse" id="guideToggleApple">
-              <span>Apple 提醒事项</span>
-              <span class="arrow">▶</span>
-            </div>
-            <div class="guide-content" id="guideContentApple">
-              <div class="guide-section">
-                <h4>方式一：一键导入（需安装桥接器）</h4>
-                <div class="apple-guide">
-                  <span class="num">1.</span>
-                  <span>终端运行一次：<code>./install_url_scheme.sh</code></span>
-                </div>
-                <div class="apple-guide">
-                  <span class="num">2.</span>
-                  <span>点击工具栏 <code>Apple 提醒</code> 按钮</span>
-                </div>
-                <div class="apple-guide">
-                  <span class="num">3.</span>
-                  <span>自动触发 AppleScript，瞬间导入提醒事项</span>
-                </div>
-              </div>
-              <div class="guide-section">
-                <h4>方式二：下载脚本文件</h4>
-                <div class="apple-guide">
-                  <span class="num">1.</span>
-                  <span>点击 <code>Apple 提醒</code>，自动下载 <code>.applescript</code> 文件</span>
-                </div>
-                <div class="apple-guide">
-                  <span class="num">2.</span>
-                  <span>双击文件 → 脚本编辑器打开 → 点 ▶ 运行</span>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div class="kb-col col-paused" data-status="paused">
+        <div class="kb-col-head">
+          <span class="kb-col-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="10" y1="9" x2="10" y2="15"/><line x1="14" y1="9" x2="14" y2="15"/></svg>
+          </span>
+          <span class="kb-col-name">已暂停</span>
+          <span class="kb-col-count" id="count-paused">0</span>
+          <button class="kb-col-add" data-status="paused" title="添加到已暂停">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <div class="kb-col-body" data-status="paused"></div>
+      </div>
 
-          <div class="guide-block">
-            <div class="guide-collapse" id="guideToggleIcs">
-              <span>导入日历 (.ics)</span>
-              <span class="arrow">▶</span>
-            </div>
-            <div class="guide-content" id="guideContentIcs">
-              <div class="guide-section">
-                <div class="guide-step">
-                  <span class="num">1.</span>
-                  <span>点击工具栏 <b>.ics</b> 按钮下载日历文件</span>
-                </div>
-                <div class="guide-step">
-                  <span class="num">2.</span>
-                  <span>双击 <code>.ics</code> 文件导入到任意日历应用</span>
-                </div>
-                <div class="guide-step">
-                  <span class="num">3.</span>
-                  <span>支持 Google Calendar、Apple Calendar、Outlook 等</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </aside>
-
-    </div><!-- .layout -->
+    </div><!-- .board -->
 
     <div class="footer">AI Tool Box · 任务清单 — Todo &amp; Calendar Sync</div>
   </div><!-- .container -->
 
 </div><!-- .app-wrapper -->
+
+<!-- ============ 新建 / 编辑任务弹层 ============ -->
+<div class="modal-overlay" id="taskModalOverlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2 class="modal-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span id="taskModalTitle">新建任务</span>
+      </h2>
+      <button class="modal-close" id="taskModalClose" title="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="form-field">
+      <label>标题 *</label>
+      <input class="field-input" id="taskTitle" type="text" placeholder="任务标题，回车快速保存…">
+    </div>
+
+    <div class="form-field">
+      <label>描述</label>
+      <textarea class="field-input" id="taskDesc" placeholder="补充说明（可选）"></textarea>
+    </div>
+
+    <div class="form-field">
+      <label>图标</label>
+      <div class="emoji-row" id="emojiRow"></div>
+    </div>
+
+    <div class="form-row-3">
+      <div class="form-field">
+        <label>日期</label>
+        <input class="field-input" id="taskDate" type="date">
+      </div>
+      <div class="form-field">
+        <label>时间</label>
+        <input class="field-input" id="taskTime" type="time" value="09:00">
+      </div>
+      <div class="form-field">
+        <label>优先级</label>
+        <select class="field-input" id="taskPriority">
+          <option value="mid">中优先级</option>
+          <option value="high">高优先级</option>
+          <option value="low">低优先级</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label>状态</label>
+      <select class="field-input" id="taskStatus">
+        <option value="todo">待办</option>
+        <option value="inprogress">进行中</option>
+        <option value="done">已完成</option>
+        <option value="paused">已暂停</option>
+      </select>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn-ghost" id="taskCancelBtn">取消</button>
+      <button class="btn-grad" id="taskSaveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 同步设置弹层 ============ -->
+<div class="modal-overlay" id="settingsModalOverlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2 class="modal-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        同步设置
+      </h2>
+      <button class="modal-close" id="settingsModalClose" title="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="settings-grid">
+      <div class="settings-field">
+        <label>Google Client ID</label>
+        <input class="field-input" id="googleClientId" placeholder="xxx.apps.googleusercontent.com">
+      </div>
+      <div class="settings-field">
+        <label>Access Token（手动粘贴）</label>
+        <input class="field-input" id="googleToken" placeholder="ya29.xxx...">
+      </div>
+    </div>
+
+    <div class="oauth-link-row" id="oauthLinkRow">
+      <a id="oauthLink" href="#" target="_blank">→ 打开 Google 授权页面</a>
+      <p>授权后复制地址栏中的 access_token 粘贴到上方输入框，再点击「Google」同步。</p>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn-grad" id="saveSettingsBtn">保存配置</button>
+    </div>
+
+    <hr class="guide-divider">
+
+    <div class="guide-block">
+      <div class="guide-collapse" id="guideToggleGoogle">
+        <span>Google Calendar</span>
+        <span class="arrow">▶</span>
+      </div>
+      <div class="guide-content" id="guideContentGoogle">
+        <div class="guide-section">
+          <h3>方式一：手动粘贴 Token（推荐）</h3>
+          <div class="guide-step">
+            <span class="num">1.</span>
+            <span>打开 <a href="https://developers.google.com/oauthplayground" target="_blank">Google OAuth Playground</a></span>
+          </div>
+          <div class="guide-step">
+            <span class="num">2.</span>
+            <span>左侧选 <code>Calendar API v3</code> → <code>.../auth/calendar.events</code></span>
+          </div>
+          <div class="guide-step">
+            <span class="num">3.</span>
+            <span>「Authorize APIs」→ 登录授权</span>
+          </div>
+          <div class="guide-step">
+            <span class="num">4.</span>
+            <span>「Exchange authorization code」→ 复制 <code>Access token</code></span>
+          </div>
+          <div class="guide-step">
+            <span class="num">5.</span>
+            <span>粘贴到同步设置 → 点击「Google」同步</span>
+          </div>
+        </div>
+        <div class="guide-section">
+          <h3>方式二：OAuth 自动授权</h3>
+          <div class="guide-step">
+            <span class="num">1.</span>
+            <span><a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> 创建 OAuth 客户端 ID</span>
+          </div>
+          <div class="guide-step">
+            <span class="num">2.</span>
+            <span>重定向 URI: <code id="guideRedirectUri">当前页面地址</code></span>
+          </div>
+          <div class="guide-step">
+            <span class="num">3.</span>
+            <span>Client ID 填入同步设置 → 点击同步</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="guide-block">
+      <div class="guide-collapse" id="guideToggleApple">
+        <span>Apple 提醒事项</span>
+        <span class="arrow">▶</span>
+      </div>
+      <div class="guide-content" id="guideContentApple">
+        <div class="guide-section">
+          <h3>方式一：一键导入（需安装桥接器）</h3>
+          <div class="apple-guide">
+            <span class="num">1.</span>
+            <span>终端运行一次：<code>./install_url_scheme.sh</code></span>
+          </div>
+          <div class="apple-guide">
+            <span class="num">2.</span>
+            <span>点击顶栏 <code>Apple</code> 按钮</span>
+          </div>
+          <div class="apple-guide">
+            <span class="num">3.</span>
+            <span>自动触发 AppleScript，瞬间导入提醒事项</span>
+          </div>
+        </div>
+        <div class="guide-section">
+          <h3>方式二：下载脚本文件</h3>
+          <div class="apple-guide">
+            <span class="num">1.</span>
+            <span>点击 <code>Apple</code>，自动下载 <code>.applescript</code> 文件</span>
+          </div>
+          <div class="apple-guide">
+            <span class="num">2.</span>
+            <span>双击文件 → 脚本编辑器打开 → 点 ▶ 运行</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="guide-block">
+      <div class="guide-collapse" id="guideToggleIcs">
+        <span>导入日历 (.ics)</span>
+        <span class="arrow">▶</span>
+      </div>
+      <div class="guide-content" id="guideContentIcs">
+        <div class="guide-section">
+          <div class="guide-step">
+            <span class="num">1.</span>
+            <span>点击顶栏 <b>.ics</b> 按钮下载日历文件</span>
+          </div>
+          <div class="guide-step">
+            <span class="num">2.</span>
+            <span>双击 <code>.ics</code> 文件导入到任意日历应用</span>
+          </div>
+          <div class="guide-step">
+            <span class="num">3.</span>
+            <span>支持 Google Calendar、Apple Calendar、Outlook 等</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Markdown 批量导入弹层 ============ -->
+<div class="modal-overlay" id="mdModalOverlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2 class="modal-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        批量导入任务
+      </h2>
+      <button class="modal-close" id="mdModalClose" title="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div id="mdInput" class="md-editor"></div>
+
+    <div class="md-preview-panel" id="mdPreviewPanel">
+      <div class="md-preview-header">
+        <div class="md-preview-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          实时预览
+        </div>
+        <button class="md-preview-close" id="mdPreviewClose" title="关闭预览">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="md-preview-content md-rendered" id="mdPreviewContent"></div>
+    </div>
+
+    <div class="md-actions">
+      <button class="icon-btn" id="previewToggleBtn" title="Markdown 预览">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="btn-grad" id="btnMdImport">导入任务</button>
+      <button class="btn-ghost" id="btnMdCancel">取消</button>
+      <span class="md-hint">支持 <code>- [ ]</code> <code>- [x]</code> <code>@日期 @时间 #优先级</code></span>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 <script src="markdown.js"></script>

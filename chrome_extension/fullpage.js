@@ -74,7 +74,7 @@ async function init() {
 
   // 实时监听插件配置变化（popup 保存后立即生效，无需刷新）
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || !changes.config || !changes.config.newValue) return;
+    if ((area !== 'local' && (!area || area.areaName !== 'local')) || !changes.config || !changes.config.newValue) return;
     const c = changes.config.newValue;
     if (!c.baseUrl) return;
     config = c;

@@ -175,7 +175,7 @@
   // 扩展环境：直接监听 chrome.storage，并读取已有配置兑底
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'local' && changes.config && changes.config.newValue) {
+      if ((area === 'local' || (area && area.areaName === 'local')) && changes.config && changes.config.newValue) {
         applySyncedConfig(changes.config.newValue);
       }
     });
@@ -201,7 +201,9 @@
   function saveDraft() {
     clearTimeout(draftTimer);
     draftTimer = setTimeout(() => {
-      localStorage.setItem('email_summary_draft', emailEditor.getMarkdown());
+      const __draft = emailEditor.getMarkdown();
+      localStorage.setItem('email_summary_draft', __draft);
+      relayRecord('email_summary_draft', __draft); // v0.44.0 草稿纳入双向同步
     }, 500);
   }
   const draft = localStorage.getItem('email_summary_draft');

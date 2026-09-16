@@ -61,7 +61,7 @@ function broadcastConfig(config) {
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'local' || !changes.config || !changes.config.newValue) return;
+  if ((area !== 'local' && (!area || area.areaName !== 'local')) || !changes.config || !changes.config.newValue) return;
   const c = changes.config.newValue;
   if (!c || !c.baseUrl) return;
   loadConfig(c);

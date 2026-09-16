@@ -56,6 +56,15 @@ body {
 }
 
 /* ===== Header：玻璃底 + 单条发丝线 ===== */
+/* v0.39.0 品牌渐变发丝线（与 .page-hero .hero-rule 同语言） */
+.sp-header::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary-a25) 20%, var(--primary) 50%, var(--primary-a25) 80%, transparent);
+  pointer-events: none;
+}
 .sp-header {
   flex-shrink: 0;
   display: flex;
@@ -90,12 +99,9 @@ body {
 .sp-header-text { display: flex; flex-direction: column; gap: 1px; line-height: 1.15; min-width: 0; }
 .sp-logo-text {
   font-size: 14.5px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  background: var(--header-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--sp-text);
 }
 .sp-header-tag {
   font-size: 10px;

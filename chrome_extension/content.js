@@ -30,7 +30,8 @@
       'td_todo_items', 'td_todo_cal_config', 'translate_history', 'translate_draft',
       'wr_work_records', 'wr_work_summaries', 'wr_work_config', 'wr_work_draft',
       'email_summary_history', 'email_summary_config',
-      'learningHistory', 'englishLearningData', 'ai_parse_state', 'ai_prompts_state'
+      'learningHistory', 'englishLearningData', 'ai_parse_state', 'ai_prompts_state',
+      'email_summary_draft', 'ws_api_base', 'ws_api_token', 'ws_risk_ack', 'ws_sum_lang', 'ws_contacts_cache'
     ];
     chrome.storage.local.get(RECORD_LS_KEYS, (res) => {
       Object.keys(res || {}).forEach((k) => {
@@ -47,7 +48,7 @@
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.config) {
+    if ((area === 'local' || (area && area.areaName === 'local')) && changes.config) {
       config = changes.config.newValue;
       syncConfigToPage(config);
     }

@@ -1065,7 +1065,7 @@
   // 扩展环境：直接监听 chrome.storage 变化
   if (isExtension) {
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'local' && changes.config && changes.config.newValue) {
+      if ((area === 'local' || (area && area.areaName === 'local')) && changes.config && changes.config.newValue) {
         applySyncedConfig(changes.config.newValue);
       }
     });

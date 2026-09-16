@@ -14,8 +14,8 @@
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 17px;
+      font-family: var(--font-ui);
+      font-size: 16px;
       min-height: 100vh;
       color: var(--text);
       overflow-x: hidden;
@@ -25,12 +25,6 @@
 
     /* ========== Content ========== */
 
-    /* Header */
-    .header {
-      text-align: center;
-      padding: 48px 20px 24px;
-      position: relative;
-    }
     .header-badge {
       display: inline-flex; align-items: center; gap: 8px;
       background: var(--white-a10);
@@ -47,19 +41,6 @@
     .header-badge .dot {
       width: 6px; height: 6px; border-radius: 50%;
       background: var(--neon-green); box-shadow: 0 0 6px var(--neon-green); animation: pulse 2s ease-in-out infinite;
-    }
-    .header h1 {
-      font-size: 2.5rem;
-      font-weight: 700;
-      letter-spacing: -1px;
-      line-height: 1.2;
-      margin-bottom: 10px;
-    }
-    .header p {
-      font-size: 1.05rem;
-      color: var(--text-secondary);
-      font-weight: 300;
-      letter-spacing: 0.3px;
     }
 
     /* Container */
@@ -128,7 +109,7 @@
       display: flex; align-items: center; gap: 10px;
       margin-bottom: 20px;
     }
-    .settings-header h3 {
+    .settings-header h2 {
       font-size: 1.05rem; font-weight: 600; color: var(--text);
     }
     .settings-icon-wrap {
@@ -141,7 +122,7 @@
 
     .settings-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 16px;
     }
     .form-group { display: flex; flex-direction: column; gap: 7px; }
@@ -699,14 +680,21 @@
       position: relative; z-index: 1;
     }
 
-    /* ========== Responsive ========== */
+    /* ========== Responsive（v0.38.0 评审报告：补平板档与触屏降级） ========== */
+    @media (max-width: 1180px) {
+      .settings-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    }
     @media (max-width: 768px) {
-      .header h1 { font-size: 1.8rem; }
+      .page-hero h1 { font-size: 1.55rem; }
       .settings-grid { grid-template-columns: 1fr; }
       .lang-bar { flex-direction: column; align-items: stretch; }
       .lang-arrow { text-align: center; transform: rotate(90deg); }
       .filter-row { flex-direction: column; align-items: stretch; }
       .records-header { flex-direction: column; align-items: flex-start; }
+    }
+    @media (hover: none) {
+      .glass-card:hover, .record-item:hover { transform: none; }
+      .shortcut-hint { display: none; }
     }
 
     /* ===== Rendered Markdown typography: 由 theme.css 统一提供 ===== */
@@ -862,13 +850,14 @@
 
   <div class="app-wrapper">
     <!-- Header -->
-    <div class="header">
+    <div class="header page-hero page-hero--sm">
       <div class="header-badge">
         <span class="dot"></span>
         <span>AI-Powered Summary</span>
       </div>
+      <div class="hero-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="17" x2="9" y2="12"/><line x1="12" y1="17" x2="12" y2="8"/><line x1="15" y1="17" x2="15" y2="14"/></svg></div>
       <h1>工作报告</h1>
-      <p>记录日常工作内容 · AI 智能生成要点总结</p>
+      <p class="hero-sub">记录日常工作内容 · AI 智能生成要点总结</p><div class="hero-rule"></div>
     </div>
 
     <div class="container">
@@ -898,7 +887,7 @@
                 <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
               </svg>
             </div>
-            <h3>LLM 模型配置（用于生成总结）</h3>
+            <h2>LLM 模型配置（用于生成总结）</h2>
           </div>
           <div class="settings-grid">
             <div class="form-group">

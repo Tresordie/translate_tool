@@ -1,5 +1,5 @@
 /**
- * theme.js — AI Tool Box 主题切换系统（极简高级感 · 6 款）
+ * theme.js — AI Tool Box 主题切换系统（极简高级感 · 9 款）
  * 功能: 主题切换UI（浅色/深色两组，默认 lf-graphite）、localStorage持久化、
  *      data-mode 明暗标记、iframe跨页面同步、旧版 Catppuccin 主题自动迁移
  * 用法: 在页面底部引入 <script src="theme.js"></script> 即可自动注入切换器
@@ -17,7 +17,8 @@
       themes: [
         { id: 'lf-paper', name: '纸感白 · Paper', desc: '浅色 · 苹果纯白×官网蓝' },
         { id: 'lf-mist', name: '雾霭 · Mist', desc: '浅色 · 冷调浅灰×苹果靛蓝' },
-        { id: 'lf-cream', name: '奶油 · Cream', desc: '浅色 · 暖调米白×焦糖棕' }
+        { id: 'lf-cream', name: '奶油 · Cream', desc: '浅色 · 暖调米白×焦糖棕' },
+        { id: 'lf-sky', name: '晴空 · Sky', desc: '浅色 · 纯白底×专业蓝' }
       ]
     },
     {
@@ -25,7 +26,9 @@
       themes: [
         { id: 'lf-graphite', name: '石墨 · Graphite', desc: '深色 · 苹果深空×经典蓝' },
         { id: 'lf-slate', name: '板岩 · Slate', desc: '深色 · 深蓝灰×靛紫' },
-        { id: 'lf-midnight', name: '午夜 · Midnight', desc: '深色 · 暖调近黑×紫罗兰' }
+        { id: 'lf-midnight', name: '午夜 · Midnight', desc: '深色 · 暖调近黑×紫罗兰' },
+        { id: 'lf-orbit', name: '轨道 · Orbit', desc: '深色 · 深空蓝黑×电光青' },
+        { id: 'lf-nocturne', name: '夜曲 · Nocturne', desc: '深色 · 深空蓝黑×柔蓝青绿' }
       ]
     }
   ];
@@ -36,7 +39,7 @@
     THEMES = THEMES.concat(THEME_GROUPS[g].themes);
   }
 
-  var DARK_THEMES = { 'lf-graphite': 1, 'lf-slate': 1, 'lf-midnight': 1 };
+  var DARK_THEMES = { 'lf-graphite': 1, 'lf-slate': 1, 'lf-midnight': 1, 'lf-orbit': 1, 'lf-nocturne': 1 };
 
   function getSavedTheme() {
     var saved;

@@ -44,11 +44,29 @@
       store.cache[k] = v;
       try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
       if (isExtension) { var o = {}; o[k] = v; chrome.storage.local.set(o); }
+      else { try { (window.top || window).postMessage({ source: 'linguaflow-page', type: 'save-record', key: k, value: v }, '*'); } catch (e) {} } // v0.44.0 偏好写入 chrome.storage，与扩展互通
     },
     get: function (k) { return store.cache[k] !== undefined ? store.cache[k] : safeLocal(k); }
   };
   function safeLocal(k) {
     try { var s = localStorage.getItem(k); return s === null ? undefined : JSON.parse(s); } catch (e) { return undefined; }
+  }
+
+  // v0.44.0 跨端实时刷新：对端写入 ws_* 键时更新本地缓存（网页↔扩展偏好互通）
+  if (isExtension) {
+    try {
+      chrome.storage.onChanged.addListener(function (changes) {
+        Object.keys(changes).forEach(function (k) {
+          if (k.indexOf('ws_') === 0 && changes[k].newValue !== undefined) store.cache[k] = changes[k].newValue;
+        });
+      });
+    } catch (e) {}
+  } else {
+    window.addEventListener('storage', function (e) {
+      if (e.key && e.key.indexOf('ws_') === 0 && e.newValue) {
+        try { store.cache[e.key] = JSON.parse(e.newValue); } catch (err) { store.cache[e.key] = e.newValue; }
+      }
+    });
   }
 
   // ===== 状态 =====

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Tool Box · 效率优化常用工具集</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Syne:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="theme.css">
   <style>
     /* 变量由 theme.css 统一提供，此处仅保留页面特有补充 */
@@ -23,42 +23,23 @@
       transition: background 0.4s ease;
     }
 
-    /* Header */
-    .header {
-      text-align: center;
-      padding: 48px 20px 24px;
-      position: relative;
-    }
+    /* Header：图文标题由 theme.css .page-hero 组件提供，此处仅保留眉标徽章 */
     .header-badge {
-      display: inline-flex; align-items: center; gap: 8px;
+      display: inline-flex; align-items: center; gap: 7px;
       background: var(--white-a10);
       backdrop-filter: blur(12px);
       border: 1px solid var(--white-a15);
-      padding: 6px 18px;
+      padding: 4px 13px;
       border-radius: 100px;
-      font-size: 0.78rem;
+      font-size: 0.66rem;
       color: var(--text-secondary);
-      letter-spacing: 1.5px;
+      letter-spacing: 1.2px;
       text-transform: uppercase;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
     .header-badge .dot {
-      width: 6px; height: 6px; border-radius: 50%;
+      width: 5px; height: 5px; border-radius: 50%;
       background: var(--neon-cyan); box-shadow: 0 0 6px var(--neon-cyan); animation: pulse 2s ease-in-out infinite;
-    }
-    .header h1 {
-      font-family: 'Sora', 'Syne', 'Plus Jakarta Sans', sans-serif;
-      font-size: 3rem;
-      font-weight: 700;
-      letter-spacing: -1px;
-      line-height: 1.2;
-      margin-bottom: 10px;
-    }
-    .header p {
-      font-size: 1.05rem;
-      color: var(--text-secondary);
-      font-weight: 300;
-      letter-spacing: 0.3px;
     }
 
     /* Container */
@@ -128,7 +109,7 @@
       display: flex; align-items: center; gap: 10px;
       margin-bottom: 20px;
     }
-    .settings-header h3 {
+    .settings-header h2 {
       font-size: 1.05rem; font-weight: 600; color: var(--text);
     }
     .settings-icon-wrap {
@@ -275,11 +256,11 @@
 
     .pane-label {
       padding: 12px 24px 0;
-      font-size: 0.72rem;
-      font-weight: 700;
+      font-size: 0.66rem;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: var(--text-secondary);
+      letter-spacing: 1.2px;
+      color: var(--text-dim);
     }
 
     /* --- 翻译等待骨架屏（shimmer，替代清空成空白的焦虑等待） --- */
@@ -435,7 +416,7 @@
       display: flex; align-items: center; justify-content: space-between;
       background: linear-gradient(135deg, var(--primary-a04) 0%, transparent 100%);
     }
-    .history-header h3 {
+    .history-header h2 {
       font-size: 1rem; font-weight: 600; color: var(--text);
       display: flex; align-items: center; gap: 8px;
     }
@@ -526,7 +507,7 @@
 
     /* ========== Responsive ========== */
     @media (max-width: 768px) {
-      .header h1 { font-size: 2rem; }
+      .page-hero h1 { font-size: 1.7rem; }
       .settings-grid { grid-template-columns: 1fr; }
       .translate-area { grid-template-columns: 1fr; }
       .translate-pane:first-child { border-right: none; border-bottom: 1px solid var(--primary-a10); }
@@ -843,12 +824,8 @@
        PREMIUM REFACTOR — 保留结构/内容/业务逻辑，纯视觉层质感升级
        （作用域：深色主题含默认 mocha；浅色 latte 单独做优雅轻玻璃处理）
        ================================================================ */
-    :root {
-      /* 修复原代码缺失的 --transition，统一 300ms ease-out 平滑微交互 */
-      --transition: 300ms ease-out;
-      --font-display: 'Syne', 'Plus Jakarta Sans', 'Noto Sans SC', -apple-system, sans-serif;
-      --font-ui: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
+    /* --transition / --font-display / --font-ui 由 theme.css 质感增强层统一定义，
+       此处不再本地重复（v0.38.0 评审报告：消除双 :root 漂移隐患） */
 
     /* 全局排版呼吸感：微调字距与行高 */
     body {
@@ -861,29 +838,14 @@
 
     /* ===== 2. 字体与排版重塑 ===== */
     h1, h2, h3, .pane-label, .header-badge, .tab-header-badge,
-    .settings-header h3, .history-header h3, .stat-val, .tab-nav-btn {
+    .settings-header h2, .history-header h2, .stat-val, .tab-nav-btn {
       font-family: var(--font-display);
     }
 
-    /* 增大标题与正文对比，微调字距/行高增加呼吸感 */
-    .header h1 {
-      font-size: clamp(2.6rem, 6vw, 4rem);
-      letter-spacing: -0.02em;
-      line-height: 1.15;
-    }
-    /* 主标题专属（AI Tool Box）：Sora 字体，clamp 自适应无需媒体查询干预 */
-    .header h1.app-title {
-      font-weight: 800;
-      letter-spacing: 0.02em;
-      font-size: clamp(2.15rem, 7vw, 4.4rem);
-    }
+    /* 页头图文标题样式由 theme.css .page-hero 组件统一提供（v0.39.0） */
     .tab-header h2 {
       font-size: clamp(2rem, 5vw, 2.8rem);
       letter-spacing: -0.02em;
-    }
-    .header p {
-      font-size: 1.1rem;
-      letter-spacing: 0.02em;
     }
     .tab-header p { letter-spacing: 0.02em; }
 
@@ -1047,14 +1009,23 @@
   <div class="scanline-overlay"></div>
 
   <div class="app-wrapper">
-    <!-- Header -->
-    <div class="header">
+    <!-- Header：图文标题（工具箱图标砖 + 双色字标 + 功能副题 + 渐变发丝线） -->
+    <div class="header page-hero">
       <div class="header-badge">
         <span class="dot"></span>
         <span>Powered by LLM</span>
       </div>
-      <h1 class="app-title">AI Tool Box</h1>
-      <p>效率优化常用工具集</p>
+      <div class="hero-tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="7" width="18" height="13" rx="2"/>
+          <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <path d="M3 12h18"/>
+          <path d="M12 12v2"/>
+        </svg>
+      </div>
+      <h1><span class="wm-accent">AI</span> Tool Box</h1>
+      <p class="hero-sub">效率优化常用工具集 · 翻译 / 报告 / 任务 / 学习 / 总结</p>
+      <div class="hero-rule"></div>
     </div>
 
     <!-- Tab Navigation -->
@@ -1141,7 +1112,7 @@
                 <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
               </svg>
             </div>
-            <h3>模型配置</h3>
+            <h2>模型配置</h2>
           </div>
           <div class="settings-grid">
             <div class="form-group">
@@ -1260,10 +1231,10 @@
       <!-- History -->
       <div class="history-card fade-up" id="historyCard">
         <div class="history-header">
-          <h3>
+          <h2>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             翻译历史
-          </h3>
+          </h2>
           <button class="history-clear" onclick="exportTranslateHistory()" style="margin-right:8px;">导出</button>
           <button class="history-clear" onclick="clearHistory()">清空</button>
         </div>
@@ -1390,7 +1361,7 @@
     // 扩展环境（作为扩展页面加载时）直接监听 chrome.storage
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
       chrome.storage.onChanged.addListener((changes, area) => {
-        if (area === 'local' && changes.config && changes.config.newValue) {
+        if ((area === 'local' || (area && area.areaName === 'local')) && changes.config && changes.config.newValue) {
           applySyncedConfig(changes.config.newValue);
         }
       });

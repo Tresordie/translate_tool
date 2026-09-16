@@ -49,7 +49,7 @@ chrome.commands.onCommand.addListener((command) => {
 // 网页无法直接访问 chrome.storage，由各页面注入的 content script 接收
 // 本消息，写入 localStorage('translate_config') 并通知页面 JS。
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'local') return;
+  if ((area !== 'local' && (!area || area.areaName !== 'local'))) return;
 
   // API 配置同步（v0.23.0）
   if (changes.config) {
@@ -95,6 +95,12 @@ const RECORD_SYNC_KEYS = {
   englishLearningData: 'englishLearningData',     // 英语学习内容
   ai_parse_state: 'ai_parse_state',         // AI 解析状态
   ai_prompts_state: 'ai_prompts_state',     // AI 提示词状态
+  email_summary_draft: 'email_summary_draft', // 邮件总结草稿（v0.44.0）
+  ws_api_base: 'ws_api_base',               // 微信工具服务地址
+  ws_api_token: 'ws_api_token',             // 微信工具服务令牌（本地双向一致；Drive 推送时仍被 SECRET_DROP 剔除）
+  ws_risk_ack: 'ws_risk_ack',               // 微信工具风险确认
+  ws_sum_lang: 'ws_sum_lang',               // 微信工具总结语言
+  ws_contacts_cache: 'ws_contacts_cache',   // 微信工具联系人缓存
 };
 
 // ===== 网页版跨域代理桥·流式通道（v0.25.5） =====

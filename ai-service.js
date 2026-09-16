@@ -57,7 +57,7 @@
     if (isExtension()) {
       try {
         chrome.storage.onChanged.addListener(function (changes, area) {
-          if (area === 'local' && changes.config && changes.config.newValue && changes.config.newValue.baseUrl) {
+          if ((area === 'local' || (area && area.areaName === 'local')) && changes.config && changes.config.newValue && changes.config.newValue.baseUrl) {
             onConfig(changes.config.newValue);
           }
         });
@@ -453,7 +453,7 @@
     if (isExtension() && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
       try {
         chrome.storage.onChanged.addListener(function (changes, area) {
-          if (area === 'local' && changes[key] && changes[key].newValue !== undefined) cb(changes[key].newValue);
+          if ((area === 'local' || (area && area.areaName === 'local')) && changes[key] && changes[key].newValue !== undefined) cb(changes[key].newValue);
         });
       } catch (e) {}
     } else {
