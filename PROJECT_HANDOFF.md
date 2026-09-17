@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.44.0 · 2026-09-16
+> **当前版本**：v0.45.0 · 2026-09-17
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -120,6 +120,11 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 > 热点雷达模块（hotnews.html/js、Tavily 检索链、hn_cards/hn_tavily_key 同步键、Side Panel「热点」Tab、Popup 入口）在 v0.29.0 整体下线；本节编号保留，内容改为纯记录同步体系说明（该机制与模块无关，全站仍在用）。
 
 - **记录全端双向同步（v0.25.0）**：映射表 `RECORD_SYNC_KEYS` 在 background.js（chrome.storage 键 ↔ 网页 localStorage 键，覆盖 td_/wr_ 前缀及 popup 的 history/draft 命名差异）。网页适配器写入后 postMessage `save-record` → content.js → background 写 chrome.storage；扩展写入 → background onChanged 广播 `linguaflow:syncRecord` → 各标签页 content.js 写对应 localStorage → 页面既有 storage 监听自动刷新。**新增需同步的记录：在映射表加一行 + content.js 启动拉取列表加一个键 + 适配器写入处加一条 postMessage 即可。** 实时刷新仅覆盖已有 storage 监听的页面（任务清单/智能翻译历史），其余模块为落盘同步（刷新可见）。
+- **v0.45.0 修复的三个同步断点（重要 ⚠️，三者叠加导致"网页与扩展历史不同步"）**：
+  1. **`manifest.content_scripts` 缺 `all_frames`** → 内容脚本只注入顶层帧，而 index.html 的 7 个工具页全是 iframe，这些页面的记录既不上报也收不到推送。已加 `"all_frames": true`。**⚠️ 改 manifest 后必须在 `chrome://extensions` 重新加载扩展**，否则表现为"改了没生效"。
+  2. **`AiService.onRecordSync` 网页分支键名不匹配** → content.js 写的是**映射后的 localStorage 键**（`wr_work_records`/`td_todo_items`），而页面订阅的是原始键（`work_records`），`e.key === key` 永远为 false。已改为同时匹配 `[key, 'wr_'+key, 'td_'+key]`。**新增带前缀的页面时沿用该规则即可，别再改回单键比较。**
+  3. **顶层帧收不到自己的 storage 事件** → content.js 与 index.html 同帧，它写 localStorage 不会触发本帧 `storage` 事件；index.html 的翻译历史因此另订阅 `record-sync` postMessage（`AiService.onRecordSync('history', …)`）。iframe 子页则天然能收到跨文档 storage 事件。
+  4. **英语学习扩展页启动引导方向反了**：原实现无条件把本页 localStorage 副本 `set` 进 chrome.storage，若网页端在扩展页关闭期间新增了记录，一打开扩展页就用旧副本覆盖回去。已改为**以 chrome.storage 为权威源**：远端有值 → 拉回本地；远端缺键 → 才迁移本地。**同类"启动即上报"引导不要出现在其他页面。**
 
 ### 3.10 网页版跨域代理桥（v0.23.0 引入，超时策略 v0.25.4 修订）
 
@@ -140,7 +145,8 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 **微信格式（`markdownToWechat`，共享于 `markdown.js`）**——微信不渲染 Markdown，四个模块（工作报告 / 邮件总结 / AI 解析 / AI 提示词）的结果区各有一个「微信格式」按钮，点击后在该页结果下方展开 `<pre class="wechat-result">` 区域并显示转换结果，区域内独立「复制」按钮。
 
 - **实现位置**：`markdown.js`（根目录与 `chrome_extension/` 两份副本逐字节一致）导出 `window.markdownToWechat(md)`。**这是唯一实现，勿再往各模块 JS 里复制**——四个模块 + 扩展副本共用；`workreport.js` 已从本地实现改为调用共享版。
-- **转换规则**：块级——标题去 `#` 保留 emoji、无序列表转 `•`（缩进按层级保留）、任务项转 `☑/☐`、有序列表保留、`**1. 标题** 详述` 转「1. 标题：详述」、引用转 `「」`、水平线转 `————————`、表格转「值 | 值」、代码围栏标记丢弃且正文**原样保留不加缩进**（提示词可直接用）；行内——`**粗体**`/`*斜体*`/`~~删除~~`/`` `代码` `` 去符号保内容、`[文本](url)` 转「文本（url）」；收尾——收敛连续空行、去行尾空格、折叠行内多余空格（不动行首列表缩进）。
+- **转换规则（v0.45.0 重写，目标是"与 `renderMarkdown` 预览同构"）**：块级——标题分级符号 h1 `【】` / h2 `■ ` / h3 `▍ ` / h4+ `▸ `；无序列表 `•`（缩进按层级保留）、任务项 `☑/☐`、有序列表保留编号；`**1. 标题** 详述` 转「1. 标题：详述」；**多行引用转整块 `▎ ` 前缀**（块内 `- `→`• `、序号保留，`> [!warning]` 等 GitHub 告警标注转图标（warning/caution→⚠、note/info→ℹ、tip→💡、important→❗、danger→🚨、success→✅ 等）；水平线 `————————`；**表格转文本表格**：按显示宽度对齐（CJK/全角/emoji 记 2 列，其余 1 列），超 `TABLE_MAX_WIDTH=60` 预算时压缩最宽列（最小 4 列）并把单元格在列内折行，保留表头下的 `─` 分隔线与 `:---:` 对齐；**仅列数 >6 才退回**「▪ 首列值 + 键：值」块（文本表格已不可读）；代码围栏标记丢弃、正文**含缩进原样保留**。行内——`**粗体**` 的 **ASCII 字母/数字转 Unicode 粗体**（`𝗔-𝘇/𝟬-𝟵`，中文无对应字形故仍为普通字重）、斜体/删除线/行内代码去符号保内容、`[文本](url)` 转「文本（url）」。收尾——逐行清理：**表格与代码行只去行尾空格**（保住对齐缩进），普通行才折叠连续空格；收敛空行、去首尾空行、清除 `U+FE0E/U+FE0F/U+200D/U+20E3`。
+- ⚠️ **宽度计算与 Unicode 粗体的耦合**：`isWide()` 必须把 SMP 的数学字母（0x1D400–0x1D7FF）算作**窄字符**，否则加粗后的英文单元格会被按 2 列宽计算、表格列全部错位。改 `markdownToWechat` 时同步检查 `strWidth`/`isWide`。
 - **emoji 兼容（关键）**：全程按**字符串级正则**处理，绝不逐字符遍历，避免拆坏四字节代理对；仅清除微信会渲染成方框/分离字符的隐藏字符——变体选择符 `U+FE0E/U+FE0F`、零宽连接符 `U+200D`、键帽包围符 `U+20E3`。标准 emoji（`📋 🔑 📝 ✅` 等）原样保留。
 - **数据来源各页不同**：workreport/email_summary 读 DOM 上的 `dataset.rawText`；ai_parse 读 `currentSummaryMd`；ai_prompts 读 `currentResultMd`。生成新结果或加载历史时调用各页的 `resetWechatSection()` 清空并隐藏区域，避免展示过期转换。
 - ⚠️ **新增支持该功能的页面时**：在结果按钮行加 `#wechatFormatBtn`、结果下方加 `#wechatSection`（含 `#copyWechatBtn` / `#wechatResult`）、样式块按各页 `<style>` 约定复制 `.wechat-*` 规则，JS 侧复用 `convertToWechat` / `copyWechat` / `resetWechatSection` 三个函数模式并调用 `window.markdownToWechat`。
@@ -201,10 +207,32 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **注入面**：`cloud-sync.js` 加在 `data-sync.js` 之后，覆盖 index + 6 模块页 + 微信工具页（根目录 + 扩展副本；chrome_extension 无 index.html）。**v0.32.0 起微信工具页不再有内联云卡片**——`data-sync.js` 去掉了对 wechat_schedule 的胶囊排除，全页面统一用抽屉；微信页特有的「一键拉起服务」按钮（native host，仅扩展环境显示）从云卡片挪进「定时服务连接」操作行，`wechat_schedule.js` 里云卡片逻辑（bindCloudCard/refreshCloud/loadDir 等 ~200 行）整体删除，仅保留精简版 `bindWake()`。至此云同步 UI 单一来源 = `cloud-sync.js`。
 - **验证**：e2e 46 项、逻辑 8、清洗 7 全绿；抽屉 API 面与微信页一致，未新增后端接口。
 
+### 3.16 输入内容保护原则（v0.45.0，⚠️ 产品级约束）
+
+**规则：任何页面的输入内容，只有用户主动删除才允许清空；保存、提交、切换、载入历史、取消操作等一律不得清除。** 新增功能时必须遵守，评审时按此条检查。
+
+- **保存类**：`workreport.js` 保存/更新记录后**不再** `workEditor.clear()`、也不再 `storage.remove(['work_draft'])`；`wechat_schedule.js` 保存定时任务改调 `resetForm(false)`（只退出编辑态、复位标题与按钮，不清字段），显式「重置」按钮走 `resetForm(true)`。
+- **取消类**：`workreport.js` `cancelEdit()` 恢复 `_preEditText`（进入编辑前抓取）而非清空；`todolist.js` MD 导入弹层的「取消」与导入成功后都不再 `todoEditor.clear()`（重复导入有 title+date 去重兜底）。
+- **覆盖类**：会把历史/记录灌进输入框的入口先 `confirm()`——`index.html`/`fullpage.js`/`popup.js` 的 `loadHistory`、`english_learning.js` 的 `loadHistory`、`workreport.js` 的 `editRecord`。判定条件统一为「当前有非空内容 **且** 与目标内容不同」，相同则不打扰；取消即 return，绝不改动输入。
+- **焦点类（易被忽略的丢内容主因）**：中文输入法合成中若输入框失焦，未上屏内容会被浏览器直接丢弃。因此**输入框附近的按钮必须 `mousedown` 时 `preventDefault()`**，点击不抢焦点。已处理：`index.html`（内联 `onmousedown`）、`fullpage.js`、`popup.js`（JS 监听，MV3 禁内联）。
+- **允许的主动清空**：各页「清空 / 清空所有 / 清空全部 / 重置 / 删除 / 清除配置」按钮、附件 file input 复位、筛选条件清除。
+- **已知例外（待用户确认是否收紧）**：`todolist.js` `openTaskModal()` 每次打开「新建任务」弹层会重置标题/备注——属"新建一条"的常规语义；若要求也保留，改成不清字段即可（代价是易误建重复任务）。
+
+### 3.17 历史区域「勾选 → 导出 MD/HTML」统一模式（v0.45.0）
+
+8 处历史区域（智能翻译网页版 + 扩展全页、工作报告历史总结、英语学习、邮件总结、AI 解析、AI 提示词、微信工具发送历史、微信工具总结记录）统一为同一交互，新增历史区请照抄：
+
+- **UI**：区域标题行放 `<label class="hist-select-all"><input type="checkbox" id="xxxSelectAll">全选</div>` + 两个按钮「导出 MD」「导出 HTML」（class 沿用各页既有按钮样式：`history-clear` / `btn-select-all` / `btn-chip` / `btn-tool` / `btn-mini` / `el-btn-ghost`）；每条历史项首个子元素放 `<input type="checkbox" class="hist-check|history-check|sum-hist-check|el-history-check" data-index|data-id|data-sid="…">`。
+- **事件**：列表点击委托里**第一行**加 `if (e.target.closest('.hist-check')) return;`（否则勾选会触发"点击载入"）；重绘列表时把全选框复位为 `false`。
+- **导出**：读取 `:checked` → 映射回数据数组 → 每条渲染成 `## 标题（时间 · 语种 · 来源）` + 正文，条目间用 `\n\n---\n\n` 拼接；MD 用 `text/markdown;charset=utf-8`，HTML 用 `AiService.mdToHtml(md, 标题)`（微信工具页用其自带 `buildListHtmlReport`）。下载统一走 `AiService.downloadText`（微信工具页 `triggerDownload`、英语学习页 `downloadFile`）。
+- **数据源差异**：workreport/email/ai_prompts 的历史正文本身就是 Markdown（`content`/`result`/`md` 字段）直接拼；**AI 解析的 `mode:'parse'` 历史存的是 tasks 数组**，由 `taskListMarkdown()` 转成「优先级|任务|说明|标签|子步骤」表格；翻译历史由 `text`/`result` 组装；英语学习复用页面既有的 `generateMarkdown(items, date)` / `generateHTML(items, date)`（两者接受任意子集数组）。
+- ⚠️ 原先"一键导出全部为 JSON"的按钮已按需求删除（翻译历史 / 工作记录 / 英语学习 / 邮件总结），**不要恢复**；英语学习页原 `exportHistory` 因引用未声明的 `history` 实际导出的是空对象，属既有缺陷，已随之下线。
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.45.0 | **微信格式还原预览结构 + 8 处历史勾选导出 + 同步三断点 + 输入保护原则**：① `markdownToWechat` 重写（双副本）——表格转按显示宽度对齐、单元格列内折行的文本表格（`:---:` 生效，仅列数 >6 退回键值块）、标题全层级符号（`【】`/`■`/`▍`/`▸`）、多行引用转 `▎` 块并识别 `> [!warning]` 告警、ASCII 加粗转 Unicode 粗体（`isWide()` 须把 SMP 数学字母算窄，否则表格错位）、代码块缩进保留、收尾清理改为"表格/代码行只去行尾空格"。② 8 处历史区域统一「勾选 + 全选 + 导出 MD/HTML」（见 §3.17），移除原「导出全部 JSON」按钮（翻译历史/工作记录/英语学习/邮件总结）；AI 解析 parse 历史转任务表格 Markdown。③ 同步修复：manifest `content_scripts` 补 `all_frames: true`（index 内 7 个工具页是 iframe，此前内容脚本不注入 → 双向全断）、`onRecordSync` 网页分支匹配 `wr_`/`td_` 前缀键、index.html 顶层帧补 `record-sync` 订阅、英语学习扩展页启动引导改为以 chrome.storage 为权威（原会把旧副本推盖回云端）。④ 输入保护原则落地（见 §3.16）：保存/取消/导入不再清输入，载入历史前 confirm，输入框邻按钮 `mousedown` preventDefault（防输入法未上屏内容被丢），并补上扩展全页版/弹窗版**从未绑定**的 Markdown 预览按钮。⑤ 微信工具「AI 总结」按钮永久发灰修复（写死 `dim-50` + 读取失败不恢复禁用）。⑥ 翻译页输入区可 `resize: vertical`（须同时取消 flex 拉伸）；修两栏与分区线错位（`width:auto` 覆盖 theme.css 的 `width:100%`）；修 workreport `init()` 漏读 `work_summaries` 致历史总结刷新后恒空。验证：无头浏览器 44+13+19 项断言 + Node 单测，全绿 |
 | v0.44.0 | **同步覆盖审计 + 网页↔扩展记录互通补全**（系统性扫描 8 模块实际使用的 localStorage/chrome.storage 键 vs RECORD_SYNC_KEYS vs data-sync 收集范围）：缺口=① email_summary_draft（自动保存草稿）无反向 relay；② 微信工具 ws_api_base/ws_api_token/ws_risk_ack/ws_sum_lang/ws_contacts_cache 五键无任何跨端通道（扩展版 store.set 双写 chrome.storage ✓ 但映射表缺失，网页版 store.set 只写 file:// localStorage）。修复=record 同步映射表（background.js）与 content.js 启动预填清单各补 6 键（含 ws_api_token——本地双向一致，Drive 推送仍被 SECRET_DROP 剔除）；email_summary.js 草稿自动保存补 relayRecord；wechat_schedule.js store.set 网页分支补 `window.top` postMessage relay（数据入 chrome.storage）+ 双环境实时缓存刷新监听（扩展 onChanged / 网页 storage 事件更新 store.cache）。**Drive 同步确认**：data-sync.js 全量 localStorage/chrome.storage 收集 + SECRET_DROP 剔密已天然覆盖全部模块记录，无需改动 |
 | v0.43.0 | **修复英语学习页扩展环境下完全失效的真正根因：MV3 CSP 阻止内联脚本**——扩展版 english_learning.html 是全站唯一把全部逻辑写在内联 `<script>` 的模块页（其他页均为外部 JS），MV3 扩展页面默认 CSP `script-src 'self'` 直接阻止该脚本执行 → 配置加载/同步/单词学习/历史全部交互在扩展环境中静默死掉（页面渲染正常极具迷惑性）。修复：内联脚本（998 行）提取为外部 `english_learning.js`（根目录 + chrome_extension 双副本逐字一致，含 gfAsync 字体切换 prelude），html 改外部引用，字体行 `onload` 内联属性同步改 `id="gfAsync"`（CSP 同样阻止内联事件处理器）。v0.42.0 的 areaName 修复仍有效（onChanged 监听在外部 js 中正常注册）。**架构说明**：打破 v0.21.0"根版内联=ext js 逐字一致"约定，改为与 workreport 等页一致的外部 JS 架构。⑦ **连带修复：全站 `--green` 基础色变量缺失**（用户报告"保存配置/保存今天内容按钮无质感、浅色主题下不可见"）——theme.css 历史上只定义了 `--green-rgb` 与 alpha 变体，从未定义 `--green` 基础色；v0.38 修 Tailwind 色时引用 `var(--green)` 引入回归（按钮背景解析为 none，浅色主题下白字彻底隐形）。修复=9 主题块各补 `--green: rgb(var(--green-rgb))` 与缺失的 `--green-a12`/`--cyan-a12`（rgba 同源形式），ai-panel.css 的 `--white-a06`（未定义）→ `--white-a10`。**教训**：修"硬编码色→令牌"时必须先确认令牌存在（评审报告作者不知道项目里 --green 不存在）；系统性校验用"全量 var 引用 vs 已定义集合"比对 |
 | v0.42.0 | **修复 Chrome 114+ onChanged 签名变更导致的全站实时同步失效**（用户截图实证：popup 保存配置后英语学习页不填入）：Chrome 114 起 `chrome.storage.onChanged` 第二参数由 string `'local'` 改为 context 对象 `{areaName, incognito}`，全站 19 处 `area === 'local'` / `area !== 'local'` 判断在新版 Chrome 永远为 false/true → 所有实时监听静默失效（background 广播、content.js 中继、ai-service initConfigSync/onRecordSync、email/todolist/workreport/english_learning/index 各页监听全部中招）。此前"其他页面能同步"是假象——数据层 `loadConfig()` 每次请求实时读存储掩盖了 UI 层失效。修复=16 文件统一双签名兼容 `(area === 'local' \|\| (area && area.areaName === 'local'))`（!== 同理），单元验证旧 string/新 context 双模式 4 例全过。**教训**：涉及 Chrome API 的监听判断必须兼容两代签名 |
@@ -286,6 +314,10 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **`markdown.js`** → 根目录与 `chrome_extension/` 两份副本逐字节一致，新增/修改共享渲染或转换函数（`renderMarkdown` / `markdownEscapeHtml` / `markdownToWechat`）必须同步两份
 - **新增「微信格式」支持的页面** → 见 §3.11 的接入清单（按钮 + 区域 + `.wechat-*` 样式 + 三个 JS 函数模式），根目录与扩展副本同步
 - **剪贴板相关改动** → 勿在网页版直接调用 `navigator.clipboard.readText()`（`file://` 每次弹授权框），走 §3.11 的桥/降级路径
+- **同步相关改动（v0.45.0 起）** → ① 改 `manifest.json` 任何字段（含 `content_scripts.all_frames`、新增权限）都必须提醒用户在 `chrome://extensions` 重新加载，否则表现为"改了没生效"；② 新增带前缀存储键的页面（`wr_`/`td_`）时，`onRecordSync` 已按 `[key, 'wr_'+key, 'td_'+key]` 匹配，别再退回单键比较；③ **顶层帧（index.html）写 localStorage 不会触发本帧 storage 事件**，其自身数据要同步必须订阅 `record-sync` postMessage；④ 任何页面启动引导都**不得**把本地 localStorage 无条件推盖 chrome.storage（会用旧副本吃掉网页端新记录），一律以 chrome.storage 为权威、仅缺键时迁移
+- **输入框与其邻侧按钮** → 按钮点击默认会抢焦点，中文输入法**未上屏的合成内容会被浏览器丢弃**（表现为"一点按钮输入就没了"）。输入框附近的按钮统一加 `mousedown → preventDefault()`；HTML 内联属性仅限网页版，扩展页面必须用 `addEventListener`（MV3 CSP 禁内联处理器）
+- **新增/改动历史导出** → 按 §3.17 的清单接（复选框 + 全选 + 导出 MD/HTML + 列表点击委托首行守卫 + 重绘复位全选）；⚠️ 不要恢复已删除的"导出全部 JSON"按钮
+- **`markdownToWechat` 改动后** → 用含宽表格/多行引用/加粗中英混排/代码块的样例实测输出，重点看表格列是否对齐（Unicode 粗体的宽度归类最易出错）
 
 ### 5.3 测试脚本
 ```bash

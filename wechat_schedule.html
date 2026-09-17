@@ -117,6 +117,16 @@
 
     /* ---------- 任务列表 ---------- */
     .ws-list { display: flex; flex-direction: column; gap: 10px; }
+
+    /* ---------- 勾选导出控件（发送历史 / 总结记录） ---------- */
+    .hist-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .hist-select-all {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.78rem; color: var(--text-secondary);
+      cursor: pointer; user-select: none; white-space: nowrap;
+    }
+    .hist-select-all input { width: 14px; height: 14px; accent-color: var(--neon-cyan); cursor: pointer; margin: 0; }
+    .hist-check { flex-shrink: 0; width: 15px; height: 15px; accent-color: var(--neon-cyan); cursor: pointer; margin: 0 2px 0 0; }
     .ws-task {
       display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
       padding: 14px 16px; border-radius: 14px;
@@ -137,7 +147,7 @@
     /* ---------- 历史 ---------- */
     .ws-hist { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; }
     .ws-hist-row {
-      display: grid; grid-template-columns: 78px minmax(0, 1fr) 22px 26px;
+      display: grid; grid-template-columns: 18px 78px minmax(0, 1fr) 22px 26px;
       column-gap: 12px; row-gap: 2px; align-items: center;
       padding: 9px 14px; border-radius: 12px;
       background: var(--glass-bg); border: 1px solid var(--glass-border);
@@ -159,7 +169,7 @@
       opacity: .45; transition: var(--transition); justify-self: end;
     }
     .ws-hist-del:hover { opacity: 1; background: var(--red-a08); color: var(--red); }
-    .ws-hist-err { grid-column: 2 / -1; color: var(--red); font-size: 0.72rem; word-break: break-all; line-height: 1.5; }
+    .ws-hist-err { grid-column: 3 / -1; color: var(--red); font-size: 0.72rem; word-break: break-all; line-height: 1.5; }
     .ws-hist-tag { font-size: 0.66rem; font-weight: 700; border-radius: 6px; padding: 1px 6px; flex-shrink: 0; }
     .ws-hist-tag.catchup { background: color-mix(in srgb, var(--orange) 15%, transparent); color: var(--orange); }
     html[data-mode="dark"] .ws-hist-tag.catchup { color: color-mix(in srgb, var(--orange) 75%, #fff); }
@@ -596,7 +606,7 @@
       </div>
       <div class="ws-form-actions">
         <button class="btn-primary" id="wsReadBtn">读取聊天记录</button>
-        <button class="btn-primary dim-50" id="wsSumBtn" disabled>✨ AI 总结</button>
+        <button class="btn-primary" id="wsSumBtn">✨ AI 总结</button>
         <button class="btn-mini danger" id="wsClearSumBtn" style="display:none;" title="清除已加载的聊天记录与总结结果">清除</button>
         <span class="ws-form-hint" id="wsSumStats">读取需 PC 微信保持登录；首次读取约 20 秒（本地密钥提取）</span>
       </div>
@@ -636,7 +646,12 @@
       <div class="ws-divider"></div>
       <div class="panel-head panel-flush-10">
         <h2 class="panel-title fs-85">总结记录 <span class="count" id="wsSumCount"></span></h2>
-        <button class="btn-mini danger" id="wsSumClearBtn" style="display:none;">清空记录</button>
+        <div class="hist-actions">
+          <label class="hist-select-all" title="全选 / 取消全选"><input type="checkbox" id="wsSumSelectAll">全选</label>
+          <button class="btn-mini" id="wsSumExportMdBtn" title="导出勾选的总结记录为 Markdown 文件">导出 MD</button>
+          <button class="btn-mini" id="wsSumExportHtmlBtn" title="导出勾选的总结记录为 HTML 文件">导出 HTML</button>
+          <button class="btn-mini danger" id="wsSumClearBtn" style="display:none;">清空记录</button>
+        </div>
       </div>
       <div class="ws-list" id="wsSumList"><div class="ws-none">暂无总结记录</div></div>
     </section>
@@ -648,7 +663,12 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
           发送历史 <span class="count" id="wsHistCount">（最近 50 条）</span>
         </h2>
-        <button class="btn-mini danger" id="wsClearHistBtn" title="清空全部发送记录（不影响任务）">清空全部</button>
+        <div class="hist-actions">
+          <label class="hist-select-all" title="全选 / 取消全选"><input type="checkbox" id="wsHistSelectAll">全选</label>
+          <button class="btn-mini" id="wsHistExportMdBtn" title="导出勾选的发送历史为 Markdown 文件">导出 MD</button>
+          <button class="btn-mini" id="wsHistExportHtmlBtn" title="导出勾选的发送历史为 HTML 文件">导出 HTML</button>
+          <button class="btn-mini danger" id="wsClearHistBtn" title="清空全部发送记录（不影响任务）">清空全部</button>
+        </div>
       </div>
       <div class="ws-hist" id="wsHistList"><div class="ws-none">暂无记录</div></div>
     </section>

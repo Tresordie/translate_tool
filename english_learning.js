@@ -27,16 +27,24 @@
               if (chrome.runtime.lastError) return;
             });
 
-            // Copy existing localStorage data into chrome.storage for sync
+            // 同步引导：以 chrome.storage 为权威源。
+            // 远端已有值 → 拉回本页 localStorage（扩展页的本地副本可能是上次会话的
+            // 旧数据，反向覆盖会让网页端新记录"消失"）；远端没有 → 才把本地数据迁移上去。
             try {
               var keys = ['apiConfig', 'englishLearningData', 'learningHistory'];
-              keys.forEach(function(k) {
-                var val = window.localStorage.getItem(k);
-                if (val !== null) {
-                  var obj = {};
-                  obj[k] = val;
-                  chrome.storage.local.set(obj);
-                }
+              chrome.storage.local.get(keys, function (res) {
+                if (chrome.runtime.lastError) return;
+                var patch = {};
+                keys.forEach(function (k) {
+                  var remote = res ? res[k] : undefined;
+                  var localRaw = window.localStorage.getItem(k);
+                  if (remote === undefined || remote === null) {
+                    if (localRaw !== null) { try { patch[k] = JSON.parse(localRaw); } catch (e) {} }
+                  } else {
+                    try { window.localStorage.setItem(k, typeof remote === 'string' ? remote : JSON.stringify(remote)); } catch (e) {}
+                  }
+                });
+                if (Object.keys(patch).length) chrome.storage.local.set(patch);
               });
             } catch(e) {}
 
@@ -65,6 +73,9 @@
           placeholder: '输入英文单词/短语或中文，例如: apple / 苹果 / hello world',
           onInput: updateMdPreview
         });
+
+        // 当前展示结果对应的 Markdown 原文（结果区复制 / 微信格式转换用）
+        let currentResultMd = '';
 
         // ===== MdEditor helpers =====
         let _mdPreviewOpen = false;
@@ -397,7 +408,8 @@
             const data = {
                 wordInput: wordEditor.getMarkdown(),
                 resultContent: document.getElementById('resultContent').innerHTML,
-                resultSectionVisible: document.getElementById('resultSection').style.display !== 'none'
+                resultSectionVisible: document.getElementById('resultSection').style.display !== 'none',
+                resultMarkdown: currentResultMd
             };
             localStorage.setItem('englishLearningData', JSON.stringify(data));
             elRelayRecord('englishLearningData', data);
@@ -408,6 +420,7 @@
             try { data = JSON.parse(localStorage.getItem('englishLearningData')); } catch(e) { data = null; }
             if (data) {
                 wordEditor.setMarkdown(data.wordInput || '');
+                currentResultMd = data.resultMarkdown || '';
                 if (data.resultSectionVisible && data.resultContent) {
                     document.getElementById('resultContent').innerHTML = data.resultContent;
                     document.getElementById('resultSection').style.display = 'block';
@@ -465,8 +478,11 @@
                 return;
             }
 
+            const selAllBox = document.getElementById('historySelectAll');
+            if (selAllBox) selAllBox.checked = false;
             historyList.innerHTML = history.map((item, index) => `
                 <div class="el-history-item" data-index="${index}">
+                    <input type="checkbox" class="el-history-check" data-index="${index}" title="勾选后可导出选中项">
                     <div style="flex: 1;">
                         <div class="el-history-word">${escapeHtml(item.label || item.word)}</div>
                         <div class="el-history-time">${new Date(item.timestamp).toLocaleString('zh-CN')}</div>
@@ -494,9 +510,13 @@
         function loadHistory(index) {
             const history = getHistory();
             const item = history[index];
+            // 载入历史会替换输入框：有内容时先确认，避免误丢用户输入的内容
+            const cur = wordEditor.getMarkdown();
+            if (cur.trim() && cur !== item.word && !confirm('输入框中还有内容，载入这条历史会替换它。确定继续吗？')) return;
             wordEditor.setMarkdown(item.word);
             const parsed = parseHistoryItem(item);
             if (parsed.fallback !== undefined) {
+                currentResultMd = parsed.fallback;
                 document.getElementById('resultContent').innerHTML = `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--el-accent);stroke-width:1.5;fill:none"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 学习结果</div><div class="md-rendered">${renderMarkdown(parsed.fallback)}</div></div>`;
             } else {
                 displayResult(parsed.result);
@@ -607,6 +627,7 @@
                         : (words.length ? ((words[0] && words[0].word ? words[0].word : '词汇') + ' 等 ' + words.length + ' 词') : word);
                     saveHistory({ word: word, label: label, content: JSON.stringify(result), timestamp: new Date().toISOString() });
                 } else {
+                    currentResultMd = content;
                     document.getElementById('resultContent').innerHTML = `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--el-accent);stroke-width:1.5;fill:none"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 学习结果</div><div class="md-rendered">${renderMarkdown(content)}</div></div>`;
                     document.getElementById('resultSection').style.display = 'block';
                     saveHistory({ word, content: JSON.stringify({ fallback: content }), timestamp: new Date().toISOString() });
@@ -623,6 +644,7 @@
 
         function displayResult(result) {
             // 材料模式：{translation, words:[...]} → 全文翻译卡 + 逐词卡片；单词模式：单对象
+            currentResultMd = resultToMarkdown(result);
             const isPassageResult = result && !Array.isArray(result) && Array.isArray(result.words);
             const translation = isPassageResult && result.translation ? `
                 <div class="el-result-card">
@@ -779,6 +801,79 @@
             }, 10000);
         }
 
+        // 把当前展示的学习结果转回 Markdown 原文（结构与 generateMarkdown 的词条正文一致）
+        function resultToMarkdown(result) {
+            const isPassage = result && !Array.isArray(result) && Array.isArray(result.words);
+            const items = isPassage ? result.words : (Array.isArray(result) ? result : [result]);
+            let md = '';
+            if (isPassage && result.translation) md += `## 📄 全文翻译\n\n${result.translation}\n\n`;
+            if (isPassage) md += `## 📖 词汇讲解\n\n从材料中提取了 **${items.length}** 个较难词汇（按重要性排序）\n\n`;
+            items.forEach((w, wi) => {
+                if (items.length > 1) md += `### ${wi + 1}. ${w.word || ''}\n\n`;
+                md += `| 项目 | 内容 |\n|------|------|\n`;
+                if (w.phonetic_uk) md += `| 🔊 英式音标 | ${w.phonetic_uk} |\n`;
+                if (w.phonetic_us) md += `| 🔊 美式音标 | ${w.phonetic_us} |\n`;
+                if (w.part_of_speech) md += `| 🏷️ 词性 | ${w.part_of_speech} |\n`;
+                md += `\n`;
+                if (w.chinese_meaning) md += `**🇨 中文释义**: ${w.chinese_meaning}\n\n`;
+                if (w.english_definition) md += `**🇬🇧 英文释义**: ${w.english_definition}\n\n`;
+                if (w.usage) md += `### 💡 用法说明\n\n${w.usage}\n\n`;
+                if (w.examples && w.examples.length) {
+                    md += `### 📚 经典例句\n\n`;
+                    w.examples.forEach((ex, i) => {
+                        md += `${i + 1}. **${ex.en || ''}**\n\n   > ${ex.zh || ''}\n\n`;
+                    });
+                }
+                if (w.synonyms && w.synonyms.length) {
+                    md += `### 🔄 同义词\n\n`;
+                    w.synonyms.forEach(s => { md += `- ${s}\n`; });
+                    md += `\n`;
+                }
+                if (w.antonyms && w.antonyms.length) {
+                    md += `### ⚡ 反义词\n\n`;
+                    w.antonyms.forEach(a => { md += `- ${a}\n`; });
+                    md += `\n`;
+                }
+                if (w.memory_tip) md += `### 🧠 记忆技巧\n\n> 💭 ${w.memory_tip}\n\n`;
+            });
+            return md.trim();
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+        }
+
+        function copyText(text, okMsg) {
+            if (!text || !text.trim()) { showError('内容为空，没有可复制的内容'); return; }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => showSuccess(okMsg))
+                    .catch(() => { fallbackCopy(text); showSuccess(okMsg); });
+            } else {
+                fallbackCopy(text);
+                showSuccess(okMsg);
+            }
+        }
+
+        // 微信格式预览区开关：首次点开转换并展示，再次点击收起
+        function toggleWechatSection(sectionId, resultId, md) {
+            const sec = document.getElementById(sectionId);
+            if (!md || !md.trim()) { showError('内容为空，请先输入或生成学习内容'); return; }
+            if (sec.style.display === 'none') {
+                document.getElementById(resultId).textContent = markdownToWechat(md);
+                sec.style.display = 'block';
+                showSuccess('已转换为微信格式，可直接复制粘贴到微信发送');
+            } else {
+                sec.style.display = 'none';
+            }
+        }
+
         function generateMarkdown(history, date) {
             let md = `# 📚 英语学习笔记\n\n`;
             md += `---\n\n`;
@@ -916,9 +1011,10 @@
 
         function clearAll() {
             wordEditor.clear();
+            currentResultMd = '';
             document.getElementById('resultContent').innerHTML = '';
             document.getElementById('resultSection').style.display = 'none';
-            const data = { wordInput: '', resultContent: '', resultSectionVisible: false };
+            const data = { wordInput: '', resultContent: '', resultSectionVisible: false, resultMarkdown: '' };
             localStorage.setItem('englishLearningData', JSON.stringify(data));
             elRelayRecord('englishLearningData', data);
             hideError();
@@ -968,12 +1064,34 @@
             bind('stopSpeakingBtn', stopSpeaking);
             bind('speakSlowlyBtn', speakSlowly);
             bind('clearAllHistoryBtn', clearAllHistory);
-            bind('exportHistoryBtn', exportHistory);
-            function exportHistory() {
-                if (!history.length) return;
-                const fname = 'ai-toolbox-english-history-' + new Date().toISOString().slice(0, 10) + '.json';
-                if (window.AiService && window.AiService.downloadText) AiService.downloadText(fname, JSON.stringify({ history: history }, null, 2), 'application/json');
+            bind('exportHistoryMdBtn', function() { exportSelectedHistory('md'); });
+            bind('exportHistoryHtmlBtn', function() { exportSelectedHistory('html'); });
+            bind('historySelectAll', function() {
+                const on = this.checked;
+                document.querySelectorAll('#historyList .el-history-check').forEach(c => { c.checked = on; });
+            });
+            function exportSelectedHistory(format) {
+                const indexes = Array.prototype.slice.call(document.querySelectorAll('#historyList .el-history-check:checked'))
+                    .map(c => parseInt(c.getAttribute('data-index'), 10));
+                const all = getHistory();
+                const selected = indexes.map(i => all[i]).filter(Boolean);
+                if (!selected.length) { showError('请先勾选要导出的学习历史'); return; }
+                const now = new Date();
+                const utc8 = getUTC8Time(now);
+                if (format === 'html') {
+                    downloadFile(utc8.timestamp + '-英语学习笔记.html', generateHTML(selected, now), 'text/html');
+                } else {
+                    downloadFile(utc8.timestamp + '-英语学习笔记.md', generateMarkdown(selected, now), 'text/markdown');
+                }
+                showSuccess('已导出 ' + selected.length + ' 条学习历史（' + format.toUpperCase() + '）');
             }
+            // 复制 / 微信格式（学习内容输入区 + 学习结果区）
+            bind('copyInputBtn', function() { copyText(wordEditor.getMarkdown(), '学习内容已复制到剪贴板'); });
+            bind('inputWechatBtn', function() { toggleWechatSection('inputWechatSection', 'inputWechatResult', wordEditor.getMarkdown()); });
+            bind('copyInputWechatBtn', function() { copyText(document.getElementById('inputWechatResult').textContent, '微信格式已复制，可粘贴到微信发送'); });
+            bind('copyResultBtn', function() { copyText(currentResultMd, '学习结果已复制到剪贴板'); });
+            bind('resultWechatBtn', function() { toggleWechatSection('resultWechatSection', 'resultWechatResult', currentResultMd); });
+            bind('copyResultWechatBtn', function() { copyText(document.getElementById('resultWechatResult').textContent, '微信格式已复制，可粘贴到微信发送'); });
 
             // 记录跨端实时同步（v0.25.0）：他端写入时刷新历史列表
             if (window.AiService && typeof window.AiService.onRecordSync === 'function') {
@@ -984,6 +1102,7 @@
 
         // History event delegation (CSP compliant)
         document.getElementById('historyList').addEventListener('click', function(e) {
+            if (e.target.closest('.el-history-check')) return; // 勾选不触发载入
             var delBtn = e.target.closest('[data-del-index]');
             if (delBtn) {
                 e.stopPropagation();

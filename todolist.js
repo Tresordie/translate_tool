@@ -524,7 +524,6 @@ function importMarkdown() {
   else {
     if (todos.length > 500) todos = todos.slice(0, 500);
     saveTodos();
-    if (todoEditor) todoEditor.clear();
     closeOverlay($('mdModalOverlay'));
     closeMdPreview();
     renderBoard();
@@ -869,7 +868,7 @@ function init() {
   // MD 导入弹层
   bind('mdModalClose', 'click', function() { closeOverlay($('mdModalOverlay')); });
   bind('btnMdImport', 'click', importMarkdown);
-  bind('btnMdCancel', 'click', function() { closeOverlay($('mdModalOverlay')); if (todoEditor) todoEditor.clear(); closeMdPreview(); });
+  bind('btnMdCancel', 'click', function() { closeOverlay($('mdModalOverlay')); closeMdPreview(); }); // 取消只关弹层，保留已输入内容（仅用户主动删除才清空）
   bind('previewToggleBtn', 'click', toggleMdPreview);
   bind('mdPreviewClose', 'click', closeMdPreview);
 

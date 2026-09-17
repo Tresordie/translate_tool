@@ -276,19 +276,21 @@
     var p = state.editingId ? api('PUT', '/api/tasks/' + state.editingId, body) : api('POST', '/api/tasks', body);
     p.then(function () {
       showToast(state.editingId ? '任务已更新' : '任务已创建', 'success');
-      resetForm();
+      resetForm(false); // 保存属于「其它操作」：只退出编辑态，不清除用户已输入的内容
       refreshTasks(); refreshStatus();
     }).catch(function (e) { showToast('保存失败：' + apiFail(e), 'error'); });
   }
 
-  function resetForm() {
+  function resetForm(clearFields) {
     state.editingId = null; state.receiver = null;
-    els.name.value = ''; els.receiver.value = ''; els.content.value = ''; els.files.value = '';
+    if (clearFields !== false) {
+      els.name.value = ''; els.receiver.value = ''; els.content.value = ''; els.files.value = '';
+      els.onceAt.value = '';
+    }
     els.formTitle.textContent = '新建定时任务';
     els.resetBtn.style.display = 'none';
     els.saveTaskBtn.textContent = '＋ 保存任务';
     setType('daily');
-    els.onceAt.value = '';
   }
 
   function editTask(t) {
@@ -383,6 +385,9 @@
 
   // ===== 历史渲染 =====
   function renderHistory(entries) {
+    els.histList._items = entries || [];
+    var selAll = document.getElementById('wsHistSelectAll');
+    if (selAll) selAll.checked = false;
     if (!entries.length) { els.histList.innerHTML = '<div class="ws-none">暂无记录</div>'; return; }
     els.histList.innerHTML = entries.map(function (e) {
       var badges =
@@ -393,6 +398,7 @@
       var body = (e.content || '').replace(/\n/g, ' ');
       if (e.skipped) body = e.error || body;
       return '<div class="ws-hist-row" data-id="' + esc(e.id || '') + '">' +
+        '<input type="checkbox" class="hist-check" data-id="' + esc(e.id || '') + '" title="勾选后可导出选中项">' +
         '<span class="ws-hist-time">' + esc(fmtTime(e.time)) + '</span>' +
         '<span class="ws-hist-main">' +
           '<span class="ws-hist-line1"><span class="ws-hist-task">' + esc(e.task_name) + '</span>' + badges +
@@ -406,7 +412,7 @@
     }).join('');
   }
 
-  // 历史行内删除（事件委托）+ 清空全部
+  // 历史行内删除（事件委托）+ 清空全部 + 勾选导出
   function bindHistoryActions() {
     els.histList.addEventListener('click', function (ev) {
       var btn = ev.target.closest ? ev.target.closest('.ws-hist-del') : null;
@@ -426,6 +432,7 @@
         refreshHistory();
       }).catch(function (e) { showToast(apiFail(e), 'error'); });
     });
+    bindSelectExport('wsHistSelectAll', els.histList, '#wsHistExportMdBtn', '#wsHistExportHtmlBtn', 'hist');
   }
 
   // ===== 连接区交互 =====
@@ -522,8 +529,6 @@
     els.sumResultWrap.style.display = 'none';
     resetWechatSection();
     els.sumStats.textContent = SUM_STATS_HINT;
-    els.sumBtn.disabled = true;
-    els.sumBtn.style.opacity = '.5';
     els.clearSumBtn.style.display = 'none';
   }
 
@@ -534,7 +539,7 @@
     var r = computeRange();
     if (!r) return;
     els.readBtn.disabled = true;
-    els.sumBtn.disabled = true; els.sumBtn.style.opacity = '.5';
+    els.sumBtn.disabled = true; // 读取过程中禁用（真实忙碌态），结束后在 finally 统一恢复
     els.sumStats.textContent = '读取中…（首次约 20 秒，需微信保持登录）';
     var q = '?target=' + encodeURIComponent(target) + '&start=' + encodeURIComponent(r.start) + (r.end ? '&end=' + encodeURIComponent(r.end) : '');
     api('GET', '/api/messages' + q).then(function (d) {
@@ -553,16 +558,16 @@
     els.preview.textContent = lines.slice(0, 80).join('\n') + (lines.length > 80 ? '\n…（预览截断，AI 总结将使用全部 ' + lines.length + ' 条）' : '');
     els.previewWrap.classList.add('open');
     els.sumStats.textContent = '命中 ' + sum.messages.length + ' 条（扫描 ' + d.scanned + '）· ' + sum.display + ' · ' + sum.window;
-    els.sumBtn.disabled = false; els.sumBtn.style.opacity = '';
     els.clearSumBtn.style.display = '';
     }).catch(function (e) {
       els.sumStats.textContent = '';
       showToast('读取失败：' + apiFail(e), 'error');
-    }).finally(function () { els.readBtn.disabled = false; });
+    }).finally(function () { els.readBtn.disabled = false; els.sumBtn.disabled = false; });
   }
 
   function aiSummarize() {
     if (!window.AiService || typeof window.AiService.chat !== 'function') { showToast('AI 服务未加载', 'error'); return; }
+    if (!sum.messages.length) { showToast('请先读取聊天记录，再进行 AI 总结', 'error'); return; }
     var cfg = typeof AiService.getConfig === 'function' ? AiService.getConfig() : {};
     if (!cfg.baseUrl || !cfg.apiKey || !cfg.model) { openAiCard(true); showToast('请先配置大模型接口', 'error'); return; }
     els.sumBtn.disabled = true; els.sumBtn.textContent = '⏳ 总结中…';
@@ -588,7 +593,7 @@
     }).catch(function (e) {
       showToast('总结失败：' + (e && e.message || e), 'error');
     }).finally(function () {
-      els.sumBtn.disabled = false; els.sumBtn.textContent = '✨ AI 总结'; els.sumBtn.style.opacity = '';
+      els.sumBtn.disabled = false; els.sumBtn.textContent = '✨ AI 总结';
     });
   }
 
@@ -598,10 +603,15 @@
       var items = d.items || [];
       els.sumCount.textContent = items.length ? '（' + items.length + '）' : '';
       els.sumClearBtn.style.display = items.length ? '' : 'none';
+      els.sumList._items = items;
+      var selAll = document.getElementById('wsSumSelectAll');
+      if (selAll) selAll.checked = false;
       if (!items.length) { els.sumList.innerHTML = '<div class="ws-none">暂无总结记录</div>'; return; }
       els.sumList.innerHTML = items.map(function (it) {
         return '<div class="ws-sum-item" data-id="' + esc(it.id) + '">' +
-          '<div class="ws-sum-head"><span>' + esc(String(it.created_at || '').replace('T', ' ')) + '</span>' +
+          '<div class="ws-sum-head">' +
+            '<input type="checkbox" class="hist-check" data-id="' + esc(it.id) + '" title="勾选后可导出选中项">' +
+            '<span>' + esc(String(it.created_at || '').replace('T', ' ')) + '</span>' +
             '<b>' + esc(it.display) + '</b>' +
             '<span class="ws-sum-meta">' + esc(it.window || '') + ' · ' + (it.count || 0) + ' 条</span>' +
             '<span style="margin-left:auto;display:flex;gap:8px;align-items:center;">' +
@@ -615,6 +625,7 @@
   }
   function bindSummaryList() {
     els.sumList.addEventListener('click', function (ev) {
+      if (ev.target.closest && ev.target.closest('.hist-check')) return; // 勾选不触发展开
       var item = ev.target.closest('.ws-sum-item');
       if (!item) return;
       var del = ev.target.closest('.act-sdel');
@@ -639,6 +650,82 @@
       api('DELETE', '/api/summaries').then(function () { showToast('已清空', 'success'); refreshSummaries(); })
         .catch(function (e) { showToast(apiFail(e), 'error'); });
     });
+    bindSelectExport('wsSumSelectAll', els.sumList, '#wsSumExportMdBtn', '#wsSumExportHtmlBtn', 'sum');
+  }
+
+  // ===== 勾选导出（发送历史 / 总结记录）→ Markdown / HTML（v0.45.0） =====
+  function bindSelectExport(allId, listEl, mdBtnSel, htmlBtnSel, kind) {
+    var all = document.getElementById(allId);
+    if (all) all.addEventListener('change', function () {
+      Array.prototype.forEach.call(listEl.querySelectorAll('.hist-check'), function (c) { c.checked = all.checked; });
+    });
+    var mdBtn = document.querySelector(mdBtnSel);
+    if (mdBtn) mdBtn.addEventListener('click', function () { exportSelectedWechat(kind, 'md'); });
+    var htmlBtn = document.querySelector(htmlBtnSel);
+    if (htmlBtn) htmlBtn.addEventListener('click', function () { exportSelectedWechat(kind, 'html'); });
+  }
+
+  function pickedItems(listEl) {
+    var items = listEl._items || [];
+    var ids = Array.prototype.slice.call(listEl.querySelectorAll('.hist-check:checked'))
+      .map(function (c) { return c.getAttribute('data-id'); });
+    return items.filter(function (x) { return ids.indexOf(x.id) !== -1; });
+  }
+
+  function historyEntriesMarkdown(items) {
+    return items.map(function (e) {
+      var state = e.ok ? '已发送' : (e.skipped ? '已放弃' : '发送失败');
+      var head = [fmtTime(e.time), e.task_name, e.receiver_name ? '→ ' + e.receiver_name : '', state]
+        .filter(Boolean).join(' · ');
+      var md = '## ' + head + '\n\n' + (e.content || e.error || '(无内容)') + '\n';
+      if (!e.ok && e.error && e.content) md += '\n_错误：' + e.error + '_\n';
+      return md;
+    }).join('\n---\n\n');
+  }
+
+  function summariesMarkdown(items) {
+    return items.map(function (it) {
+      var head = [String(it.created_at || '').replace('T', ' '), it.display, it.window, (it.count || 0) + ' 条']
+        .filter(Boolean).join(' · ');
+      return '## ' + head + '\n\n' + (it.result || '');
+    }).join('\n\n---\n\n');
+  }
+
+  function buildListHtmlReport(title, md) {
+    var body = window.renderMarkdown ? renderMarkdown(md) : '<pre>' + esc(md) + '</pre>';
+    return '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8"/>\n'
+      + '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>\n'
+      + '<title>' + esc(title) + '</title>\n'
+      + '<style>\n'
+      + '  body{font-family:Inter,"Noto Sans SC",-apple-system,sans-serif;background:#f6f8f7;color:#1f2d27;'
+      + '  padding:40px 24px;max-width:900px;margin:0 auto;line-height:1.8;font-size:15px;}\n'
+      + '  h1{font-size:1.5rem;color:#17a34a;border-bottom:2px solid #cde5d8;padding-bottom:10px;margin:26px 0 14px;}\n'
+      + '  h2{font-size:1.2rem;color:#178a41;margin:26px 0 12px;}\n'
+      + '  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.88rem;background:#fff;}\n'
+      + '  th,td{border:1px solid #d5e3da;padding:8px 12px;text-align:left;}\n'
+      + '  th{background:#e7f3ec;color:#17603a;}\n'
+      + '  blockquote{border-left:3px solid #17a34a;margin:10px 0;padding:4px 14px;color:#5f7a70;background:#eef6f1;}\n'
+      + '  code{background:#e7f3ec;padding:2px 6px;border-radius:5px;font-size:0.88em;}\n'
+      + '  hr{border:none;border-top:1px solid #d5e3da;margin:22px 0;}\n'
+      + '  @media print{body{background:#fff;padding:0;}}\n'
+      + '</style>\n</head>\n<body>\n<h1>' + esc(title) + '</h1>\n'
+      + body + '\n</body>\n</html>';
+  }
+
+  function exportSelectedWechat(kind, format) {
+    var listEl = kind === 'hist' ? els.histList : els.sumList;
+    var picked = pickedItems(listEl);
+    if (!picked.length) { showToast('请先勾选要导出的记录', 'error'); return; }
+    var isHist = kind === 'hist';
+    var title = isHist ? '微信发送历史' : '微信总结记录';
+    var md = isHist ? historyEntriesMarkdown(picked) : summariesMarkdown(picked);
+    var name = 'wx-' + (isHist ? 'send-history' : 'summaries') + '-' + stampNow();
+    if (format === 'html') {
+      triggerDownload(buildListHtmlReport(title, md), name + '.html', 'text/html;charset=utf-8');
+    } else {
+      triggerDownload(md, name + '.md', 'text/markdown;charset=utf-8');
+    }
+    showToast('已导出 ' + picked.length + ' 条' + (isHist ? '发送记录' : '总结记录'), 'success');
   }
 
   // ---- 大模型接口卡（AiService 共享配置，模式同 AI 解析）----
@@ -910,7 +997,7 @@
       els.receiver.addEventListener('input', function () { state.receiver = null; renderSuggest(els.receiver.value); });
       els.receiver.addEventListener('blur', function () { setTimeout(function () { els.suggest.classList.remove('open'); }, 150); });
       els.saveTaskBtn.addEventListener('click', saveTask);
-      els.resetBtn.addEventListener('click', resetForm);
+      els.resetBtn.addEventListener('click', function () { resetForm(true); });
       bindHistoryActions();
 
       // 聊天记录总结

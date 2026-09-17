@@ -253,6 +253,33 @@
     }
     .btn-danger:hover { background: rgba(220,80,80,0.16); }
 
+    /* 总结历史：勾选导出控件 */
+    .hist-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .hist-select-all {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.78rem; color: var(--text-secondary);
+      cursor: pointer; user-select: none; white-space: nowrap;
+    }
+    .hist-select-all input { width: 14px; height: 14px; accent-color: var(--neon-cyan); cursor: pointer; margin: 0; }
+    .btn-chip {
+      padding: 6px 12px;
+      border-radius: 9px;
+      border: 1px solid var(--primary-a15);
+      background: var(--primary-a08);
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .btn-chip:hover { border-color: var(--neon-cyan); color: var(--text); }
+    .history-check {
+      flex-shrink: 0; width: 16px; height: 16px;
+      accent-color: var(--neon-cyan); cursor: pointer;
+      margin: 0 4px 0 0; align-self: flex-start; margin-top: 2px;
+    }
+
     .records-list { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; }
     .history-item {
       display: flex;
@@ -547,11 +574,15 @@
               总结历史
               <span class="records-count" id="historyCount">0 条</span>
             </div>
-            <button id="exportHistoryBtn" title="导出全部总结历史为 JSON 文件" style="margin-right:8px;padding:6px 10px;cursor:pointer;background:transparent;border:1px solid var(--glass-border);border-radius:6px;color:var(--text-secondary);font-size:12px;">⬇ 导出</button>
-            <button class="btn-danger" id="clearAllBtn" title="清空全部总结">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-              清空全部
-            </button>
+            <div class="hist-actions">
+              <label class="hist-select-all" title="全选 / 取消全选"><input type="checkbox" id="historySelectAll">全选</label>
+              <button class="btn-chip" id="exportHistoryMdBtn" title="导出勾选的总结为 Markdown 文件">导出 MD</button>
+              <button class="btn-chip" id="exportHistoryHtmlBtn" title="导出勾选的总结为 HTML 文件">导出 HTML</button>
+              <button class="btn-danger" id="clearAllBtn" title="清空全部总结">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                清空全部
+              </button>
+            </div>
           </div>
           <div class="records-list" id="historyList">
             <div class="records-empty">暂无总结历史，生成总结后自动保存，可点击查看 / 编辑 / 下载</div>

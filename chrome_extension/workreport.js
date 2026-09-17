@@ -87,6 +87,7 @@
   let records = [];
   let summaries = [];
   var editingRecordId = null;
+  var _preEditText = ''; // 进入编辑前的输入内容，取消编辑时原样恢复
   var selectedRecordIds = [];
   var workEditor = null;
   let currentFilter = { dateFrom: '', dateTo: '', timeFrom: '', timeTo: '' };
@@ -198,10 +199,9 @@
         records.unshift(updated);
       }
       storage.set({ work_records: records }).then(() => {
-        workEditor.clear();
-        storage.remove(['work_draft']);
-        $('draftHint').textContent = '输入内容自动保存草稿';
+        // 保存后保留输入内容（只有用户主动「清空」才清除）
         editingRecordId = null;
+        _preEditText = '';
         updateSaveBtnLabel();
         renderRecords();
         showToast('记录已更新', 'success');
@@ -226,9 +226,7 @@
     if (records.length > 200) records = records.slice(0, 200);
 
     storage.set({ work_records: records }).then(() => {
-      workEditor.clear();
-      storage.remove(['work_draft']);
-      $('draftHint').textContent = '输入内容自动保存草稿';
+      // 保存后保留输入内容（只有用户主动「清空」才清除）
       renderRecords();
       showToast('记录已保存 — ' + formatDateTime(now), 'success');
     }).catch(function(e) {
@@ -242,6 +240,12 @@
   function editRecord(id) {
     for (var i = 0; i < records.length; i++) {
       if (records[i].id === id) {
+        var cur = workEditor ? workEditor.getMarkdown() : '';
+        // 载入记录会替换输入框：有未删除的输入时先确认，避免误丢
+        if (!editingRecordId && cur.trim() && cur !== records[i].content) {
+          if (!confirm('输入框中还有内容，编辑该记录会替换它。确定继续吗？')) return;
+        }
+        if (!editingRecordId) _preEditText = cur;
         if (workEditor) workEditor.setMarkdown(records[i].content);
         editingRecordId = id;
         updateSaveBtnLabel();
@@ -255,9 +259,10 @@
   // ===== Cancel Edit =====
   function cancelEdit() {
     editingRecordId = null;
-    if (workEditor) workEditor.clear();
-    storage.remove(['work_draft']);
-    $('draftHint').textContent = '输入内容自动保存草稿';
+    // 取消编辑只退出编辑态，不删除用户输入：恢复进入编辑前的内容
+    if (workEditor) workEditor.setMarkdown(_preEditText || '');
+    _preEditText = '';
+    saveDraft();
     updateSaveBtnLabel();
   }
 
@@ -879,12 +884,15 @@
     var countEl = $('summaryHistoryCount');
     if (!list) return;
     if (countEl) countEl.textContent = summaries.length + ' 条';
+    var selAllBox = $('summarySelectAll');
+    if (selAllBox) selAllBox.checked = false;
     if (summaries.length === 0) {
       list.innerHTML = '<div class="records-empty">暂无总结历史，生成总结后自动保存</div>';
       return;
     }
     list.innerHTML = summaries.map(function(s) {
       return '<div class="record-item summary-history-item" data-sid="' + s.id + '">'
+        + '<input type="checkbox" class="record-checkbox sum-hist-check" data-sid="' + s.id + '" title="勾选后可导出选中项">'
         + '<div class="record-time">'
         + '<div class="record-date">' + escapeHtml(s.date) + '</div>'
         + '<div class="record-clock">' + escapeHtml(s.time) + '</div>'
@@ -905,7 +913,7 @@
     // Click to load
     list.querySelectorAll('.summary-history-item').forEach(function(item) {
       item.addEventListener('click', function(e) {
-        if (e.target.closest('.record-delete')) return;
+        if (e.target.closest('.record-delete') || e.target.closest('.sum-hist-check')) return;
         var sid = item.dataset.sid;
         var sm = summaries.find(function(s) { return s.id === sid; });
         if (sm) {
@@ -931,6 +939,35 @@
         if (item) deleteSummaryItem(item.dataset.sid);
       });
     });
+  }
+
+  // ===== 历史总结：勾选后导出为 Markdown / HTML（v0.45.0） =====
+  function selectedSummaries() {
+    var ids = [];
+    document.querySelectorAll('#summaryHistoryList .sum-hist-check:checked').forEach(function(c) {
+      ids.push(c.dataset.sid);
+    });
+    return summaries.filter(function(s) { return ids.indexOf(s.id) !== -1; });
+  }
+
+  function summaryItemMarkdown(s) {
+    var head = [s.date, s.time, s.dateRange, LANG_NAMES[s.outputLang] || s.outputLang]
+      .filter(Boolean).join(' · ');
+    return '## ' + head + '\n\n' + (s.content || '');
+  }
+
+  function exportSelectedSummaries(format) {
+    var items = selectedSummaries();
+    if (!items.length) { showToast('请先勾选要导出的总结', 'error'); return; }
+    if (!window.AiService || !AiService.downloadText) { showToast('导出功能不可用', 'error'); return; }
+    var md = items.map(summaryItemMarkdown).join('\n\n---\n\n');
+    var stamp = new Date().toISOString().slice(0, 10);
+    if (format === 'html') {
+      AiService.downloadText('ai-toolbox-work-summaries-' + stamp + '.html', AiService.mdToHtml(md, '工作报告总结'), 'text/html;charset=utf-8');
+    } else {
+      AiService.downloadText('ai-toolbox-work-summaries-' + stamp + '.md', md, 'text/markdown;charset=utf-8');
+    }
+    showToast('已导出 ' + items.length + ' 条总结', 'success');
   }
 
   // ===== Event Bindings (synchronous — bound immediately, before init) =====
@@ -963,13 +1000,15 @@
     // Clear all buttons
     btn = $('clearAllRecordsBtn');
     if (btn) btn.addEventListener('click', clearAllRecords);
-    btn = $('exportRecordsBtn');
-    if (btn) btn.addEventListener('click', function () {
-      if (!records.length && !summaries.length) return;
-      const payload = { records: records, summaries: summaries, exportedAt: new Date().toISOString() };
-      const fname = 'ai-toolbox-workreport-records-' + new Date().toISOString().slice(0, 10) + '.json';
-      if (window.AiService && window.AiService.downloadText) AiService.downloadText(fname, JSON.stringify(payload, null, 2), 'application/json');
+    btn = $('summarySelectAll');
+    if (btn) btn.addEventListener('change', function () {
+      var on = this.checked;
+      document.querySelectorAll('#summaryHistoryList .sum-hist-check').forEach(function (c) { c.checked = on; });
     });
+    btn = $('exportSummaryMdBtn');
+    if (btn) btn.addEventListener('click', function () { exportSelectedSummaries('md'); });
+    btn = $('exportSummaryHtmlBtn');
+    if (btn) btn.addEventListener('click', function () { exportSelectedSummaries('html'); });
 
     // 记录跨端实时同步（v0.25.0）：他端写入时刷新列表
     if (window.AiService && window.AiService.onRecordSync) {
@@ -1073,7 +1112,7 @@
 
   // ===== Init =====
   async function init() {
-    const data = await storage.get(['work_config', 'work_records', 'work_draft', 'work_summary_config']);
+    const data = await storage.get(['work_config', 'work_records', 'work_draft', 'work_summary_config', 'work_summaries']);
 
     // Load config — first try work-specific config, then fall back to translate config
     let savedConfig = data.work_config;

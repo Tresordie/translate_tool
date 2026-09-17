@@ -323,8 +323,11 @@ function renderHistory() {
   if (history.length === 0) { card.classList.remove('visible'); return; }
 
   card.classList.add('visible');
+  const selAll = document.getElementById('histSelectAll');
+  if (selAll) selAll.checked = false;
   list.innerHTML = history.map((h, i) => `
     <div class="history-item" data-index="${i}">
+      <input type="checkbox" class="record-checkbox hist-check" data-index="${i}" title="勾选后可导出选中项">
       <div class="history-item-content">
         <div class="hi-meta">
           <span>${h.srcFlag} ${h.srcLang}</span>
@@ -347,6 +350,7 @@ function renderHistory() {
 
 // Event delegation for history list clicks
 function handleHistoryClick(e) {
+  if (e.target.closest('.hist-check')) return; // 勾选不触发载入
   const deleteBtn = e.target.closest('.hi-delete');
   if (deleteBtn) {
     e.stopPropagation();
@@ -363,6 +367,9 @@ function handleHistoryClick(e) {
 
 function loadHistory(index) {
   const h = history[index];
+  // 载入历史会替换输入框：有内容时先确认，避免误丢用户输入的原文
+  const cur = srcEditor.getMarkdown();
+  if (cur.trim() && cur !== h.text && !confirm('输入框中还有内容，载入这条历史会替换它。确定继续吗？')) return;
   document.getElementById('sourceLang').value = h.srcCode;
   document.getElementById('targetLang').value = h.tgtCode;
   srcEditor.setMarkdown(h.text);
@@ -381,6 +388,40 @@ function deleteHistoryItem(index) {
   history.splice(index, 1);
   chrome.storage.local.set({ history });
   renderHistory();
+}
+
+// ===== 翻译历史：勾选后导出为 Markdown / HTML（v0.45.0） =====
+function toggleSelectAllHistory(checked) {
+  document.querySelectorAll('#historyList .hist-check').forEach(function (c) { c.checked = checked; });
+}
+
+function selectedHistoryIndexes() {
+  return Array.prototype.slice.call(document.querySelectorAll('#historyList .hist-check:checked'))
+    .map(function (c) { return parseInt(c.getAttribute('data-index'), 10); });
+}
+
+function historyItemMarkdown(h) {
+  const head = ((h.srcFlag || '') + ' ' + (h.srcLang || '') + ' → ' + (h.tgtFlag || '') + ' ' + (h.tgtLang || '')).trim();
+  let md = '## ' + head + '\n\n';
+  if (h.time) md += '_' + h.time + '_\n\n';
+  md += '**原文**\n\n' + (h.text || '') + '\n\n';
+  if (h.result) md += '**译文**\n\n' + h.result + '\n\n';
+  return md.trim();
+}
+
+function exportSelectedHistory(format) {
+  const idx = selectedHistoryIndexes();
+  if (!idx.length) { showToast('请先勾选要导出的历史记录', 'error'); return; }
+  const items = idx.map(function (i) { return history[i]; }).filter(Boolean);
+  const md = items.map(historyItemMarkdown).join('\n\n---\n\n');
+  const stamp = new Date().toISOString().slice(0, 10);
+  if (!window.AiService || !AiService.downloadText) { showToast('导出功能不可用', 'error'); return; }
+  if (format === 'html') {
+    AiService.downloadText('ai-toolbox-translate-history-' + stamp + '.html', AiService.mdToHtml(md, '翻译历史'), 'text/html;charset=utf-8');
+  } else {
+    AiService.downloadText('ai-toolbox-translate-history-' + stamp + '.md', md, 'text/markdown;charset=utf-8');
+  }
+  showToast('已导出 ' + items.length + ' 条翻译历史', 'success');
 }
 
 // ===== Utility =====
@@ -405,7 +446,7 @@ function saveDraft() {
 
 function clearSource() {
   srcEditor.clear();
-  document.getElementById('outputText').innerHTML = '<span class="output-placeholder">翻译结果将显示在这里...</span>';
+  document.getElementById('outputText').innerHTML = '';
   document.getElementById('outputText').dataset.text = '';
   document.getElementById('statusText').textContent = '';
   updateCharCount();
@@ -449,6 +490,17 @@ async function pasteFromClipboard() {
     showToast('无法读取剪贴板，请按 Ctrl+V 粘贴', 'error');
   }
 }
+
+// 译文可编辑：编辑后同步 dataset.text（复制/交换/草稿与历史保存均读取它）
+document.getElementById('outputText').addEventListener('input', () => {
+  const output = document.getElementById('outputText');
+  if (output.textContent.trim()) {
+    output.dataset.text = output.innerText;
+  } else {
+    delete output.dataset.text;
+    output.innerHTML = '';
+  }
+});
 
 function copyResult() {
   const output = document.getElementById('outputText');
@@ -562,6 +614,27 @@ function bindEvents() {
 
   // History list event delegation
   document.getElementById('historyList').addEventListener('click', handleHistoryClick);
+
+  // History selection & export
+  const selAllBox = document.getElementById('histSelectAll');
+  if (selAllBox) selAllBox.addEventListener('change', function () { toggleSelectAllHistory(this.checked); });
+  const exportMdBtn = document.getElementById('exportHistMdBtn');
+  if (exportMdBtn) exportMdBtn.addEventListener('click', function () { exportSelectedHistory('md'); });
+  const exportHtmlBtn = document.getElementById('exportHistHtmlBtn');
+  if (exportHtmlBtn) exportHtmlBtn.addEventListener('click', function () { exportSelectedHistory('html'); });
+
+  // Markdown 预览开关（MV3 无内联 onclick）；mousedown 阻止默认，避免抢走输入框焦点
+  // ——中文输入法合成中若失焦，未上屏的内容会被浏览器丢弃
+  const mdPreviewBtn = document.getElementById('previewToggleBtn');
+  if (mdPreviewBtn) {
+    mdPreviewBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    mdPreviewBtn.addEventListener('click', toggleMdPreview);
+  }
+  const mdCloseBtn = document.querySelector('.md-preview-close');
+  if (mdCloseBtn) {
+    mdCloseBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    mdCloseBtn.addEventListener('click', toggleMdPreview);
+  }
 
   // Keyboard shortcut
   document.addEventListener('keydown', (e) => {

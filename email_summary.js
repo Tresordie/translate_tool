@@ -767,6 +767,8 @@
   function renderHistory() {
     const list = $('historyList');
     $('historyCount').textContent = history.length + ' 条';
+    const selAllBox = $('historySelectAll');
+    if (selAllBox) selAllBox.checked = false;
     if (history.length === 0) {
       list.innerHTML = '<div class="records-empty">暂无总结历史，生成总结后自动保存，可点击查看 / 编辑 / 下载</div>';
       return;
@@ -774,6 +776,7 @@
     list.innerHTML = history.map((h, i) => {
       const preview = h.result.replace(/[#|>*`-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90);
       return '<div class="history-item" data-index="' + i + '">'
+        + '<input type="checkbox" class="history-check" data-index="' + i + '" title="勾选后可导出选中项">'
         + '<div class="history-item-body">'
         + '<div class="hi-title">' + escapeHtml(h.title) + '</div>'
         + '<div class="hi-preview">' + escapeHtml(preview) + '</div>'
@@ -790,6 +793,7 @@
   }
 
   $('historyList').addEventListener('click', (e) => {
+    if (e.target.closest('.history-check')) return; // 勾选不触发查看
     const editBtn = e.target.closest('.hi-edit');
     const delBtn = e.target.closest('.hi-delete');
     if (editBtn) {
@@ -855,11 +859,38 @@
     showToast('已清空全部总结历史', 'info');
   });
 
-  $('exportHistoryBtn').addEventListener('click', () => {
-    if (history.length === 0) { showToast('暂无总结历史', 'info'); return; }
-    const fname = 'ai-toolbox-email-summary-history-' + new Date().toISOString().slice(0, 10) + '.json';
-    if (window.AiService && window.AiService.downloadText) AiService.downloadText(fname, JSON.stringify(history, null, 2), 'application/json');
+  // ===== 总结历史：勾选后导出为 Markdown / HTML（v0.45.0） =====
+  function selectedHistorySummaries() {
+    const indexes = Array.prototype.slice.call(document.querySelectorAll('#historyList .history-check:checked'))
+      .map(c => parseInt(c.dataset.index, 10));
+    return indexes.map(i => history[i]).filter(Boolean);
+  }
+
+  function historyItemMarkdown(h) {
+    const head = [h.title, formatTime(h.time), LANG_NAMES[h.lang] || '中文', h.file ? '来源 ' + h.file : '']
+      .filter(Boolean).join(' · ');
+    return '## ' + head + '\n\n' + (h.result || '');
+  }
+
+  function exportSelectedHistory(format) {
+    const items = selectedHistorySummaries();
+    if (!items.length) { showToast('请先勾选要导出的总结', 'error'); return; }
+    if (!window.AiService || !AiService.downloadText) { showToast('导出功能不可用', 'error'); return; }
+    const md = items.map(historyItemMarkdown).join('\n\n---\n\n');
+    const stamp = new Date().toISOString().slice(0, 10);
+    if (format === 'html') {
+      AiService.downloadText('ai-toolbox-email-summaries-' + stamp + '.html', AiService.mdToHtml(md, '邮件总结历史'), 'text/html;charset=utf-8');
+    } else {
+      AiService.downloadText('ai-toolbox-email-summaries-' + stamp + '.md', md, 'text/markdown;charset=utf-8');
+    }
+    showToast('已导出 ' + items.length + ' 条总结', 'success');
+  }
+
+  $('historySelectAll').addEventListener('change', function () {
+    document.querySelectorAll('#historyList .history-check').forEach(c => { c.checked = this.checked; });
   });
+  $('exportHistoryMdBtn').addEventListener('click', () => exportSelectedHistory('md'));
+  $('exportHistoryHtmlBtn').addEventListener('click', () => exportSelectedHistory('html'));
 
   // 记录跨端实时同步（v0.25.0）：他端写入时刷新列表
   if (window.AiService && window.AiService.onRecordSync) {

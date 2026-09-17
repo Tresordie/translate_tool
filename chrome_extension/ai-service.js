@@ -473,8 +473,12 @@
         });
       } catch (e) {}
     } else {
+      // content.js 写入网页的是「映射后的 localStorage 键」，工作报告/任务清单等
+      // 带页面前缀（wr_/td_）；且 content.js 的 postMessage 只到顶层帧，iframe 内
+      // 的工具页只能靠 storage 事件，故此处需同时匹配原始键与前缀键。
+      var lsKeys = [key, 'wr_' + key, 'td_' + key];
       window.addEventListener('storage', function (e) {
-        if (e.key === key && e.newValue !== null) {
+        if (lsKeys.indexOf(e.key) !== -1 && e.newValue !== null) {
           try { cb(JSON.parse(e.newValue)); } catch (err) {}
         }
       });

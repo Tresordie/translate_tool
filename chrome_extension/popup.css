@@ -575,21 +575,28 @@ body::after {
   min-height: 220px;
 }
 .translate-area textarea {
-  width: 100%;
-  padding: 14px 18px 32px;
-  border: none;
+  width: auto;
+  margin: 6px 10px 8px;
+  padding: 8px 8px 24px;
+  border: 1.5px solid var(--primary-a12);
+  border-radius: 10px;
+  background: var(--bg-card);
   resize: none;
   font-size: 15px;
   line-height: 1.7;
   font-family: inherit;
   outline: none;
   min-height: 100px;
-  background: transparent;
   color: var(--text);
+  transition: var(--transition);
 }
 .translate-area textarea::placeholder {
   color: var(--text-dim);
   font-style: italic;
+}
+.translate-area textarea:focus-visible {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 0 3px rgba(var(--cyan-rgb),0.1), 0 0 12px rgba(var(--cyan-rgb),0.08);
 }
 
 .source-footer {
@@ -708,7 +715,7 @@ body::after {
 /* ========== Result Area ========== */
 .result-area {
   margin: 0 18px 16px;
-  background: var(--bg-card2);
+  background: var(--bg-card);
   background-image: linear-gradient(180deg, var(--white-a08) 0%, transparent 32%);
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -743,6 +750,8 @@ body::after {
   overflow-y: auto;
 }
 .result-text.error { color: #f87171; }
+.result-text:focus-visible { outline: none; }
+.result-area:focus-within { border-color: var(--neon-cyan); }
 
 .result-footer {
   padding: 8px 14px;

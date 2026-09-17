@@ -309,6 +309,19 @@
       overflow-y: auto;
       padding-right: 4px;
     }
+    /* 历史记录：勾选导出控件 */
+    .hist-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .hist-select-all {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.78rem; color: var(--text-secondary);
+      cursor: pointer; user-select: none; white-space: nowrap;
+    }
+    .hist-select-all input { width: 14px; height: 14px; accent-color: var(--neon-cyan); cursor: pointer; margin: 0; }
+    .history-check {
+      flex-shrink: 0; width: 16px; height: 16px;
+      accent-color: var(--neon-cyan); cursor: pointer;
+      margin: 2px 0 0 0; align-self: flex-start;
+    }
     .history-item {
       display: flex;
       gap: 12px;
@@ -592,10 +605,15 @@
               <span>历史记录</span>
               <span class="summary-meta" id="historyCount">0 条</span>
             </div>
-            <button class="btn-tool" id="clearHistoryBtn">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-              清空历史
-            </button>
+            <div class="hist-actions">
+              <label class="hist-select-all" title="全选 / 取消全选"><input type="checkbox" id="historySelectAll">全选</label>
+              <button class="btn-tool" id="exportHistoryMdBtn" title="导出勾选的历史记录为 Markdown 文件">导出 MD</button>
+              <button class="btn-tool" id="exportHistoryHtmlBtn" title="导出勾选的历史记录为 HTML 文件">导出 HTML</button>
+              <button class="btn-tool" id="clearHistoryBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                清空历史
+              </button>
+            </div>
           </div>
           <div class="history-list" id="historyList">
             <div class="records-empty">暂无历史记录，解析 / 分析完成后自动保存，点击可恢复结果</div>

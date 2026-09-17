@@ -317,6 +317,16 @@ safeBind('copyBtn', 'click', () => {
   );
 });
 
+// 译文可编辑：编辑后同步 dataset.text（复制/交换/草稿与历史保存均读取它）
+resultText.addEventListener('input', () => {
+  if (resultText.textContent.trim()) {
+    resultText.dataset.text = resultText.innerText;
+  } else {
+    delete resultText.dataset.text;
+    resultText.textContent = '';
+  }
+});
+
 // Copy source text
 safeBind('copySourceBtn', 'click', () => {
   const text = srcEditor.getMarkdown();
@@ -624,6 +634,9 @@ historyList.addEventListener('click', (e) => {
     const index = parseInt(item.dataset.index);
     const h = history[index];
     if (h) {
+      // 载入历史会替换输入框：有内容时先确认，避免误丢用户输入的原文
+      const cur = srcEditor.getMarkdown();
+      if (cur.trim() && cur !== h.text && !confirm('输入框中还有内容，载入这条历史会替换它。确定继续吗？')) return;
       sourceLang.value = h.srcCode;
       targetLang.value = h.tgtCode;
       srcEditor.setMarkdown(h.text);
@@ -639,6 +652,17 @@ safeBind('clearHistoryBtn', 'click', () => {
   chrome.storage.local.remove('history');
   renderHistory();
 });
+
+// Markdown 预览开关：mousedown 阻止默认，避免抢走输入框焦点
+// （中文输入法合成中若失焦，未上屏的内容会被浏览器丢弃）
+safeBind('previewToggleBtn', 'mousedown', (e) => e.preventDefault());
+safeBind('previewToggleBtn', 'click', toggleMdPreview);
+(function bindMdPreviewClose() {
+  const btn = document.querySelector('.md-preview-close');
+  if (!btn) return;
+  btn.addEventListener('mousedown', (e) => e.preventDefault());
+  btn.addEventListener('click', toggleMdPreview);
+})();
 
 // ===== Resize Drag =====
 (function initResize() {

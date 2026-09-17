@@ -426,6 +426,8 @@
   function renderHistory() {
     const list = $('historyList');
     $('historyCount').textContent = state.history.length + ' 条';
+    const selAllBox = $('historySelectAll');
+    if (selAllBox) selAllBox.checked = false;
     if (!state.history.length) {
       list.innerHTML = '<div class="records-empty">暂无历史记录，解析 / 分析完成后自动保存，点击可恢复结果</div>';
       return;
@@ -437,6 +439,7 @@
       const modeTag = h.mode === 'parse' ? '任务抽取' : (h.email ? '邮件分析' : '分析');
       const lang = Ai.getOutputLang(h.lang);
       return '<div class="history-item" data-index="' + i + '">'
+        + '<input type="checkbox" class="history-check" data-index="' + i + '" title="勾选后可导出选中项">'
         + '<div class="history-item-body">'
         + '<div class="hi-title">' + escapeHtml(h.title) + '</div>'
         + '<div class="hi-preview">' + escapeHtml(preview || '(空)') + '</div>'
@@ -474,6 +477,7 @@
 
   function initHistory() {
     $('historyList').addEventListener('click', (e) => {
+      if (e.target.closest('.history-check')) return; // 勾选不触发恢复
       const delBtn = e.target.closest('.hi-delete');
       if (delBtn) {
         e.stopPropagation();
@@ -495,6 +499,52 @@
       renderHistory();
       showToast('已清空全部历史记录', 'info');
     });
+    $('historySelectAll').addEventListener('change', function () {
+      document.querySelectorAll('#historyList .history-check').forEach((c) => { c.checked = this.checked; });
+    });
+    $('exportHistoryMdBtn').addEventListener('click', () => exportSelectedHistory('md'));
+    $('exportHistoryHtmlBtn').addEventListener('click', () => exportSelectedHistory('html'));
+  }
+
+  // ===== 历史记录：勾选后导出为 Markdown / HTML（v0.45.0） =====
+  function taskListMarkdown(tasks) {
+    let md = '| 优先级 | 任务 | 说明 | 标签 | 子步骤 |\n|---|---|---|---|---|\n';
+    (tasks || []).forEach((t) => {
+      const cell = (v) => String(v == null ? '' : v).replace(/\|/g, '\\|').replace(/\n+/g, ' ').trim();
+      md += '| ' + cell((t.priority || 'P2').toUpperCase()) + ' | ' + cell(t.title) + ' | '
+        + cell(t.description) + ' | ' + cell((t.tags || []).join('、')) + ' | '
+        + cell((t.subSteps || []).join('；')) + ' |\n';
+    });
+    return md;
+  }
+
+  function historyItemMarkdown(h) {
+    const lang = Ai.getOutputLang(h.lang);
+    const head = [(h.mode === 'parse' ? '任务抽取' : (h.email ? '邮件分析' : '分析')), lang.label, formatTime(h.ts)]
+      .filter(Boolean).join(' · ');
+    let md = '## ' + head + '\n\n';
+    if (h.input) md += '**输入**\n\n' + h.input + '\n\n';
+    if (h.mode === 'parse') {
+      md += '**任务列表**\n\n' + taskListMarkdown(h.tasks) + '\n';
+    } else {
+      md += (h.md || '') + '\n';
+    }
+    return md.trim();
+  }
+
+  function exportSelectedHistory(format) {
+    const indexes = Array.prototype.slice.call(document.querySelectorAll('#historyList .history-check:checked'))
+      .map((c) => parseInt(c.getAttribute('data-index'), 10));
+    const items = indexes.map((i) => state.history[i]).filter(Boolean);
+    if (!items.length) { showToast('请先勾选要导出的历史记录', 'error'); return; }
+    const md = items.map(historyItemMarkdown).join('\n\n---\n\n');
+    const stamp = new Date().toISOString().slice(0, 10);
+    if (format === 'html') {
+      Ai.downloadText('ai-toolbox-ai-parse-history-' + stamp + '.html', Ai.mdToHtml(md, 'AI 解析历史'), 'text/html;charset=utf-8');
+    } else {
+      Ai.downloadText('ai-toolbox-ai-parse-history-' + stamp + '.md', md, 'text/markdown;charset=utf-8');
+    }
+    showToast('已导出 ' + items.length + ' 条历史记录', 'success');
   }
 
   /* ==================== 语种选择 ==================== */

@@ -262,57 +262,285 @@
   }
 
   /* ---------- WeChat plain-text conversion ----------
-   * 微信不渲染 Markdown：去掉 # / ** / 引用等语法符号，保留 emoji 与层级结构。
+   * 微信不渲染 Markdown：按预览的视觉层级转成纯文本——标题加层级符号
+   * （h1→【】、h2→■），表格转成文本表格：窄表按列宽对齐（CJK/emoji 记 2 列宽），
+   * 宽表转「▪ 首列值 + 键：值」块，避免长单元格把列撑爆导致错行。
    * emoji 全程按字符串处理（不拆四字节代理对），仅移除微信会显示成方框/分离字符
    * 的隐藏字符：变体选择符 U+FE0E/U+FE0F、零宽连接符 U+200D、键帽包围符 U+20E3。
    */
   function markdownToWechat(md) {
     var lines = String(md || '').replace(/\r\n?/g, '\n').split('\n');
     var out = [];
+    var keepSpace = []; // 与 out 对齐：true = 表格/代码行，保留内部空格（对齐依赖）
     var inFence = false;
+
+    // 加粗：微信聊天不支持任何文字样式，ASCII 用 Unicode 粗体近似还原预览里的加粗
+    var BOLD_MAP = (function () {
+      var map = {};
+      for (var i = 0; i < 26; i++) {
+        map[String.fromCharCode(65 + i)] = String.fromCodePoint(0x1D5D4 + i); // 𝗔-𝗭
+        map[String.fromCharCode(97 + i)] = String.fromCodePoint(0x1D5EE + i); // 𝗮-𝘇
+      }
+      for (var d = 0; d < 10; d++) map[String.fromCharCode(48 + d)] = String.fromCodePoint(0x1D7EC + d); // 𝟬-𝟵
+      return map;
+    })();
+
+    function boldify(text) {
+      return String(text).replace(/[A-Za-z0-9]/g, function (ch) { return BOLD_MAP[ch] || ch; });
+    }
+
+    // GitHub 风格告警标注 → 图标（> [!warning] 标题）
+    var CALLOUT_ICONS = {
+      note: 'ℹ', info: 'ℹ', tip: '💡', hint: '💡', important: '❗',
+      warning: '⚠', caution: '⚠', danger: '🚨', error: '🚨', success: '✅',
+      question: '❓', example: '📌', quote: '💬'
+    };
 
     function inline(t) {
       return String(t)
         .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, '$1 $2')
         .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '$1（$2）')
-        .replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/__([^_]+)__/g, '$1')
+        .replace(/\*\*([^*]+)\*\*/g, function (mm, s) { return boldify(s); })
+        .replace(/__([^_]+)__/g, function (mm, s) { return boldify(s); })
         .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1$2')
         .replace(/(^|[^\w_])_([^_\n]+)_(?![\w_])/g, '$1$2')
         .replace(/~~([^~]+)~~/g, '$1')
         .replace(/`([^`]+)`/g, '$1');
     }
 
+    // 显示宽度：CJK/全角/常见 emoji 记 2，其余记 1
+    // （SMP 中的数学字母/Unicode 粗体按普通字母宽度，CJK 扩展与 emoji 仍记 2）
+    function isWide(cp) {
+      if (cp >= 0x20000 && cp <= 0x3FFFF) return true;   // CJK 扩展 B+
+      if (cp >= 0x1F000 && cp <= 0x1FBFF) return true;   // emoji 与符号
+      if (cp >= 0x10000) return false;                    // 数学字母等窄字符
+      return (cp >= 0x1100 && cp <= 0x115F) || (cp >= 0x2E80 && cp <= 0xA4CF) ||
+        (cp >= 0xAC00 && cp <= 0xD7A3) || (cp >= 0xF900 && cp <= 0xFAFF) ||
+        (cp >= 0xFE30 && cp <= 0xFE4F) || (cp >= 0xFF00 && cp <= 0xFF60) ||
+        (cp >= 0xFFE0 && cp <= 0xFFE6) || (cp >= 0x2600 && cp <= 0x27BF);
+    }
+
+    function strWidth(s) {
+      var w = 0;
+      for (var i = 0; i < s.length; ) {
+        var cp = s.codePointAt(i);
+        var n = cp >= 0x10000 ? 2 : 1;
+        w += isWide(cp) ? 2 : 1;
+        i += n;
+      }
+      return w;
+    }
+
+    // 断行单元：英文/数字成词，CJK 与 emoji 可单字断行，空格独立
+    function wrapTokens(text) {
+      var tokens = [];
+      var buf = '';
+      var s = String(text);
+      for (var i = 0; i < s.length; ) {
+        var cp = s.codePointAt(i);
+        var n = cp >= 0x10000 ? 2 : 1;
+        var ch = s.substr(i, n);
+        i += n;
+        if (/\s/.test(ch)) {
+          if (buf) { tokens.push(buf); buf = ''; }
+          tokens.push(' ');
+        } else if (isWide(cp)) {
+          if (buf) { tokens.push(buf); buf = ''; }
+          tokens.push(ch);
+        } else {
+          buf += ch;
+        }
+      }
+      if (buf) tokens.push(buf);
+      return tokens;
+    }
+
+    // 按显示宽度折行（超宽的单词按字符硬切），保证每行不超过 width 列
+    function wrapText(text, width) {
+      var tokens = wrapTokens(text);
+      var lines = [];
+      var cur = '';
+      var curW = 0;
+      for (var i = 0; i < tokens.length; i++) {
+        var t = tokens[i];
+        if (t === ' ') {
+          if (cur === '') continue;
+          if (curW + 1 > width) { lines.push(cur); cur = ''; curW = 0; continue; }
+          cur += ' '; curW += 1;
+          continue;
+        }
+        var tw = strWidth(t);
+        if (curW + tw <= width) { cur += t; curW += tw; continue; }
+        if (cur !== '') { lines.push(cur); cur = ''; curW = 0; }
+        if (tw <= width) { cur = t; curW = tw; continue; }
+        var chars = Array.from(t);
+        var piece = '';
+        var pieceW = 0;
+        for (var k = 0; k < chars.length; k++) {
+          var cw = strWidth(chars[k]);
+          if (pieceW + cw > width && piece) { lines.push(piece); piece = ''; pieceW = 0; }
+          piece += chars[k]; pieceW += cw;
+        }
+        cur = piece; curW = pieceW;
+      }
+      if (cur !== '') lines.push(cur);
+      return lines.length ? lines : [''];
+    }
+
+    function spaces(n) { return n > 0 ? Array(n + 1).join(' ') : ''; }
+
+    function padCell(s, width, align) {
+      var gap = width - strWidth(s);
+      if (gap <= 0) return s;
+      if (align === 'right') return spaces(gap) + s;
+      if (align === 'center') {
+        var left = Math.floor(gap / 2);
+        return spaces(left) + s + spaces(gap - left);
+      }
+      return s + spaces(gap);
+    }
+
+    // 表格 → 文本表格。列宽超出预算时压缩列宽并把单元格折行，保持表格形态；
+    // 列数过多（>6）时文本表格已不可读，退回「▪ 首列值 + 键：值」块
+    var TABLE_MAX_WIDTH = 60;
+    var TABLE_MIN_COL = 4;
+    var TABLE_MAX_COLS = 6;
+
+    function renderTable(headers, rows, aligns) {
+      var nCol = headers.length;
+      var widths = [];
+      var ci, r;
+      for (ci = 0; ci < nCol; ci++) widths.push(strWidth(headers[ci] || ''));
+      for (r = 0; r < rows.length; r++) {
+        for (ci = 0; ci < nCol; ci++) {
+          var w = strWidth(rows[r][ci] || '');
+          if (w > widths[ci]) widths[ci] = w;
+        }
+      }
+
+      if (nCol > TABLE_MAX_COLS) {
+        var blocks = [];
+        for (r = 0; r < rows.length; r++) {
+          var b = ['▪ ' + (rows[r][0] || '')];
+          for (ci = 1; ci < nCol; ci++) {
+            var v = rows[r][ci] || '';
+            if (v !== '') b.push('  ' + (headers[ci] || '') + '：' + v);
+          }
+          blocks.push(b.join('\n'));
+        }
+        return blocks.join('\n\n');
+      }
+
+      var budget = TABLE_MAX_WIDTH - (nCol - 1) * 2;
+      var total = widths.reduce(function (a, b) { return a + b; }, 0);
+      while (total > budget) {
+        var idx = -1;
+        var widest = TABLE_MIN_COL;
+        for (ci = 0; ci < nCol; ci++) {
+          if (widths[ci] > widest) { widest = widths[ci]; idx = ci; }
+        }
+        if (idx === -1) break;
+        widths[idx]--;
+        total--;
+      }
+
+      var grid = [];
+      function pushRow(cells) {
+        var wrapped = cells.map(function (c, i) { return wrapText(c || '', widths[i]); });
+        var height = 0;
+        for (var k = 0; k < wrapped.length; k++) {
+          if (wrapped[k].length > height) height = wrapped[k].length;
+        }
+        for (var ln = 0; ln < height; ln++) {
+          var line = [];
+          for (var c = 0; c < nCol; c++) {
+            line.push(padCell(wrapped[c][ln] || '', widths[c], aligns[c]));
+          }
+          grid.push(line.join('  '));
+        }
+      }
+
+      pushRow(headers);
+      var sep = [];
+      for (ci = 0; ci < nCol; ci++) sep.push(Array(widths[ci] + 1).join('─'));
+      grid.push(sep.join('  '));
+      for (r = 0; r < rows.length; r++) pushRow(rows[r]);
+      return grid.join('\n');
+    }
+
     for (var i = 0; i < lines.length; i++) {
       var line = lines[i];
       var m;
 
-      // 代码围栏标记丢弃，正文原样保留（微信里前导缩进会显示成多余空格）
+      // 代码围栏标记丢弃，正文原样保留（保留缩进，与预览一致）
       if (/^\s*```/.test(line)) { inFence = !inFence; continue; }
-      if (inFence) { out.push(line); continue; }
+      if (inFence) { out.push(line); keepSpace.push(true); continue; }
 
-      // 表格：分隔行丢弃，数据行转成 "值 | 值"
-      if (line.indexOf('|') !== -1 && /^\s*\|?[\s:|-]+\|?\s*$/.test(line)) continue;
-      if (line.indexOf('|') !== -1) {
-        var cells = line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
-        out.push(cells.map(function (c) { return inline(c.trim()); }).join(' | '));
+      // 表格块：表头行 + 分隔行 + 数据行（与 renderMarkdown 的解析一致）
+      if (line.indexOf('|') !== -1 && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+        var headers = splitTableRow(line).map(function (c) { return inline(c); });
+        var aligns = splitTableRow(lines[i + 1]).map(function (c) {
+          var l = c.charAt(0) === ':';
+          var rr = c.length > 0 && c.charAt(c.length - 1) === ':';
+          return (l && rr) ? 'center' : (rr ? 'right' : (l ? 'left' : ''));
+        });
+        i += 2;
+        var rows = [];
+        while (i < lines.length && lines[i].indexOf('|') !== -1 && lines[i].trim() !== '') {
+          rows.push(splitTableRow(lines[i]).map(function (c) { return inline(c); }));
+          i++;
+        }
+        out.push(renderTable(headers, rows, aligns));
+        keepSpace.push(true);
         continue;
       }
 
       // 水平线
-      if (/^\s*([-*_])\s*(?:\1\s*){2,}$/.test(line)) { out.push('————————'); continue; }
+      if (/^\s*([-*_])\s*(?:\1\s*){2,}$/.test(line)) { out.push('————————'); keepSpace.push(false); continue; }
 
-      // 引用
-      m = line.match(/^\s*>\s?(.*)$/);
-      if (m) { out.push('「' + inline(m[1]) + '」'); continue; }
+      // 引用块：整块保留（▎ 前缀），块内列表符号与层级照旧；> [!warning] 等标注转图标
+      if (/^\s*>/.test(line)) {
+        var quote = [];
+        while (i < lines.length && /^\s*>/.test(lines[i])) {
+          quote.push(lines[i].replace(/^\s*>\s?/, '').replace(/\s+$/, ''));
+          i++;
+        }
+        i--; // 补偿 for 自增
+        var icon = '';
+        if (quote.length) {
+          var callout = quote[0].match(/^\[!(\w+)\]\s*(.*)$/);
+          if (callout) {
+            icon = CALLOUT_ICONS[callout[1].toLowerCase()] || '📌';
+            quote[0] = callout[2];
+          }
+        }
+        var qlines = [];
+        for (var qi = 0; qi < quote.length; qi++) {
+          var q = quote[qi];
+          if (q === '') { qlines.push(''); continue; }
+          var qul = q.match(/^[-*+]\s+(.*)$/);
+          var qol = q.match(/^(\d+)[.)]\s+(.*)$/);
+          var qbody = qul ? '• ' + inline(qul[1]) : (qol ? qol[1] + '. ' + inline(qol[2]) : inline(q));
+          qlines.push('▎ ' + (qi === 0 && icon ? icon + ' ' : '') + qbody);
+        }
+        out.push(qlines.join('\n'));
+        keepSpace.push(false);
+        continue;
+      }
 
-      // 标题：去 # 前缀，emoji 原样保留
-      m = line.match(/^\s{0,3}#{1,6}\s+(.*)$/);
-      if (m) { out.push(inline(m[1].trim())); continue; }
+      // 标题：h1 →【标题】，h2 → ■，h3 → ▍，h4-h6 → ▸；emoji 原样保留
+      m = line.match(/^\s{0,3}(#{1,6})\s+(.*)$/);
+      if (m) {
+        var htxt = inline(m[2].trim());
+        var lvl = m[1].length;
+        out.push(lvl === 1 ? '【' + htxt + '】' : (lvl === 2 ? '■ ' + htxt : (lvl === 3 ? '▍ ' + htxt : '▸ ' + htxt)));
+        keepSpace.push(false);
+        continue;
+      }
 
       // 加粗编号：**1. 标题** 详述 → "1. 标题：详述"
       m = line.match(/^\s*\*\*\s*(\d+)[.)]\s*([^*]+?)\s*\*\*\s*(.*)$/);
-      if (m) { out.push(m[1] + '. ' + m[2] + (m[3] ? '：' + m[3] : '')); continue; }
+      if (m) { out.push(m[1] + '. ' + m[2] + (m[3] ? '：' + m[3] : '')); keepSpace.push(false); continue; }
 
       // 无序列表（- * +，含任务列表与缩进层级）
       m = line.match(/^(\s*)([-*+])\s+(.*)$/);
@@ -323,6 +551,7 @@
         var marker = '• ';
         if (task) { marker = (task[1] === ' ') ? '☐ ' : '☑ '; body = task[2]; }
         out.push(indent + marker + inline(body));
+        keepSpace.push(false);
         continue;
       }
 
@@ -331,16 +560,24 @@
       if (m) {
         var indent2 = '  '.repeat(Math.floor(m[1].replace(/\t/g, '  ').length / 2));
         out.push(indent2 + m[2] + '. ' + inline(m[3]));
+        keepSpace.push(false);
         continue;
       }
 
+      // 孤立的表格分隔行（无表头）直接丢弃
+      if (line.indexOf('|') !== -1 && /^\s*\|?[\s:|-]+\|?\s*$/.test(line)) continue;
+
       out.push(inline(line));
+      keepSpace.push(false);
     }
 
-    return out.join('\n')
+    // 逐行清理：普通行压缩多余空格，表格/代码行只去行尾空白（保住对齐与缩进）
+    return out.map(function (ln, k) {
+      ln = String(ln).replace(/[ \t]+$/gm, '');
+      if (!keepSpace[k]) ln = ln.replace(/(\S)[ \t]{2,}/g, '$1 ');
+      return ln;
+    }).join('\n')
       .replace(/[\uFE0E\uFE0F\u200D\u20E3]/g, '')
-      .replace(/[ \t]+$/gm, '')
-      .replace(/(\S)[ \t]{2,}/g, '$1 ')
       .replace(/\n{3,}/g, '\n\n')
       .replace(/^\n+|\n+$/g, '');
   }
