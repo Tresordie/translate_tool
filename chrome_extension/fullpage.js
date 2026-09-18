@@ -102,6 +102,7 @@ async function init() {
       const output = document.getElementById('outputText');
       output.innerHTML = renderMarkdown(draft.resultText);
       output.dataset.text = draft.resultText;
+      resetWechatSection();
     }
     if (draft.sourceLang) sourceLang.value = draft.sourceLang;
     if (draft.targetLang) targetLang.value = draft.targetLang;
@@ -143,6 +144,7 @@ function swapLanguages() {
 
 // ===== Render Result (Markdown + fade-in) =====
 function renderResult(element, text) {
+  resetWechatSection();
   element.classList.remove('md-fade-in');
   void element.offsetWidth;
   element.innerHTML = renderMarkdown(text);
@@ -173,6 +175,7 @@ async function doTranslate() {
   status.textContent = `${sourceLang.flag} ${sourceLang.name}  →  ${targetLang.flag} ${targetLang.name}`;
   output.innerHTML = '';
   delete output.dataset.text;
+  resetWechatSection();
   loadingBar.classList.add('active');
 
   const systemPrompt = `You are a professional translator with deep expertise in ${sourceLang.name} and ${targetLang.name} linguistics, culture, and domain knowledge.
@@ -449,6 +452,7 @@ function clearSource() {
   document.getElementById('outputText').innerHTML = '';
   document.getElementById('outputText').dataset.text = '';
   document.getElementById('statusText').textContent = '';
+  resetWechatSection();
   updateCharCount();
   updateMdPreview();
   // Clear saved draft
@@ -494,6 +498,7 @@ async function pasteFromClipboard() {
 // 译文可编辑：编辑后同步 dataset.text（复制/交换/草稿与历史保存均读取它）
 document.getElementById('outputText').addEventListener('input', () => {
   const output = document.getElementById('outputText');
+  resetWechatSection();
   if (output.textContent.trim()) {
     output.dataset.text = output.innerText;
   } else {
@@ -511,6 +516,38 @@ function copyResult() {
   }
   navigator.clipboard.writeText(text).then(
     () => showToast('已复制到剪贴板', 'success'),
+    () => showToast('复制失败', 'error')
+  );
+}
+
+// ===== 微信格式（纯文本，可直接粘贴发送） =====
+function resetWechatSection() {
+  const sec = document.getElementById('wechatSection');
+  const box = document.getElementById('wechatResult');
+  if (box) box.textContent = '';
+  if (sec) sec.style.display = 'none';
+}
+
+function convertResultToWechat() {
+  const output = document.getElementById('outputText');
+  const md = output.dataset.text || output.textContent;
+  if (!md || md.includes('翻译结果将显示在这里')) {
+    showToast('没有可转换的译文', 'error');
+    return;
+  }
+  const text = window.markdownToWechat ? window.markdownToWechat(md) : '';
+  if (!text) { showToast('没有可转换的译文', 'error'); return; }
+  document.getElementById('wechatResult').textContent = text;
+  document.getElementById('wechatSection').style.display = 'block';
+  showToast('已生成微信格式，点击「复制」即可粘贴发送', 'success');
+}
+
+function copyResultWechat() {
+  const box = document.getElementById('wechatResult');
+  const text = (box && box.textContent) || '';
+  if (!text) { showToast('请先生成微信格式', 'error'); return; }
+  navigator.clipboard.writeText(text).then(
+    () => showToast('微信格式已复制到剪贴板', 'success'),
     () => showToast('复制失败', 'error')
   );
 }
@@ -609,6 +646,8 @@ function bindEvents() {
   document.getElementById('pasteBtn').addEventListener('click', pasteFromClipboard);
   document.getElementById('copySourceBtn').addEventListener('click', copySource);
   document.getElementById('copyResultBtn').addEventListener('click', copyResult);
+  document.getElementById('wechatFormatBtn').addEventListener('click', convertResultToWechat);
+  document.getElementById('copyWechatBtn').addEventListener('click', copyResultWechat);
   document.getElementById('translateBtn').addEventListener('click', doTranslate);
   document.getElementById('clearHistoryBtn').addEventListener('click', clearHistory);
 

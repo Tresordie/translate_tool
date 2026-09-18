@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.45.0 · 2026-09-17
+> **当前版本**：v0.46.0 · 2026-09-18
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -34,7 +34,7 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 
 > 上表除「微信工具」外的模块，**记录与配置均跨端双向同步**（v0.25.x）：任一端产生的数据实时互通到另两端（机制见 §3.9），智能翻译历史/任务清单为实时上屏，其余模块落盘同步（刷新可见）。微信工具的任务/历史存于本机 `wechat_scheduler` 服务（REST API），多端访问天然一致，**不需要也不允许**再加进 RECORD_SYNC_KEYS 映射（见 §3.12）。
 >
-> **结果导出能力（v0.25.11）**：工作报告 / 邮件总结 / AI 解析 / AI 提示词四个模块的结果区均有「微信格式」按钮——一键把 AI 输出转成可直接粘贴到微信发送的纯文本（详见 §3.11）。
+> **结果导出能力（v0.25.11 引入，v0.46.0 扩至 6 处）**：智能翻译（网页版 `index.html` + 扩展全页 `fullpage.html`，转「译文」）、工作报告 / 邮件总结 / AI 解析 / AI 提示词（转结果）、微信工具（转 AI 总结）的结果区均有「微信格式」按钮——一键把 AI 输出转成可直接粘贴到微信发送的纯文本（详见 §3.11）。
 
 ## 3. 关键架构决策
 
@@ -140,15 +140,16 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - ⚠️ **不要再给 background 加 SW 保活**。排查时曾假设 MV3 service worker 在 30 秒空闲后被终止、`sendResponse` 丢失。实测（`tests/bridge-long-request.e2e.mjs`，真实 Chromium + 真实扩展 + 不回 CORS 头的模拟端点）在途 fetch **45s / 300s / 420s** 三档均完整回传、连接未中断——Chrome 会因在途 fetch 维持 SW 存活。该假设已被证伪，保活代码已撤销。
 - **划词翻译也走桥（v0.25.10 起）**：content.js 的划词请求原为页面上下文直接 `fetch()`，受所在页面 CSP `connect-src` 限制（MV3 内容脚本 fetch 按页面源处理），严格 CSP 站点上必然「Failed to fetch」而弹窗同配置正常。现改经 `lfSendRuntime({action:'linguaflow:proxyFetch',...})` 由 background 代发；`unwrapProxy` 分层映射应答（桥通道错误 / `{ok,status,text}` / 网络异常 `{ok:false,status:0,error}`）。**扩展内任何新增的页面侧网络请求都应经桥，不要在 content script 直连。**
 
-### 3.11 微信格式转换与剪贴板读取（v0.25.11）
+### 3.11 微信格式转换与剪贴板读取（v0.25.11，v0.46.0 扩至智能翻译）
 
-**微信格式（`markdownToWechat`，共享于 `markdown.js`）**——微信不渲染 Markdown，四个模块（工作报告 / 邮件总结 / AI 解析 / AI 提示词）的结果区各有一个「微信格式」按钮，点击后在该页结果下方展开 `<pre class="wechat-result">` 区域并显示转换结果，区域内独立「复制」按钮。
+**微信格式（`markdownToWechat`，共享于 `markdown.js`）**——微信不渲染 Markdown，6 处结果区（智能翻译译文：网页版 `index.html` + 扩展全页 `fullpage.html`；工作报告 / 邮件总结 / AI 解析 / AI 提示词的结果；微信工具的 AI 总结）各有一个「微信格式」按钮，点击后在该页结果下方展开 `<pre class="wechat-result">` 区域并显示转换结果，区域内独立「复制」按钮。
 
-- **实现位置**：`markdown.js`（根目录与 `chrome_extension/` 两份副本逐字节一致）导出 `window.markdownToWechat(md)`。**这是唯一实现，勿再往各模块 JS 里复制**——四个模块 + 扩展副本共用；`workreport.js` 已从本地实现改为调用共享版。
+- **实现位置**：`markdown.js`（根目录与 `chrome_extension/` 两份副本逐字节一致）导出 `window.markdownToWechat(md)`。**这是唯一实现，勿再往各模块 JS 里复制**——六个模块 + 扩展副本共用；`workreport.js` 已从本地实现改为调用共享版。
 - **转换规则（v0.45.0 重写，目标是"与 `renderMarkdown` 预览同构"）**：块级——标题分级符号 h1 `【】` / h2 `■ ` / h3 `▍ ` / h4+ `▸ `；无序列表 `•`（缩进按层级保留）、任务项 `☑/☐`、有序列表保留编号；`**1. 标题** 详述` 转「1. 标题：详述」；**多行引用转整块 `▎ ` 前缀**（块内 `- `→`• `、序号保留，`> [!warning]` 等 GitHub 告警标注转图标（warning/caution→⚠、note/info→ℹ、tip→💡、important→❗、danger→🚨、success→✅ 等）；水平线 `————————`；**表格转文本表格**：按显示宽度对齐（CJK/全角/emoji 记 2 列，其余 1 列），超 `TABLE_MAX_WIDTH=60` 预算时压缩最宽列（最小 4 列）并把单元格在列内折行，保留表头下的 `─` 分隔线与 `:---:` 对齐；**仅列数 >6 才退回**「▪ 首列值 + 键：值」块（文本表格已不可读）；代码围栏标记丢弃、正文**含缩进原样保留**。行内——`**粗体**` 的 **ASCII 字母/数字转 Unicode 粗体**（`𝗔-𝘇/𝟬-𝟵`，中文无对应字形故仍为普通字重）、斜体/删除线/行内代码去符号保内容、`[文本](url)` 转「文本（url）」。收尾——逐行清理：**表格与代码行只去行尾空格**（保住对齐缩进），普通行才折叠连续空格；收敛空行、去首尾空行、清除 `U+FE0E/U+FE0F/U+200D/U+20E3`。
 - ⚠️ **宽度计算与 Unicode 粗体的耦合**：`isWide()` 必须把 SMP 的数学字母（0x1D400–0x1D7FF）算作**窄字符**，否则加粗后的英文单元格会被按 2 列宽计算、表格列全部错位。改 `markdownToWechat` 时同步检查 `strWidth`/`isWide`。
 - **emoji 兼容（关键）**：全程按**字符串级正则**处理，绝不逐字符遍历，避免拆坏四字节代理对；仅清除微信会渲染成方框/分离字符的隐藏字符——变体选择符 `U+FE0E/U+FE0F`、零宽连接符 `U+200D`、键帽包围符 `U+20E3`。标准 emoji（`📋 🔑 📝 ✅` 等）原样保留。
-- **数据来源各页不同**：workreport/email_summary 读 DOM 上的 `dataset.rawText`；ai_parse 读 `currentSummaryMd`；ai_prompts 读 `currentResultMd`。生成新结果或加载历史时调用各页的 `resetWechatSection()` 清空并隐藏区域，避免展示过期转换。
+- **数据来源各页不同**：workreport/email_summary 读 DOM 上的 `dataset.rawText`；ai_parse 读 `currentSummaryMd`；ai_prompts 读 `currentResultMd`；智能翻译两页（index/fullpage）读译文容器的 `outputText.dataset.text`（与复制/草稿/历史保存同一来源，译文为 Markdown 源文本，非渲染后 DOM）。生成新结果或加载历史时调用各页的 `resetWechatSection()` 清空并隐藏区域，避免展示过期转换。
+- **智能翻译两页的接入差异（v0.46.0）**：函数命名为 `convertResultToWechat` / `copyResultWechat` / `resetWechatSection`（页面已有同名模块故改名）；`index.html` 按钮用内联 `onclick`，`fullpage.js` 按钮按 id 绑定（`#wechatFormatBtn` / `#copyWechatBtn`）。陈旧保护挂了 5 个钩子：`renderResult()`（新结果/历史回填）、`doTranslate()` 起始、译文 `input` 监听、`clearSource()`、草稿恢复——译文内容一变即隐藏区块。区块放在翻译卡片内 translate-bar 之后（`border-top` 分区延续卡片语言），样式用主题变量自适应深浅色。
 - ⚠️ **新增支持该功能的页面时**：在结果按钮行加 `#wechatFormatBtn`、结果下方加 `#wechatSection`（含 `#copyWechatBtn` / `#wechatResult`）、样式块按各页 `<style>` 约定复制 `.wechat-*` 规则，JS 侧复用 `convertToWechat` / `copyWechat` / `resetWechatSection` 三个函数模式并调用 `window.markdownToWechat`。
 
 **剪贴板读取（v0.25.11，避免重复授权弹窗）**——`navigator.clipboard.readText()` 受权限门控，`file://` 页面属不透明来源、浏览器**不保留**其授权，故每次调用都弹授权框。
@@ -232,6 +233,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.46.0 | **智能翻译译文一键转微信格式（网页版 + 扩展全页）**：译文区（`index.html` / `fullpage.html`）新增「微信格式」按钮，点击在翻译卡片底部（translate-bar 之后）展开「💬 微信格式」区块，复用共享 `markdownToWechat`（v0.45.0 结构还原版，未改动）转纯文本 + 独立复制按钮。数据源为 `outputText.dataset.text`（与复制/草稿/历史同源）；陈旧保护挂 5 个钩子（`renderResult` / `doTranslate` 起始 / 译文 `input` / `clearSource` / 草稿恢复）内容一变即隐藏。函数名 `convertResultToWechat` / `copyResultWechat` / `resetWechatSection`；index 用内联 onclick，fullpage 按 id 绑定。样式沿用 `.wechat-*` 模式但区块用主题变量自适应深浅色。微信格式转换至此覆盖 6 处（智能翻译×2 / 工作报告 / 邮件总结 / AI 解析 / AI 提示词 / 微信工具 AI 总结），接入清单见 §3.11。验证：Node 语法检查 + 内置浏览器实测两页（浅色纸感白/深色石墨主题、转换正确性、复制通路、陈旧隐藏、扩展页 bindEvents 手动执行无报错） |
 | v0.45.0 | **微信格式还原预览结构 + 8 处历史勾选导出 + 同步三断点 + 输入保护原则**：① `markdownToWechat` 重写（双副本）——表格转按显示宽度对齐、单元格列内折行的文本表格（`:---:` 生效，仅列数 >6 退回键值块）、标题全层级符号（`【】`/`■`/`▍`/`▸`）、多行引用转 `▎` 块并识别 `> [!warning]` 告警、ASCII 加粗转 Unicode 粗体（`isWide()` 须把 SMP 数学字母算窄，否则表格错位）、代码块缩进保留、收尾清理改为"表格/代码行只去行尾空格"。② 8 处历史区域统一「勾选 + 全选 + 导出 MD/HTML」（见 §3.17），移除原「导出全部 JSON」按钮（翻译历史/工作记录/英语学习/邮件总结）；AI 解析 parse 历史转任务表格 Markdown。③ 同步修复：manifest `content_scripts` 补 `all_frames: true`（index 内 7 个工具页是 iframe，此前内容脚本不注入 → 双向全断）、`onRecordSync` 网页分支匹配 `wr_`/`td_` 前缀键、index.html 顶层帧补 `record-sync` 订阅、英语学习扩展页启动引导改为以 chrome.storage 为权威（原会把旧副本推盖回云端）。④ 输入保护原则落地（见 §3.16）：保存/取消/导入不再清输入，载入历史前 confirm，输入框邻按钮 `mousedown` preventDefault（防输入法未上屏内容被丢），并补上扩展全页版/弹窗版**从未绑定**的 Markdown 预览按钮。⑤ 微信工具「AI 总结」按钮永久发灰修复（写死 `dim-50` + 读取失败不恢复禁用）。⑥ 翻译页输入区可 `resize: vertical`（须同时取消 flex 拉伸）；修两栏与分区线错位（`width:auto` 覆盖 theme.css 的 `width:100%`）；修 workreport `init()` 漏读 `work_summaries` 致历史总结刷新后恒空。验证：无头浏览器 44+13+19 项断言 + Node 单测，全绿 |
 | v0.44.0 | **同步覆盖审计 + 网页↔扩展记录互通补全**（系统性扫描 8 模块实际使用的 localStorage/chrome.storage 键 vs RECORD_SYNC_KEYS vs data-sync 收集范围）：缺口=① email_summary_draft（自动保存草稿）无反向 relay；② 微信工具 ws_api_base/ws_api_token/ws_risk_ack/ws_sum_lang/ws_contacts_cache 五键无任何跨端通道（扩展版 store.set 双写 chrome.storage ✓ 但映射表缺失，网页版 store.set 只写 file:// localStorage）。修复=record 同步映射表（background.js）与 content.js 启动预填清单各补 6 键（含 ws_api_token——本地双向一致，Drive 推送仍被 SECRET_DROP 剔除）；email_summary.js 草稿自动保存补 relayRecord；wechat_schedule.js store.set 网页分支补 `window.top` postMessage relay（数据入 chrome.storage）+ 双环境实时缓存刷新监听（扩展 onChanged / 网页 storage 事件更新 store.cache）。**Drive 同步确认**：data-sync.js 全量 localStorage/chrome.storage 收集 + SECRET_DROP 剔密已天然覆盖全部模块记录，无需改动 |
 | v0.43.0 | **修复英语学习页扩展环境下完全失效的真正根因：MV3 CSP 阻止内联脚本**——扩展版 english_learning.html 是全站唯一把全部逻辑写在内联 `<script>` 的模块页（其他页均为外部 JS），MV3 扩展页面默认 CSP `script-src 'self'` 直接阻止该脚本执行 → 配置加载/同步/单词学习/历史全部交互在扩展环境中静默死掉（页面渲染正常极具迷惑性）。修复：内联脚本（998 行）提取为外部 `english_learning.js`（根目录 + chrome_extension 双副本逐字一致，含 gfAsync 字体切换 prelude），html 改外部引用，字体行 `onload` 内联属性同步改 `id="gfAsync"`（CSP 同样阻止内联事件处理器）。v0.42.0 的 areaName 修复仍有效（onChanged 监听在外部 js 中正常注册）。**架构说明**：打破 v0.21.0"根版内联=ext js 逐字一致"约定，改为与 workreport 等页一致的外部 JS 架构。⑦ **连带修复：全站 `--green` 基础色变量缺失**（用户报告"保存配置/保存今天内容按钮无质感、浅色主题下不可见"）——theme.css 历史上只定义了 `--green-rgb` 与 alpha 变体，从未定义 `--green` 基础色；v0.38 修 Tailwind 色时引用 `var(--green)` 引入回归（按钮背景解析为 none，浅色主题下白字彻底隐形）。修复=9 主题块各补 `--green: rgb(var(--green-rgb))` 与缺失的 `--green-a12`/`--cyan-a12`（rgba 同源形式），ai-panel.css 的 `--white-a06`（未定义）→ `--white-a10`。**教训**：修"硬编码色→令牌"时必须先确认令牌存在（评审报告作者不知道项目里 --green 不存在）；系统性校验用"全量 var 引用 vs 已定义集合"比对 |
@@ -383,9 +385,9 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 接手本项目时，按此顺序验证环境：
 
-1. `git pull` 拉最新 master，确认版本徽章为 v0.25.11（`chrome_extension/manifest.json` 的 `version`）
+1. `git pull` 拉最新 master，确认版本徽章为 v0.46.0（`chrome_extension/manifest.json` 的 `version`）
 2. 浏览器打开 `index.html`，配置 API（可用 DeepSeek `https://api.deepseek.com/v1` + `deepseek-chat` 测试）
-3. 依次点击 8 个 Tab，确认每个都能正常工作；在工作报告/邮件总结/AI 解析/AI 提示词生成一次结果后点「微信格式」，确认区域展开、内容无 `#`/`**` 残留且 emoji 正常
+3. 依次点击 8 个 Tab，确认每个都能正常工作；在智能翻译生成一次译文、或在工作报告/邮件总结/AI 解析/AI 提示词生成一次结果后点「微信格式」，确认区域展开、内容无 `#`/`**` 残留且 emoji 正常；编辑译文/结果后区块应自动隐藏
 4. Chrome 加载 `chrome_extension/`（v0.25.11 起新增 `clipboardRead` 权限，加载/更新后需在扩展卡片点「重新加载」）：
    - 点工具栏图标 → 弹窗翻译
    - 点弹窗「侧边栏」按钮或按 `Alt+Shift+L` → 侧边栏 8 个 Tab 切换
@@ -396,5 +398,5 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 ---
 
-**最后更新**：2026-09-11 · v0.25.11（四模块「微信格式」一键转换 + 智能翻译原文复制按钮 + 工作报告输出语言修复 + 粘贴免授权弹框 + Popup 打开本地网页版入口 + 首开配置握手；详见 §4 版本表与 §3.11）
-**参考文档**：`README.md` · `README_EN.md`（changelog 已补 v0.25.11，正文仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`
+**最后更新**：2026-09-18 · v0.46.0（智能翻译译文一键转微信格式：网页版 + 扩展全页，微信格式转换扩至 6 处；详见 §4 版本表与 §3.11）
+**参考文档**：`README.md` · `README_EN.md`（changelog 停在 v0.25.11，正文随版本更新，仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

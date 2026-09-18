@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.45.0-blue)
+![Version](https://img.shields.io/badge/version-0.46.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -29,7 +29,7 @@
 - **Responsive Design** — Works seamlessly on desktop and mobile devices
 - **Cross-surface record sync** — tasks, cards and every history are shared live between the web app, the extension popup and the side panel (changes on one surface appear instantly on the others and survive refreshes); the AI config syncs everywhere from a single save
 - **History export** — Smart Translation history, Work Report records, Email Summary history, English Learning history can each be exported to a local JSON file with one click
-- **One-click WeChat format** — Work Report, Email Summary, AI Parse and AI Prompts each gain a "微信格式 / WeChat format" button that turns the AI output into plain text ready to paste into WeChat: emoji and structure are preserved while the Markdown that WeChat does not render (`#`, `**`, …) is removed (lists become `•`, task items `☑/☐`, tables `value | value`), and hidden characters that WeChat shows as boxes are stripped
+- **One-click WeChat format** — Smart Translate (web + extension full page), Work Report, Email Summary, AI Parse, AI Prompts and WeChat Tools (AI summary) each have a "微信格式 / WeChat format" button that turns the AI output into plain text ready to paste into WeChat: emoji and structure are preserved while the Markdown that WeChat does not render (`#`, `**`, …) is removed (headings become level symbols, lists become `•`, task items `☑/☐`, tables become width-aligned text tables), and hidden characters that WeChat shows as boxes are stripped
 - **Work Report** — Built-in work report generator with AI one-click summary, WeChat-format conversion, history management, and date filtering; the summary output language supports 30 languages (fixes "English selected but Chinese produced")
 - **Task List** — Built-in task manager with add/complete/delete, priority levels, progress tracking, Markdown batch import/export (with checkbox syntax), Apple Reminders one-click import (URL Scheme + AppleScript file fallback), Google Calendar sync, and .ics calendar download
 - **English Learning Assistant** — Built-in English learning module with word study, full-text translation + difficult-word extraction for sentences/passages (up to 20 words, one card per word with a speaker button for one-click pronunciation), AI definitions, text-to-speech, learning history (restored exactly as studied), and note export
@@ -54,7 +54,7 @@
 - **Original Format Preservation** — Supports Markdown, HTML format input with auto-formatting
 - **Records & config shared across surfaces** — the popup, side panel and web version share all records and config: data created on any surface (including every module's history) syncs to the others in real time, and histories can be exported to local JSON files
 - **Toggle Switch** — Enable/disable text selection translation in settings
-- **Copy source / WeChat format** — the popup and full-page source area gain a copy button; Work Report, Email Summary, AI Parse and AI Prompts each gain a one-click "WeChat format" conversion producing plain text ready to paste into WeChat
+- **Copy source / WeChat format** — the popup and full-page source area gain a copy button; Smart Translate (web + extension full page), Work Report, Email Summary, AI Parse, AI Prompts and WeChat Tools (AI summary) each have a one-click "WeChat format" conversion producing plain text ready to paste into WeChat
 - **One-click paste without permission prompts** — the source paste button reads the clipboard directly through the extension permission, so it no longer re-prompts "view the clipboard" every time (without the extension the web app falls back to focusing the editor and asking for `Ctrl+V` — also prompt-free)
 - **Open local web version** — new popup header button that opens the local `index.html` in a new tab; the page path is configurable in Settings under "Local page path", with guidance when "Allow access to file URLs" is off
 - **Language Preference Memory** — Automatically saves source and target language choices
