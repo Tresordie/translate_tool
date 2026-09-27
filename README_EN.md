@@ -2,7 +2,7 @@
 
 > An online translation tool powered by LLM APIs, available as a web app and Chrome extension, supporting 30+ languages with text selection translation.
 
-![Version](https://img.shields.io/badge/version-0.46.0-blue)
+![Version](https://img.shields.io/badge/version-0.47.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Language**: [中文](README.md) | English
@@ -19,7 +19,7 @@
 - **Original Format Preservation** — Fully preserves Markdown, HTML, code blocks, and other original formats with auto-formatting after translation
 - **Chrome Extension Fullscreen Mode** — New "fullscreen button" in popup top-right corner, opens full translation page in new tab (no height limit)
 - **Dynamic Popup Height** — Max height set to `screen.availHeight`, can drag to screen bottom
-- **6 Minimal Premium Themes with One-Click Switching** — Low-saturation Apple-style palette: light (Paper / Mist / Cream) × dark (Graphite / Slate / Nocturne), neutral layered backgrounds, restrained accent colors, Apple-style text ladder, hairline borders + soft diffuse shadows; floating panel in the bottom-right corner, default Graphite
+- **10 Minimal Premium Themes with One-Click Switching** — Low-saturation Apple-style palette: light (Verdant / Paper / Mist / Cream / Sky) × dark (Graphite / Slate / Midnight / Orbit / Nocturne), neutral layered backgrounds, restrained accent colors, Apple-style text ladder, hairline borders + soft diffuse shadows; floating panel in the bottom-right corner, default Verdant. **Depth system (v0.47.3)**: the 4-level shadow scale is hue-tinted per theme (`--shadow-tint-rgb`) with a contact + key + ambient-occlusion structure, plus bevel-top / bevel-bottom / inset-field / vignette tokens so controls and cards read as physical objects (idle → hover → pressed states)
 - **Branded Title Typography** — Display font Sora (async loaded, falls back to Syne/Plus Jakarta Sans), gradient text + glow, clamp-based responsive sizing
 - **Typing Effect** — Translation results appear character by character for a smooth experience
 - **Translation History** — Auto-saves up to 20 recent translations with one-click recall
@@ -46,7 +46,7 @@
 - **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
 - **Popup Translation Panel** — Click the toolbar icon for quick text translation
 - **Right-click Menu** — Select text and right-click to choose "AI Tool Box Translate"
-- **6 Minimal Premium Themes + Textured UI** — Shares the theme.css system with the web version: restrained low-saturation palette, glassmorphism cards, subtle noise background and depth shadows
+- **10 Minimal Premium Themes + Textured UI** — Shares the theme.css system with the web version: restrained low-saturation palette, glassmorphism cards, subtle noise background, themed depth shadows and physical pressed/hover states
 - **Deep Context-Aware Translation** — AI performs 5-step context analysis (domain/text type/tone/audience/intent) for precise translations
 - **Resizable Popup** — Drag any edge or corner to freely resize the popup (320–800px wide, 300–780px tall), size auto-saved
 - **Uninterrupted Translation** — Translation continues in background Service Worker even if popup closes; results auto-restored on reopen
@@ -125,7 +125,7 @@ translation_tool/
 ├── ai_prompts.html         # AI Prompts page (enter a requirement → generate a structured prompt)
 ├── ai_prompts.js           # AI Prompts page logic
 ├── install_url_scheme.sh     # Apple Reminders URL Scheme bridge installer
-├── theme.css               # Shared theme system (6 minimal premium theme variables + per-page UI layers + glass cards/noise/ambient glow styles)
+├── theme.css               # Shared theme system (10 theme variable sets + depth tokens (hue-tinted shadows / bevel / inset / vignette) + per-page UI layers + glass cards/noise/ambient glow styles)
 ├── theme.js                # Theme switcher / data-mode light-dark flag / iframe theme sync / legacy theme migration / MD preview binding
 ├── markdown.js             # Markdown renderer
 ├── md-editor.js            # Markdown editor component
@@ -183,7 +183,7 @@ In addition to the web version, this project includes a **Chrome browser extensi
 - **Popup Translation Panel** — Click the toolbar icon for quick text translation
 - **Text Selection Translation** — Select text on any webpage, a translation icon appears automatically
 - **Right-click Menu** — Select text and right-click to choose "LinguaFlow Translate"
-- **6 Minimal Premium Themes + Textured UI** — Shares the theme system with the web version: restrained low-saturation palette, glassmorphism cards, subtle noise background and depth shadows
+- **10 Minimal Premium Themes + Textured UI** — Shares the theme system with the web version: restrained low-saturation palette, glassmorphism cards, subtle noise background, themed depth shadows and physical pressed/hover states
 - **Resizable Popup** — Drag any edge or corner to resize (320–800px wide, 300–780px tall), auto-saved
 - **Uninterrupted Translation** — Background Service Worker continues translating even after popup closes; results auto-restored
 - **Translation History** — Auto-saves up to 20 entries with individual deletion and clear-all
@@ -214,7 +214,7 @@ In addition to the web version, this project includes a **Chrome browser extensi
 2. The side panel opens on the right edge of the window with 8 tabs: **Smart Translation / Work Report / Task List / English Learning / Email Summary / AI Parse / AI Prompts / WeChat Toolkit**
 3. Click any tab to switch modules instantly — each module is lazily loaded on first open to keep startup fast
 4. Configure your API in the side panel's **Settings** panel (gear icon) — the config syncs to the popup, fullscreen page and every module in real time
-5. Click the circular theme button in the bottom-right corner to switch between the 6 themes directly inside the side panel — changes sync to every module in real time
+5. Click the circular theme button in the bottom-right corner to switch between the 10 themes directly inside the side panel — changes sync to every module in real time
 
 ## 📋 Browser Compatibility
 

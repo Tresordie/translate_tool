@@ -497,6 +497,38 @@
             `).join('');
         }
 
+        // ---------- 输入分诊：词数统计 / 句子切分（v0.47.1） ----------
+        // 词数：只统计含字母或数字的 token（"—"、"..." 这类纯标点不算单词），决定 50 词分界走哪个分支
+        function countWords(text) {
+            return String(text || '').split(/\s+/).filter(t => /[\p{L}\p{N}]/u.test(t)).length;
+        }
+
+        // 句末缩写白名单：这些缩写后的句点不是句子边界，避免单个长句被误判成多句而落入材料模式
+        const SENT_ABBR = new Set(['mr','mrs','ms','dr','prof','st','jr','sr','inc','ltd','co','corp','vs','etc','no','fig','approx','dept','univ','gov','sen','rep','gen','col','capt','lt','sgt','mt','ft','ave','blvd','rd','u.s','u.s.a','u.k','u.n','e.g','i.e','a.m','p.m','jan','feb','mar','apr','jun','jul','aug','sep','sept','oct','nov','dec']);
+
+        // 句子切分：句末标点须后接空白或文本结尾，并排除缩写、小数、省略号
+        function countSentences(text) {
+            const s = String(text || '').replace(/\s+/g, ' ').trim();
+            if (!s) return 0;
+            const re = /[.!?…]+["'”’)\]]*/g;
+            let count = 0, m;
+            while ((m = re.exec(s)) !== null) {
+                const next = s.slice(m.index + m[0].length);
+                if (next && !/^\s/.test(next)) continue;                    // 3.14 / U.S. 这类词内句点
+                if (next && /^\s*[a-z,;]/.test(next)) continue;              // 后接小写字母或逗号 → 非句末
+                const token = m[0].replace(/["'”’)\]]+$/, '');
+                if (/^\.{2,}$/.test(token) || /^…+$/.test(token)) continue;  // 省略号不是句子边界
+                const wm = s.slice(0, m.index + 1).match(/([A-Za-z][A-Za-z.]*)\.$/);
+                if (wm) {
+                    const w = wm[1].toLowerCase();
+                    if (SENT_ABBR.has(w) || /^[a-z](\.[a-z])+$/.test(w)) continue; // 缩写 / 单字母点链
+                }
+                count++;
+            }
+            if (!/[.!?…]["'”’)\]]*$/.test(s)) count++;                       // 末尾无句末标点也算一句
+            return count;
+        }
+
         // 历史条目 content 为结构化 JSON（displayResult 可回放）；解析失败或旧格式按原文兜底渲染
         function parseHistoryItem(item) {
             try {
@@ -519,7 +551,7 @@
                 currentResultMd = parsed.fallback;
                 document.getElementById('resultContent').innerHTML = `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--el-accent);stroke-width:1.5;fill:none"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 学习结果</div><div class="md-rendered">${renderMarkdown(parsed.fallback)}</div></div>`;
             } else {
-                displayResult(parsed.result);
+                displayResult(parsed.result, { wordCount: countWords(item.word) });
             }
             document.getElementById('resultSection').style.display = 'block';
             saveToStorage();
@@ -551,20 +583,28 @@
                 const _url = _as.buildUrl ? _as.buildUrl(apiUrl) : apiUrl.replace(/\/+$/, '') + '/chat/completions';
                 const _reasoning = _as.isReasoningModel ? _as.isReasoningModel(modelName) : false;
                 const _pf = _as.proxyFetch || fetch;
-                // 短输入（≤4 词）按单词学习；长输入按材料提取关键词汇（v0.25.6）
-                const wordCount = word.split(/\s+/).filter(Boolean).length;
-                const isPassage = wordCount > 4;
+                // 短输入（≤4 词）按单词学习；句子（>4 词且 ≤2 句，不限长度）进入句式讲解模式：
+                // ≤50 词逐词讲解并重点讲难点，>50 词只重点讲难点单词；≥3 句的长材料按材料提取关键词汇（v0.47.0）
+                // 词数/句数改用 countWords / countSentences：纯标点不计词、缩写与小数不误判句末（v0.47.1）
+                const wordCount = countWords(word);
+                const sentenceCount = countSentences(word);
+                const isSentence = wordCount > 4 && sentenceCount <= 2;
+                const isShortSentence = isSentence && wordCount <= 50;
+                const isPassage = wordCount > 4 && !isSentence;
                 let material = word;
-                if (isPassage && material.length > 15000) material = material.slice(0, 15000) + '\n[...材料过长，已截断...]';
+                if (material.length > 15000) material = material.slice(0, 15000) + '\n[...内容过长，已截断...]';
                 const SINGLE_SCHEMA = '{"word":"","phonetic_uk":"","phonetic_us":"","part_of_speech":"","chinese_meaning":"","english_definition":"","usage":"","examples":[{"en":"","zh":""}],"synonyms":[],"antonyms":[],"memory_tip":""}';
+                const SENTENCE_SCHEMA = '{"type":"sentence","translation":"","structure":"","words":[{"word":"","phonetic_uk":"","phonetic_us":"","part_of_speech":"","meaning":"","is_difficult":false,"detail":""}]}';
                 const userPrompt = isPassage
                     ? `请处理以下英语材料：1. 给出材料全文的中文翻译（保持段落结构，不要遗漏或概括）；2. 从材料中提取值得学习的较难词汇（按重要性排序，最多 20 个，优先选择较难、专业或在文中关键的词，跳过最常见的基础词），对每个词汇提供：音标(英美)、词性、中英文释义、用法、2-3个例句、同义词、反义词、记忆技巧。\n只返回 JSON 对象，不要任何其他文字。格式:\n{"translation":"全文中文翻译","words":[${SINGLE_SCHEMA}]}\n\n英语材料：\n${material}`
+                    : isSentence
+                    ? `请讲解这个英语句子："${material}"\n要求：\n1. translation：整句中文翻译；\n2. structure：句式讲解（简短 markdown）——先点明本句的句型与核心时态的英文名称（如 "主从复合句 · 一般过去时"），再分析句子成分（主语/谓语/宾语/定语/状语/补语、从句类型）以及本句值得注意的语法点（非谓语、倒装、虚拟语气、固定句式等）；\n3. words：单词讲解。${isShortSentence ? '句子较短（少于50词）：请把句中所有单词（同一个词只讲一次）逐一讲解，一个都不要漏' : '句子较长（多于50词）：不要逐词罗列，只挑选 8-15 个重点或较难的单词讲解（固定搭配、熟词僻义、长难词、关键动词优先），跳过 the/is/of 等最常见基础词'}。每个单词给出：音标（英式/美式）、词性、在句中的中文含义；${isShortSentence ? '其中较难的重点单词把 is_difficult 设为 true，并额外给出 detail 难点讲解（难在哪、常见搭配与用法、易错点，简短 markdown），简单词 is_difficult 为 false 且 detail 留空' : '上面挑选出来的每个单词都把 is_difficult 设为 true，并逐一给出 detail 难点讲解（难在哪、常见搭配与用法、易错点，简短 markdown），detail 不可省略'}。\n只返回 JSON 对象，不要任何其他文字。格式：\n${SENTENCE_SCHEMA}\n\n英语句子：${material}`
                     : `请为"${word}"提供: 1.音标(英美) 2.词性 3.中英文释义 4.用法 5.3-5个例句 6.同义词 7.反义词 8.记忆技巧。JSON格式: ${SINGLE_SCHEMA}`;
                 async function wordReq(includeTemp) {
                     const body = {
                         model: modelName,
                         messages: [
-                            { role: 'system', content: isPassage ? '你是专业的英语教学助手，擅长翻译英语材料并从中提取较难词汇进行教学讲解。请用JSON格式返回结果。' : '你是专业的英语教学助手，请用JSON格式返回结果。' },
+                            { role: 'system', content: isPassage ? '你是专业的英语教学助手，擅长翻译英语材料并从中提取较难词汇进行教学讲解。请用JSON格式返回结果。' : isSentence ? '你是专业的英语教学助手，擅长句子结构（语法）分析与重点单词讲解。请用JSON格式返回结果。' : '你是专业的英语教学助手，请用JSON格式返回结果。' },
                             { role: 'user', content: userPrompt }
                         ]
                     };
@@ -592,7 +632,17 @@
                 
                 let result;
                 try {
-                    if (isPassage) {
+                    if (isSentence) {
+                        // 句子模式：{type:'sentence', translation, structure, words:[...]}；容错模型漏掉 type 字段
+                        const objMatch = content.match(/\{[\s\S]*\}/);
+                        if (objMatch) {
+                            const o = JSON.parse(objMatch[0]);
+                            if (o && Array.isArray(o.words)) {
+                                if (!o.type) o.type = 'sentence';
+                                result = o;
+                            }
+                        }
+                    } else if (isPassage) {
                         // 材料模式：{translation, words:[...]}；容错裸数组 / {words:[...]} 等包裹 / 单词对象
                         const objMatch = content.match(/\{[\s\S]*\}/);
                         if (objMatch) {
@@ -619,11 +669,15 @@
                 }
 
                 if (result) {
-                    displayResult(result);
+                    displayResult(result, { wordCount: wordCount });
                     // 历史列表显示短标签（word 字段保留完整输入，供点击恢复编辑器内容）
                     const words = Array.isArray(result) ? result : (result.words || []);
+                    const isSentenceResult = result && !Array.isArray(result) &&
+                        (result.type === 'sentence' || (!!result.structure && Array.isArray(result.words)));
                     const label = Array.isArray(result)
                         ? word
+                        : isSentenceResult
+                        ? (word.length > 26 ? word.slice(0, 26) + '…' : word)
                         : (words.length ? ((words[0] && words[0].word ? words[0].word : '词汇') + ' 等 ' + words.length + ' 词') : word);
                     saveHistory({ word: word, label: label, content: JSON.stringify(result), timestamp: new Date().toISOString() });
                 } else {
@@ -642,11 +696,51 @@
             }
         }
 
-        function displayResult(result) {
+        function displayResult(result, meta) {
+            // 句子模式：{type:'sentence', translation, structure, words:[...]} → 句子翻译 / 句式讲解 / 单词讲解三卡
+            const isSentenceResult = result && !Array.isArray(result) &&
+                (result.type === 'sentence' || (!!result.structure && Array.isArray(result.words)));
             // 材料模式：{translation, words:[...]} → 全文翻译卡 + 逐词卡片；单词模式：单对象
             currentResultMd = resultToMarkdown(result);
-            const isPassageResult = result && !Array.isArray(result) && Array.isArray(result.words);
-            const translation = isPassageResult && result.translation ? `
+            const isPassageResult = result && !Array.isArray(result) && !isSentenceResult && Array.isArray(result.words);
+            let html;
+            if (isSentenceResult) {
+                const sw = Array.isArray(result.words) ? result.words : [];
+                const diffCount = sw.filter(w => w.is_difficult || w.detail).length;
+                // 模式提示：按输入词数回显走的是「≤50 词逐词讲解」还是「>50 词难点精选」（历史回放同样按 item.word 统计）
+                const wc = meta && Number(meta.wordCount) > 0 ? Number(meta.wordCount) : 0;
+                const modeNote = wc
+                    ? (wc <= 50
+                        ? `句子较短（<strong>${wc}</strong> 词）：已对句中全部 <strong>${sw.length}</strong> 个单词逐一讲解${diffCount ? `，其中 <strong>${diffCount}</strong> 个难点单词已深入讲解` : ''}（点击喇叭可朗读）`
+                        : `句子较长（<strong>${wc}</strong> 词）：已挑选 <strong>${sw.length}</strong> 个重点/难点单词讲解${diffCount ? `，其中 <strong>${diffCount}</strong> 个附难点详解` : ''}（点击喇叭可朗读）`)
+                    : `句子单词讲解（共 <strong>${sw.length}</strong> 个${diffCount ? `，其中 <strong>${diffCount}</strong> 个难点单词已重点讲解` : ''}，点击喇叭可朗读）`;
+                html = `
+                <div class="el-result-card">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                        句子翻译
+                    </div>
+                    <div class="md-rendered">${renderMarkdown(result.translation || 'N/A')}</div>
+                </div>
+                ${result.structure ? `
+                <div class="el-result-card">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h14"/></svg>
+                        句式讲解
+                    </div>
+                    <div class="md-rendered">${renderMarkdown(result.structure)}</div>
+                </div>` : ''}
+                ${sw.length ? `
+                <div class="el-result-card">
+                    <div class="el-result-card-title">
+                        <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                        单词讲解
+                    </div>
+                    <p class="el-sense-note">${modeNote}</p>
+                    <div class="el-sense-grid">${renderSentenceWords(sw)}</div>
+                </div>` : ''}`;
+            } else {
+                const translation = isPassageResult && result.translation ? `
                 <div class="el-result-card">
                     <div class="el-result-card-title">
                         <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
@@ -654,8 +748,8 @@
                     </div>
                     <div class="md-rendered">${renderMarkdown(result.translation)}</div>
                 </div>` : '';
-            const items = isPassageResult ? result.words : (Array.isArray(result) ? result : [result]);
-            const summary = isPassageResult ? `
+                const items = isPassageResult ? result.words : (Array.isArray(result) ? result : [result]);
+                const summary = isPassageResult ? `
                 <div class="el-result-card">
                     <div class="el-result-card-title">
                         <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -663,9 +757,32 @@
                     </div>
                     <p>从材料中提取了 <strong>${items.length}</strong> 个较难词汇（按重要性排序，点击词头喇叭可朗读）</p>
                 </div>` : '';
-            const html = translation + summary + items.map((w, i) => renderWordCard(w, isPassageResult ? (i + 1) + ' / ' + items.length : '')).join('<div style="height:14px"></div>');
+                html = translation + summary + items.map((w, i) => renderWordCard(w, isPassageResult ? (i + 1) + ' / ' + items.length : '')).join('<div style="height:14px"></div>');
+            }
             document.getElementById('resultContent').innerHTML = html;
             document.getElementById('resultSection').style.display = 'block';
+        }
+
+        // 句子模式逐词讲解：紧凑网格，每项词头 + 朗读 + 音标 + 词性 + 句中含义；难点单词（is_difficult/detail）高亮并附深入讲解
+        function renderSentenceWords(words) {
+            return (words || []).map(w => {
+                const phon = [w.phonetic_uk, w.phonetic_us].filter(Boolean).join(' / ');
+                const difficult = !!(w.is_difficult || w.detail);
+                return `
+                <div class="el-sense-item${difficult ? ' el-sense-difficult' : ''}">
+                    <div class="el-sense-head">
+                        <strong>${escapeHtml(w.word || '')}</strong>
+                        ${difficult ? '<span class="el-sense-difficult-badge">难点</span>' : ''}
+                        ${w.part_of_speech ? `<span class="el-sense-pos">${escapeHtml(w.part_of_speech)}</span>` : ''}
+                        <button type="button" class="el-speak-btn" data-speak="${escapeHtml(w.word || '')}" title="朗读该单词" aria-label="朗读该单词">
+                            <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                        </button>
+                    </div>
+                    ${phon ? `<div class="el-sense-phon">${escapeHtml(phon)}</div>` : ''}
+                    <div class="el-sense-mean">${escapeHtml(w.meaning || '')}</div>
+                    ${w.detail ? `<div class="el-sense-detail md-rendered">${renderMarkdown(w.detail)}</div>` : ''}
+                </div>`;
+            }).join('');
         }
 
         function renderWordCard(w, badge) {
@@ -711,7 +828,7 @@
                         <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                         例句
                     </div>
-                    ${(w.examples || []).map((ex, i) => `<div style="margin-bottom:12px;"><p><strong>${i+1}.</strong> ${renderMarkdown(ex.en)}</p><p style="padding-left:20px;color:var(--el-text-faint);">${renderMarkdown(ex.zh)}</p></div>`).join('')}
+                    ${(w.examples || []).map((ex, i) => `<div class="el-example-item"><span class="el-example-num">${i + 1}.</span><div class="el-example-body"><div class="el-example-en">${renderMarkdown(ex.en)}</div>${ex.zh ? `<div class="el-example-zh">${renderMarkdown(ex.zh)}</div>` : ''}</div></div>`).join('')}
                 </div>
                 ${w.synonyms && w.synonyms.length ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 同义词</div><p>${w.synonyms.join(', ')}</p></div>` : ''}
                 ${w.antonyms && w.antonyms.length ? `<div class="el-result-card"><div class="el-result-card-title"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> 反义词</div><p>${w.antonyms.join(', ')}</p></div>` : ''}
@@ -803,10 +920,27 @@
 
         // 把当前展示的学习结果转回 Markdown 原文（结构与 generateMarkdown 的词条正文一致）
         function resultToMarkdown(result) {
-            const isPassage = result && !Array.isArray(result) && Array.isArray(result.words);
-            const items = isPassage ? result.words : (Array.isArray(result) ? result : [result]);
+            const isSentence = result && !Array.isArray(result) &&
+                (result.type === 'sentence' || (!!result.structure && Array.isArray(result.words)));
+            const isPassage = !isSentence && result && !Array.isArray(result) && Array.isArray(result.words);
             let md = '';
+            if (isSentence) {
+                md += `## 📄 句子翻译\n\n${result.translation || ''}\n\n`;
+                if (result.structure) md += `## 🏗️ 句式讲解\n\n${result.structure}\n\n`;
+                if (Array.isArray(result.words) && result.words.length) {
+                    md += `## 📖 单词讲解\n\n`;
+                    result.words.forEach(w => {
+                        const phon = [w.phonetic_uk, w.phonetic_us].filter(Boolean).join(' / ');
+                        const difficult = w.is_difficult || w.detail;
+                        md += `- ${difficult ? '⭐ ' : ''}**${w.word || ''}**${w.part_of_speech ? ` _${w.part_of_speech}_` : ''}${phon ? ` \`${phon}\`` : ''} — ${w.meaning || ''}\n`;
+                        if (w.detail) md += `  - 难点讲解：${String(w.detail).replace(/\s*\n+\s*/g, ' ')}\n`;
+                    });
+                    md += `\n`;
+                }
+                return md.trim();
+            }
             if (isPassage && result.translation) md += `## 📄 全文翻译\n\n${result.translation}\n\n`;
+            const items = isPassage ? result.words : (Array.isArray(result) ? result : [result]);
             if (isPassage) md += `## 📖 词汇讲解\n\n从材料中提取了 **${items.length}** 个较难词汇（按重要性排序）\n\n`;
             items.forEach((w, wi) => {
                 if (items.length > 1) md += `### ${wi + 1}. ${w.word || ''}\n\n`;
@@ -900,6 +1034,24 @@
                     return;
                 }
                 const result = parsed.result;
+                // 句子模式条目：句子翻译 / 句式讲解 / 单词讲解
+                if (result && !Array.isArray(result) &&
+                    (result.type === 'sentence' || (result.structure && Array.isArray(result.words)))) {
+                    if (result.translation) md += `### 📄 句子翻译\n\n${result.translation}\n\n`;
+                    if (result.structure) md += `### 🏗️ 句式讲解\n\n${result.structure}\n\n`;
+                    if (Array.isArray(result.words) && result.words.length) {
+                        md += `### 📖 单词讲解\n\n`;
+                        result.words.forEach(w => {
+                            const phon = [w.phonetic_uk, w.phonetic_us].filter(Boolean).join(' / ');
+                            const difficult = w.is_difficult || w.detail;
+                            md += `- ${difficult ? '⭐ ' : ''}**${w.word || ''}**${w.part_of_speech ? ` _${w.part_of_speech}_` : ''}${phon ? ` \`${phon}\`` : ''} — ${w.meaning || ''}\n`;
+                            if (w.detail) md += `  - 难点讲解：${String(w.detail).replace(/\s*\n+\s*/g, ' ')}\n`;
+                        });
+                        md += `\n`;
+                    }
+                    md += `---\n\n`;
+                    return;
+                }
                 const words = Array.isArray(result) ? result : (Array.isArray(result.words) ? result.words : [result]);
                 if (result && result.translation) {
                     md += `### 📄 全文翻译\n\n${result.translation}\n\n`;
@@ -952,6 +1104,23 @@
                 return `<div class="md-rendered">${renderMarkdown(parsed.fallback)}</div>`;
             }
             const result = parsed.result;
+            // 句子模式条目：句子翻译 / 句式讲解 / 单词讲解
+            if (result && !Array.isArray(result) &&
+                (result.type === 'sentence' || (result.structure && Array.isArray(result.words)))) {
+                let sh = '';
+                if (result.translation) sh += `<div style="margin:0 0 16px;"><h3 style="margin:0 0 8px;">📄 句子翻译</h3><div class="md-rendered">${renderMarkdown(result.translation)}</div></div>`;
+                if (result.structure) sh += `<div style="margin:0 0 16px;"><h3 style="margin:0 0 8px;">🏗️ 句式讲解</h3><div class="md-rendered">${renderMarkdown(result.structure)}</div></div>`;
+                if (Array.isArray(result.words) && result.words.length) {
+                    sh += `<div style="margin:0 0 16px;"><h3 style="margin:0 0 8px;">📖 单词讲解</h3>` +
+                        result.words.map(w => {
+                            const phon = [w.phonetic_uk, w.phonetic_us].filter(Boolean).join(' / ');
+                            const difficult = w.is_difficult || w.detail;
+                            return `<p style="margin:4px 0;">${difficult ? '<span style="background:#F59E0B;color:#fff;font-size:0.72em;border-radius:999px;padding:1px 7px;margin-right:4px;">难点</span>' : ''}<strong>${escapeHtml(w.word || '')}</strong>${w.part_of_speech ? ` <span style="color:#64748B;">${escapeHtml(w.part_of_speech)}</span>` : ''}${phon ? ` <span style="color:#94A3B8;">${escapeHtml(phon)}</span>` : ''} — ${escapeHtml(w.meaning || '')}</p>${w.detail ? `<div class="md-rendered" style="font-size:0.88em;color:#475569;margin:0 0 8px 14px;">${renderMarkdown(w.detail)}</div>` : ''}`;
+                        }).join('') +
+                        `</div>`;
+                }
+                return sh;
+            }
             const words = Array.isArray(result) ? result : (Array.isArray(result.words) ? result.words : [result]);
             let h = '';
             if (result && result.translation) {

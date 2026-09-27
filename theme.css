@@ -1,7 +1,8 @@
 /**
  * theme.css — LinguaFlow 主题系统（极简高级感 · 低饱和苹果风）
- * 6 款主题：浅色 纸感白 Paper / 雾霭 Mist / 奶油 Cream × 深色 石墨 Graphite / 板岩 Slate / 午夜 Midnight
- * 默认 lf-graphite（石墨黑 · 经典苹果深色）
+ * 10 款主题：浅色 青屿 Verdant / 纸感白 Paper / 雾霭 Mist / 奶油 Cream / 晴空 Sky
+ *           × 深色 石墨 Graphite / 板岩 Slate / 午夜 Midnight / 轨道 Orbit / 夜曲 Nocturne
+ * 默认 lf-verdant（青屿 · 清新自然系，:root 回退与其一致）
  * 设计语言：中性分层背景（浅色暖灰白 / 深色近黑分层）、克制强调色点睛、
  * 苹果式文字阶梯（#1D1D1F → #86868B / #F5F5F7 → #6E6E73）、极细中性边框 + 柔和弥散阴影
  * 明暗分组由 theme.js 设置的 html[data-mode="light|dark"] 驱动（替代旧版 cat-latte 前缀判断）
@@ -887,6 +888,108 @@ html[data-theme="lf-sky"] {
   color-scheme: light;
 }
 
+/* --- 青屿 · Verdant（浅）晨雾青白 × 松林绿 × 日出珊瑚 ---
+   清新自然系：低饱和青灰底 + 高对比松林绿主色 + 珊瑚点睛；
+   玻璃 0.80 / 微噪点 0.03 / 柔和弥散阴影 / 湖屿青渐变光感。
+   锚定 :root 作为 JS 加载前的回退（默认主题 lf-verdant），
+   置于 lf-paper 之后：无 data-theme 时后声明的 :root 生效，
+   其余主题凭 html[data-theme] 属性选择器特异性照常覆盖。 */
+:root,
+html[data-theme="lf-verdant"] {
+  --primary: #357A62;
+  --primary-light: #58A186;
+  --primary-dark: #2A6350;
+  --accent: #CC6B49;
+  --accent2: #4E827C;
+  --neon-cyan: #4A8E8A;
+  --neon-purple: #4E827C;
+  --neon-blue: #357A62;
+  --neon-green: #35916B;
+  --orange: #BF8230;
+  --red: #D05B52;
+  --blue: #357A62;
+
+  /* RGB 三元组（供 rgba() 组合，随主题切换） */
+  --primary-rgb: 53,122,98;
+  --cyan-rgb: 74,142,138;
+  --accent2-rgb: 78,130,124;
+  --purple-rgb: 78,130,124;
+  --white-rgb: 53,122,98;
+  --green-rgb: 53,145,107;
+  --green: rgb(var(--green-rgb));
+  --green-a12: rgba(var(--green-rgb), 0.12);
+  --shadow-tint-rgb: 42,99,80;
+
+  --bg-dark: #F2F6F3;
+  --bg-gradient: linear-gradient(180deg, #FAFCFA 0%, #F2F6F3 55%, #E8F0EA 100%);
+  --bg-body: #F2F6F3;
+  --bg-card: #FFFFFF;
+  --bg-card2: #EDF3EE;
+  --bg-elevated: #E4ECE6;
+  --glass-bg: rgba(255,255,255,0.80);
+  --glass-border: rgba(16,42,32,0.08);
+  --glass-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 2px rgba(16,42,32,0.04), 0 8px 24px rgba(16,42,32,0.06), 0 24px 64px rgba(16,42,32,0.07);
+
+  --text: #1C2B26;
+  --text-secondary: #55685F;
+  --text-dim: #61706A;
+  --text-strong: #0B1613;
+
+  --primary-a04: rgba(53,122,98,0.04);
+  --primary-a06: rgba(53,122,98,0.06);
+  --primary-a08: rgba(53,122,98,0.08);
+  --primary-a10: rgba(53,122,98,0.10);
+  --primary-a12: rgba(53,122,98,0.12);
+  --primary-a15: rgba(53,122,98,0.15);
+  --primary-a18: rgba(53,122,98,0.18);
+  --primary-a20: rgba(53,122,98,0.20);
+  --primary-a25: rgba(53,122,98,0.25);
+  --cyan-a06: rgba(74,142,138,0.06);
+  --cyan-a08: rgba(74,142,138,0.08);
+  --cyan-a10: rgba(74,142,138,0.10);
+  --cyan-a12: rgba(var(--cyan-rgb), 0.12);
+  --cyan-a15: rgba(74,142,138,0.15);
+  --cyan-a20: rgba(74,142,138,0.20);
+  --green-a08: rgba(53,145,107,0.08);
+  --green-a10: rgba(53,145,107,0.10);
+  --green-a15: rgba(53,145,107,0.15);
+  --green-a20: rgba(53,145,107,0.20);
+  --red-a08: rgba(208,91,82,0.08);
+  --red-a10: rgba(208,91,82,0.10);
+  --red-a12: rgba(208,91,82,0.12);
+  --accent2-a06: rgba(78,130,124,0.06);
+  --accent2-a10: rgba(78,130,124,0.10);
+  --white-a08: rgba(53,122,98,0.05);
+  --white-a10: rgba(53,122,98,0.07);
+  --white-a12: rgba(53,122,98,0.09);
+  --white-a15: rgba(53,122,98,0.11);
+
+  --md-code-bg: rgba(53,122,98,0.08);
+  --md-code-color: #2A6350;
+  --md-pre-bg: #F7FAF8;
+  --md-pre-border: rgba(16,42,32,0.08);
+  --md-pre-color: #2C3A34;
+  --md-link: #357A62;
+  --md-blockquote-border: #357A62;
+  --md-blockquote-bg: rgba(53,122,98,0.05);
+  --md-table-border: rgba(16,42,32,0.10);
+  --md-th-bg: rgba(16,42,32,0.035);
+
+  --orb-opacity: 0.06;
+  --scanline-opacity: 0;
+  --grid-opacity: 0;
+  --star-opacity: 0;
+  --glow-opacity: 0.16;
+  --card-border-glow: 0;
+  --noise-opacity: 0.03;
+  --header-gradient: linear-gradient(135deg, #14231E 0%, #357A62 55%, #4E827C 100%);
+  --btn-gradient: linear-gradient(135deg, #2A6350 0%, #357A62 55%, #58A186 100%);
+  --focus-ring: 0 0 0 4px rgba(53,122,98,0.16);
+  --scrollbar-color: rgba(16,42,32,0.16);
+  --scrollbar-hover: rgba(16,42,32,0.30);
+  color-scheme: light;
+}
+
 /* ============================================================
    2. 共享基础样式
    ============================================================ */
@@ -895,6 +998,8 @@ html[data-theme="lf-sky"] {
 .bg-canvas {
   position: fixed; inset: 0; z-index: 0; overflow: hidden;
   background: var(--bg-gradient);
+  /* v0.47.3：四周极淡压暗（主题色相），把内容"托"在光里，画面更有纵深 */
+  box-shadow: var(--vignette);
   transition: background 0.4s ease;
 }
 .bg-canvas::before {
@@ -966,11 +1071,11 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* --- 表单控件质感：输入框/下拉框加柔和 inset 内阴影，增强凹陷精致感 --- */
+/* --- 表单控件质感：内凹面（v0.47.3 用 --inset-field：上方暗 + 下方受光，读起来"挖进"面板里） --- */
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 select,
 textarea {
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+  box-shadow: var(--inset-field);
 }
 
 /* --- Header --- */
@@ -1001,7 +1106,8 @@ textarea {
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
-  box-shadow: var(--glass-shadow);
+  /* v0.47.3：主题自带 4 层玻璃阴影 + 底部接触线，卡片有"厚度"而非纸片 */
+  box-shadow: var(--glass-shadow), var(--bevel-bottom);
   /* 裁剪贴边子栏（lang-bar/translate-bar 等）的方形背景角，避免从圆角伸出 */
   overflow: hidden;
   transition: box-shadow var(--transition), background 0.4s ease, border-color 0.4s ease;
@@ -1350,6 +1456,7 @@ html.in-iframe .header { display: none; }
 .theme-swatch.swatch-lf-orbit { background: linear-gradient(135deg, #0A0E14, #2FC6E8 70%, #F5A623); }
 .theme-swatch.swatch-lf-nocturne { background: linear-gradient(135deg, #0B0E14, #4D9FF8 70%, #3FD6B4); }
 .theme-swatch.swatch-lf-sky { background: linear-gradient(135deg, #FFFFFF, #0E9FD8 70%, #023047); }
+.theme-swatch.swatch-lf-verdant { background: linear-gradient(135deg, #F2F6F3, #357A62 68%, #CC6B49); }
 .theme-option .check {
   margin-left: auto;
   opacity: 0;
@@ -1394,11 +1501,21 @@ html.theme-transitioning *::after {
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
   --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
 
-  /* 高度层级：4 级阴影（浅色模式在下方 data-mode 块减重） */
-  --shadow-1: 0 1px 2px rgba(0,0,0,.30);
-  --shadow-2: 0 4px 12px -2px rgba(0,0,0,.36);
-  --shadow-3: 0 12px 28px -8px rgba(0,0,0,.46);
-  --shadow-4: 0 24px 56px -16px rgba(0,0,0,.55);
+  /* 高度层级：4 级阴影（v0.47.3 立体感升级）
+     结构 = 接触阴影（贴地 1px）+ 定向主投影 + 大范围环境光遮蔽；
+     色相取自每套主题自己的 --shadow-tint-rgb（纸感白偏苹果蓝 / 奶油偏暖棕 / 青屿偏松绿 /
+     板岩偏靛蓝 …），暗色主题再叠一层纯黑做环境遮蔽，因此 10 套主题的投影各带本主题色温。
+     注意：--shadow-tint-rgb 是逗号三元组，var() 回退也必须写成三元组形式。 */
+  --shadow-1: 0 1px 1px rgba(0,0,0,.24), 0 2px 6px -1px rgba(var(--shadow-tint-rgb,0,0,0),.10);
+  --shadow-2: 0 1px 1px rgba(0,0,0,.26), 0 5px 14px -3px rgba(var(--shadow-tint-rgb,0,0,0),.16), 0 14px 32px -12px rgba(0,0,0,.36);
+  --shadow-3: 0 2px 3px rgba(0,0,0,.28), 0 12px 28px -8px rgba(var(--shadow-tint-rgb,0,0,0),.20), 0 30px 64px -20px rgba(0,0,0,.42);
+  --shadow-4: 0 4px 8px rgba(0,0,0,.30), 0 20px 44px -12px rgba(var(--shadow-tint-rgb,0,0,0),.24), 0 52px 104px -32px rgba(0,0,0,.48);
+
+  /* 立体面令牌（v0.47.3）：顶部受光 / 底部接触 / 内凹面 / 页面四周压暗；浅色模式在下方 data-mode 块加强 */
+  --bevel-top: inset 0 1px 0 rgba(255,255,255,.12);
+  --bevel-bottom: inset 0 -1px 0 rgba(0,0,0,.28);
+  --inset-field: inset 0 2px 5px rgba(0,0,0,.34), inset 0 -1px 0 rgba(255,255,255,.05);
+  --vignette: inset 0 0 260px rgba(0,0,0,.34);
 
   /* 语义光：统一替代 rgba(var(--primary-rgb,猜测回退)) 与 color-mix 两套并存写法 */
   --glow-brand: 0 0 0 1px var(--primary-a25), 0 0 24px -4px var(--primary-a25);
@@ -1423,12 +1540,26 @@ html.theme-transitioning *::after {
   --ink-on-accent: #14171f;
 }
 
-/* 浅色模式阴影必须减重，否则黑透明叠加在浅底上发脏 */
+/* 浅色模式阴影必须减重，否则黑透明叠加在浅底上发脏（v0.47.3：改为纯色相投影，不加黑，保持干净通透） */
 html[data-mode="light"] {
-  --shadow-1: 0 1px 2px rgba(15,23,42,.06);
-  --shadow-2: 0 4px 12px -2px rgba(15,23,42,.10);
-  --shadow-3: 0 12px 28px -8px rgba(15,23,42,.14);
-  --shadow-4: 0 24px 56px -16px rgba(15,23,42,.18);
+  --shadow-1: 0 1px 1px rgba(var(--shadow-tint-rgb,15,23,42),.05), 0 2px 5px -1px rgba(var(--shadow-tint-rgb,15,23,42),.07);
+  --shadow-2: 0 1px 1px rgba(var(--shadow-tint-rgb,15,23,42),.05), 0 5px 14px -3px rgba(var(--shadow-tint-rgb,15,23,42),.09), 0 14px 32px -12px rgba(var(--shadow-tint-rgb,15,23,42),.10);
+  --shadow-3: 0 2px 3px rgba(var(--shadow-tint-rgb,15,23,42),.06), 0 12px 28px -8px rgba(var(--shadow-tint-rgb,15,23,42),.12), 0 30px 64px -20px rgba(var(--shadow-tint-rgb,15,23,42),.13);
+  --shadow-4: 0 4px 8px rgba(var(--shadow-tint-rgb,15,23,42),.07), 0 20px 44px -12px rgba(var(--shadow-tint-rgb,15,23,42),.15), 0 52px 104px -32px rgba(var(--shadow-tint-rgb,15,23,42),.17);
+
+  /* 浅色立体面：顶缘强受光（白 90%）+ 底部极淡接触线，读起来"浮"在纸面上 */
+  --bevel-top: inset 0 1px 0 rgba(255,255,255,.90);
+  --bevel-bottom: inset 0 -1px 0 rgba(var(--shadow-tint-rgb,15,23,42),.07);
+  --inset-field: inset 0 2px 4px rgba(var(--shadow-tint-rgb,15,23,42),.10), inset 0 -1px 0 rgba(255,255,255,.80);
+  --vignette: inset 0 0 220px rgba(var(--shadow-tint-rgb,15,23,42),.07);
+}
+
+/* 深色立体面：顶缘受光含蓄（白 12%）+ 内凹更深 + 四周压暗更重，避免"糊成一片" */
+html[data-mode="dark"] {
+  --bevel-top: inset 0 1px 0 rgba(255,255,255,.12);
+  --bevel-bottom: inset 0 -1px 0 rgba(0,0,0,.30);
+  --inset-field: inset 0 2px 5px rgba(0,0,0,.40), inset 0 -1px 0 rgba(255,255,255,.045);
+  --vignette: inset 0 0 280px rgba(0,0,0,.38);
 }
 
 /* --- 深色主题：玻璃卡片质感强化（顶缘高光反射 + 更深高斯模糊） --- */
@@ -1445,17 +1576,13 @@ html[data-mode="dark"] .history-card {
               border-color 300ms ease-out, background-color 300ms ease-out;
 }
 
-/* --- 深色主题卡片 Hover：轻微上浮 -3px + 边缘发光 + 外阴影加深 --- */
+/* --- 深色主题卡片 Hover：轻微上浮 -3px + 边缘发光 + 主题色相抬升阴影 + 品牌环境反光 --- */
 html[data-mode="dark"] .glass-card:hover,
 html[data-mode="dark"] .main-card:hover,
 html[data-mode="dark"] .history-card:hover {
   transform: translateY(-3px);
   border-color: rgba(255, 255, 255, 0.16);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    0 8px 24px rgba(0, 0, 0, 0.32),
-    0 28px 72px rgba(0, 0, 0, 0.38),
-    0 0 40px var(--primary-a12);
+  box-shadow: var(--shadow-3), var(--bevel-top), 0 0 44px var(--primary-a12);
 }
 
 /* --- 浅色主题：优雅轻玻璃，避免透明卡片在浅底上失读 --- */
@@ -1473,10 +1600,8 @@ html[data-mode="light"] .glass-card:hover,
 html[data-mode="light"] .main-card:hover,
 html[data-mode="light"] .history-card:hover {
   transform: translateY(-3px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    0 10px 30px rgba(20, 24, 40, 0.10),
-    0 24px 64px rgba(20, 24, 40, 0.08);
+  /* v0.47.3：浅色抬升 = 主题色相 3 级阴影 + 顶缘受光 + 品牌柔光晕 */
+  box-shadow: var(--shadow-3), var(--bevel-top), 0 12px 32px var(--primary-a10);
 }
 
 /* --- 字体与排版重塑：标题用展示字体，正文 Inter --- */
@@ -1517,6 +1642,55 @@ select, textarea {
   transition: transform 300ms ease-out, box-shadow 300ms ease-out,
               border-color 300ms ease-out, background-color 300ms ease-out,
               color 300ms ease-out, opacity 300ms ease-out, filter 300ms ease-out;
+}
+
+/* ============================================================
+   8b. 立体感增强层 v2（v0.47.3）
+   统一"受光方向"：光从左上来 → 顶缘受光（--bevel-top）、底部接触阴影（--bevel-bottom）、
+   控件按下沉入（--inset-field）、浮层抬到 3/4 级（--shadow-3/4）。
+   所有阴影都取自主题自己的 --shadow-tint-rgb，因此 10 套主题自动各带本主题色温，
+   本层只用变量、不写死颜色；放在第 8 节末尾以压过第 2/6 节的基础规则。
+   ============================================================ */
+
+/* --- 8b.1 控件体积感：静置微浮起、悬停抬升、按下沉入 --- */
+.btn-tool, .btn-save, .btn-edit-save, .btn-copy-summary, .btn-download,
+.tab-nav-btn, .pill, .kb-col-add, .theme-option, .el-btn-ghost {
+  box-shadow: var(--shadow-1), var(--bevel-top);
+}
+.btn-tool:hover, .btn-save:hover, .btn-edit-save:hover, .btn-copy-summary:hover,
+.btn-download:hover, .tab-nav-btn:hover, .kb-col-add:hover, .theme-option:hover,
+.el-btn-ghost:hover {
+  box-shadow: var(--shadow-2), var(--bevel-top);
+}
+/* 按下：外阴影收起、内凹面出现 —— 物理"按进去"的错觉（配合已有的 translateY/scale 规则） */
+.btn-tool:active, .btn-save:active, .btn-edit-save:active, .btn-copy-summary:active,
+.btn-download:active, .tab-nav-btn:active, .pill:active, .kb-col-add:active,
+.el-btn-ghost:active {
+  box-shadow: var(--inset-field);
+}
+/* 渐变主按钮：静置给体积，hover 仍沿用第 2 节的品牌辉光（:hover 特异性更高，不会被这里覆盖） */
+.translate-btn, .btn-summarize {
+  box-shadow: var(--shadow-2), var(--bevel-top);
+}
+/* 分段控件/Tab 激活态：从"凹槽"里抬起 */
+.tab-nav-btn.active, .kb-tab.active, .theme-option.active {
+  box-shadow: var(--shadow-2), var(--bevel-top);
+}
+
+/* --- 8b.2 浮层纵深：抽屉/面板 → 3 级，弹窗/主题面板 → 4 级 --- */
+.theme-panel {
+  box-shadow: var(--shadow-4), var(--bevel-top), var(--glass-shadow);
+}
+.modal, .modal-content, .modal-card, .settings-panel, .cloud-drawer, .lfcs-drawer {
+  box-shadow: var(--shadow-4), var(--bevel-top);
+}
+.toast {
+  box-shadow: var(--shadow-3), var(--bevel-top);
+}
+
+/* --- 8b.3 内容面（结果卡/历史条目/看板列）轻抬升：让主内容区与画布分层 --- */
+.el-result-card, .word-card, .kb-col, .side-card {
+  box-shadow: var(--shadow-2), var(--bevel-top);
 }
 
 /* ============================================================
@@ -1650,3 +1824,326 @@ html[data-mode="dark"] .history-card {
 .page-hero--sm .hero-tile svg { width: 24px; height: 24px; }
 .page-hero--sm h1 { font-size: clamp(1.35rem, 2.6vw, 1.8rem); }
 .page-hero--sm .hero-sub { font-size: 0.84rem; }
+
+/* ============================================================
+   12. 青屿 · Verdant 主题组件层
+   仅在 html[data-theme="lf-verdant"] 下生效，不影响其他主题；
+   html[data-theme] 前缀自带 (0,1,1) 特异性，稳定压过各页面
+   :root / 单类名选择器，无需 !important。
+   规格：圆角 12–20px · 阴影 3 层 · hover/active 120–220ms ease-out ·
+   触控目标 ≥44px · 断点 320 / 768 / 1024 / 1440
+   ============================================================ */
+
+/* --- 12.1 Token 重映射：圆角收敛 12–20px、阴影合并为 3 层 --- */
+html[data-theme="lf-verdant"] {
+  --radius: 16px;      /* 主力卡片（页面 :root 的 20px 在本主题降为 16px） */
+  --radius-sm: 12px;   /* 按钮、输入框 */
+  --radius-md: 14px;   /* 次级卡片、Toast */
+  --radius-lg: 16px;
+  --radius-xl: 20px;   /* 大面板、弹窗 */
+  /* 阴影 3 层（青苔墨调，浅底不发脏）；--shadow-4 并入第 3 层保持兼容 */
+  --shadow-1: 0 1px 2px rgba(16,42,32,.05);
+  --shadow-2: 0 6px 18px -4px rgba(16,42,32,.10);
+  --shadow-3: 0 16px 40px -12px rgba(16,42,32,.16);
+  --shadow-4: 0 16px 40px -12px rgba(16,42,32,.16);
+  /* 主题内动效刻度：120–220ms ease-out */
+  --t-press: 120ms;
+  --t-fast: 160ms;
+  --t-base: 200ms;
+  --ease-soft: cubic-bezier(.22,.61,.36,1);
+}
+
+/* --- 12.2 排版：H1–H3 800/700/650，标题 -0.02em，正文行高 1.65 --- */
+html[data-theme="lf-verdant"] body { line-height: 1.65; }
+html[data-theme="lf-verdant"] h1 { font-weight: 800; letter-spacing: -0.02em; }
+html[data-theme="lf-verdant"] h2 { font-weight: 700; letter-spacing: -0.02em; }
+html[data-theme="lf-verdant"] h3 { font-weight: 650; letter-spacing: -0.02em; }
+
+/* --- 12.3 按钮：渐变主按钮 + 玻璃工具按钮，200ms ease-out --- */
+html[data-theme="lf-verdant"] .translate-btn,
+html[data-theme="lf-verdant"] .btn-summarize {
+  border-radius: var(--radius-sm);
+  text-shadow: 0 1px 2px rgba(6,40,28,.30);
+  transition: transform var(--t-fast) var(--ease-soft), box-shadow var(--t-base) var(--ease-soft),
+              filter var(--t-base) var(--ease-soft), background-position 240ms ease;
+}
+html[data-theme="lf-verdant"] .translate-btn:hover,
+html[data-theme="lf-verdant"] .btn-summarize:hover {
+  transform: translateY(-1px);
+  /* v0.47.3：抬升并入全局主题色相阴影刻度，保留品牌绿辉光 */
+  box-shadow: var(--shadow-2), 0 10px 26px rgba(53,122,98,.30);
+}
+html[data-theme="lf-verdant"] .translate-btn:active,
+html[data-theme="lf-verdant"] .btn-summarize:active,
+html[data-theme="lf-verdant"] .btn-save:active,
+html[data-theme="lf-verdant"] .btn-edit-save:active,
+html[data-theme="lf-verdant"] .btn-tool:active,
+html[data-theme="lf-verdant"] .tab-nav-btn:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: var(--t-press);
+}
+html[data-theme="lf-verdant"] .btn-tool {
+  border-radius: var(--radius-sm);
+  transition: transform var(--t-fast) var(--ease-soft), box-shadow var(--t-fast) var(--ease-soft),
+              border-color var(--t-fast) var(--ease-soft), background-color var(--t-fast) var(--ease-soft);
+}
+html[data-theme="lf-verdant"] .btn-tool:hover { box-shadow: var(--shadow-2); }
+
+/* --- 12.4 卡片：玻璃质感 + 200ms 轻上浮（压过共享层 300ms 规则） --- */
+html[data-theme="lf-verdant"] .glass-card,
+html[data-theme="lf-verdant"] .main-card,
+html[data-theme="lf-verdant"] .history-card {
+  border-radius: var(--radius);
+  transition: transform var(--t-base) var(--ease-soft), box-shadow var(--t-base) var(--ease-soft),
+              border-color var(--t-base) var(--ease-soft), background 0.4s ease;
+}
+html[data-theme="lf-verdant"] .glass-card:hover,
+html[data-theme="lf-verdant"] .main-card:hover,
+html[data-theme="lf-verdant"] .history-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(53,122,98,.22);
+  /* v0.47.3：改用全局 3 级主题色相阴影 + 顶缘受光，卡片抬升更有体积层次 */
+  box-shadow: var(--shadow-3), var(--bevel-top), 0 24px 64px rgba(53,122,98,0.16);
+}
+
+/* --- 12.5 导航：Tab 胶囊玻璃条 + 渐变激活态 --- */
+html[data-theme="lf-verdant"] .tab-nav-btn {
+  border-radius: 999px;
+  transition: background-color var(--t-base) var(--ease-soft), color var(--t-base) var(--ease-soft),
+              border-color var(--t-base) var(--ease-soft), box-shadow var(--t-base) var(--ease-soft),
+              transform var(--t-fast) var(--ease-soft);
+}
+html[data-theme="lf-verdant"] .tab-nav-btn:hover {
+  border-color: rgba(53,122,98,.35);
+  background: rgba(53,122,98,.06);
+}
+html[data-theme="lf-verdant"] .tab-nav-btn.active {
+  background: var(--btn-gradient);
+  border-color: transparent;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(6,40,28,.25);
+  box-shadow: 0 6px 18px rgba(53,122,98,.28);
+}
+
+/* --- 12.6 输入框：白底 + 发丝边 + 聚焦绿光环 --- */
+html[data-theme="lf-verdant"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html[data-theme="lf-verdant"] select,
+html[data-theme="lf-verdant"] textarea {
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.92);
+  border: 1px solid rgba(16,42,32,0.10);
+  transition: border-color var(--t-fast) var(--ease-soft), box-shadow var(--t-fast) var(--ease-soft),
+              background-color var(--t-fast) var(--ease-soft);
+}
+html[data-theme="lf-verdant"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+html[data-theme="lf-verdant"] select:focus,
+html[data-theme="lf-verdant"] textarea:focus {
+  border-color: rgba(53,122,98,.55);
+  background: #FFFFFF;
+  box-shadow: var(--focus-ring);
+}
+
+/* --- 12.7 标签 / 弹窗 / Toast / 空状态 / 页脚 --- */
+html[data-theme="lf-verdant"] .pill {
+  border-radius: var(--radius-pill);
+  transition: background-color var(--t-fast) var(--ease-soft), border-color var(--t-fast) var(--ease-soft),
+              color var(--t-fast) var(--ease-soft);
+}
+html[data-theme="lf-verdant"] .modal {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+}
+html[data-theme="lf-verdant"] .modal-overlay {
+  background: rgba(16,42,32,0.34);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+html[data-theme="lf-verdant"] .toast { border-radius: var(--radius-md); }
+html[data-theme="lf-verdant"] .records-empty {
+  border: 1.5px dashed rgba(16,42,32,0.14);
+  border-radius: var(--radius-lg);
+  background: rgba(53,122,98,0.03);
+  color: var(--text-dim);
+}
+html[data-theme="lf-verdant"] .footer {
+  border-top: 1px solid rgba(16,42,32,0.06);
+}
+
+/* --- 12.8 响应式：触控目标 ≥44px（移动端/触屏） --- */
+@media (max-width: 768px), (pointer: coarse) {
+  html[data-theme="lf-verdant"] button:not(.theme-fab):not(.theme-swatch),
+  html[data-theme="lf-verdant"] .tab-nav-btn,
+  html[data-theme="lf-verdant"] .pill,
+  html[data-theme="lf-verdant"] select,
+  html[data-theme="lf-verdant"] textarea,
+  html[data-theme="lf-verdant"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+    min-height: 44px;
+  }
+  /* 触屏无悬停语义：禁用粘滞上浮 */
+  html[data-theme="lf-verdant"] .glass-card:hover,
+  html[data-theme="lf-verdant"] .main-card:hover,
+  html[data-theme="lf-verdant"] .history-card:hover,
+  html[data-theme="lf-verdant"] .translate-btn:hover,
+  html[data-theme="lf-verdant"] .btn-summarize:hover {
+    transform: none;
+  }
+}
+
+/* --- 12.9 断点：768 紧凑 / 1024 增强 / 1440 光学放大 / 320 收边 --- */
+@media (max-width: 768px) {
+  html[data-theme="lf-verdant"] { --radius: 14px; --radius-xl: 18px; }
+  html[data-theme="lf-verdant"] .toast { top: 16px; right: 16px; left: 16px; }
+}
+@media (min-width: 1024px) {
+  html[data-theme="lf-verdant"] .glass-card,
+  html[data-theme="lf-verdant"] .main-card,
+  html[data-theme="lf-verdant"] .history-card {
+    backdrop-filter: blur(26px) saturate(1.45);
+    -webkit-backdrop-filter: blur(26px) saturate(1.45);
+  }
+}
+@media (min-width: 1440px) {
+  html[data-theme="lf-verdant"] { font-size: 16.5px; }
+}
+@media (max-width: 380px) {
+  html[data-theme="lf-verdant"] .theme-fab { right: 14px; bottom: 14px; }
+  html[data-theme="lf-verdant"] .theme-panel { right: 14px; left: 14px; min-width: 0; }
+}
+
+/* --- 12.10 无障碍：reduced-motion 下移除位移类动效（时长已由共享层归零） --- */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="lf-verdant"] .glass-card:hover,
+  html[data-theme="lf-verdant"] .main-card:hover,
+  html[data-theme="lf-verdant"] .history-card:hover,
+  html[data-theme="lf-verdant"] .translate-btn:hover,
+  html[data-theme="lf-verdant"] .btn-summarize:hover,
+  html[data-theme="lf-verdant"] .tab-nav-btn.active {
+    transform: none !important;
+  }
+}
+
+/* --- 12.11 实心重色按钮 → 软色调（用户反馈：按键与内容背景强调色过深）
+   各页面 el-btn-* / btn-save 的实心色块改为 12–15% 浅色底 + 深色字，
+   图标 stroke: currentColor 自动跟随文字色；层级靠底色深浅区分 --- */
+html[data-theme="lf-verdant"] .el-btn-primary {
+  background: linear-gradient(135deg, var(--primary-a12), var(--primary-a06));
+  color: var(--primary-dark);
+  border: 1px solid var(--primary-a18);
+  text-shadow: none;
+  box-shadow: none;
+}
+html[data-theme="lf-verdant"] .el-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--primary-a18), var(--primary-a10));
+  box-shadow: var(--shadow-1);
+  filter: none;
+}
+html[data-theme="lf-verdant"] .el-btn-success {
+  background: rgba(53,145,107,0.14);
+  color: #236349;
+  border: 1px solid rgba(53,145,107,0.28);
+  text-shadow: none;
+  box-shadow: none;
+}
+html[data-theme="lf-verdant"] .el-btn-success:hover:not(:disabled) {
+  background: rgba(53,145,107,0.22);
+  box-shadow: var(--shadow-1);
+  filter: none;
+}
+html[data-theme="lf-verdant"] .el-btn-warning {
+  background: rgba(191,130,48,0.15);
+  color: #7A5216;
+  border: 1px solid rgba(191,130,48,0.30);
+  text-shadow: none;
+  box-shadow: none;
+}
+html[data-theme="lf-verdant"] .el-btn-warning:hover:not(:disabled) {
+  background: rgba(191,130,48,0.24);
+  box-shadow: var(--shadow-1);
+  filter: none;
+}
+html[data-theme="lf-verdant"] .el-btn-danger {
+  background: rgba(208,91,82,0.13);
+  color: #A63E35;
+  border: 1px solid rgba(208,91,82,0.28);
+  text-shadow: none;
+  box-shadow: none;
+}
+html[data-theme="lf-verdant"] .el-btn-danger:hover:not(:disabled) {
+  background: rgba(208,91,82,0.21);
+  box-shadow: var(--shadow-1);
+  filter: none;
+}
+html[data-theme="lf-verdant"] .btn-save {
+  background: linear-gradient(135deg, var(--primary-a15), var(--primary-a08));
+  color: var(--primary-dark);
+  border: 1px solid var(--primary-a18);
+  text-shadow: none;
+  box-shadow: none;
+}
+html[data-theme="lf-verdant"] .btn-save:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-2);
+}
+html[data-theme="lf-verdant"] .pri-chip.p1 {
+  background: rgba(191,130,48,0.14);
+  color: #7A5216;
+  border-color: rgba(191,130,48,0.28);
+}
+
+/* --- 12.12 词头大卡（el-result-word-header）：深绿渐变底 → 浅绿软底深字 --- */
+html[data-theme="lf-verdant"] .el-result-word-header {
+  background: linear-gradient(135deg, rgba(53,145,107,0.12) 0%, rgba(74,142,138,0.08) 100%);
+  border: 1px solid rgba(53,122,98,0.14);
+  box-shadow: var(--shadow-1);
+}
+html[data-theme="lf-verdant"] .el-result-word-header .el-result-card-title {
+  color: var(--primary-dark);
+  border-bottom-color: rgba(53,122,98,0.16);
+}
+html[data-theme="lf-verdant"] .el-result-word-header .el-result-card-title svg { stroke: var(--primary-dark); }
+html[data-theme="lf-verdant"] .el-result-word-header p { color: var(--text-secondary); }
+html[data-theme="lf-verdant"] .el-result-word-header strong { color: var(--text); }
+html[data-theme="lf-verdant"] .el-speak-btn {
+  border-color: rgba(53,122,98,0.30);
+  background: rgba(255,255,255,0.75);
+  color: var(--primary-dark);
+}
+html[data-theme="lf-verdant"] .el-speak-btn:hover { background: #FFFFFF; }
+html[data-theme="lf-verdant"] .el-phonetic-item {
+  background: rgba(255,255,255,0.72);
+  border: 1px solid rgba(53,122,98,0.12);
+}
+html[data-theme="lf-verdant"] .el-phonetic-label { color: var(--text-dim); }
+html[data-theme="lf-verdant"] .el-phonetic-value { color: var(--primary-dark); }
+
+/* ============================================================
+   13. 词头卡软色调（全主题共享 · 用户反馈：内容背景强调色过重）
+   el-result-word-header 原为页面级品牌渐变实心底 + 白字，
+   浅色主题下过重、深色主题下刺眼。改为各主题令牌驱动的
+   浅调底 + 正文色文字，明暗自适应；html 前缀 (0,1,1) 稳定压过
+   页面单类规则。青屿主题 12.12 的专属覆盖特异性更高，仍优先。
+   ============================================================ */
+html .el-result-word-header {
+  background: linear-gradient(135deg, var(--primary-a10) 0%, var(--accent2-a06) 100%);
+  border: 1px solid var(--primary-a12);
+  box-shadow: var(--shadow-1);
+}
+html .el-result-word-header .el-result-card-title {
+  color: var(--text);
+  border-bottom-color: var(--primary-a12);
+}
+html .el-result-word-header .el-result-card-title svg { stroke: var(--primary); }
+html .el-result-word-header p { color: var(--text-secondary); }
+html .el-result-word-header strong { color: var(--text); }
+html .el-speak-btn {
+  border-color: var(--primary-a20);
+  background: var(--primary-a08);
+  color: var(--primary);
+}
+html .el-speak-btn:hover { background: var(--primary-a15); }
+html .el-phonetic-item {
+  background: var(--primary-a06);
+  border: 1px solid var(--primary-a10);
+}
+html .el-phonetic-label { color: var(--text-dim); }
+html .el-phonetic-value { color: var(--text); }

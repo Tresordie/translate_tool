@@ -1,6 +1,6 @@
 /**
- * theme.js — AI Tool Box 主题切换系统（极简高级感 · 9 款）
- * 功能: 主题切换UI（浅色/深色两组，默认 lf-graphite）、localStorage持久化、
+ * theme.js — AI Tool Box 主题切换系统（极简高级感 · 10 款）
+ * 功能: 主题切换UI（浅色/深色两组，默认 lf-verdant）、localStorage持久化、
  *      data-mode 明暗标记、iframe跨页面同步、旧版 Catppuccin 主题自动迁移
  * 用法: 在页面底部引入 <script src="theme.js"></script> 即可自动注入切换器
  */
@@ -8,13 +8,14 @@
   'use strict';
 
   var STORAGE_KEY = 'linguaflow_theme';
-  var DEFAULT_THEME = 'lf-graphite';
+  var DEFAULT_THEME = 'lf-verdant';
 
-  /* 主题分组：浅色 × 深色（极简高级感 · 低饱和苹果风），默认 lf-graphite */
+  /* 主题分组：浅色 × 深色（极简高级感 · 低饱和苹果风），默认 lf-verdant */
   var THEME_GROUPS = [
     {
       label: '浅色',
       themes: [
+        { id: 'lf-verdant', name: '青屿 · Verdant', desc: '浅色 · 晨雾青白×松林绿·珊瑚' },
         { id: 'lf-paper', name: '纸感白 · Paper', desc: '浅色 · 苹果纯白×官网蓝' },
         { id: 'lf-mist', name: '雾霭 · Mist', desc: '浅色 · 冷调浅灰×苹果靛蓝' },
         { id: 'lf-cream', name: '奶油 · Cream', desc: '浅色 · 暖调米白×焦糖棕' },
@@ -50,7 +51,10 @@
         'cat-mocha': 'lf-graphite', 'cat-mocha-mauve': 'lf-midnight', 'cat-mocha-green': 'lf-graphite',
         'cat-macchiato': 'lf-slate', 'cat-macchiato-mauve': 'lf-midnight', 'cat-macchiato-teal': 'lf-slate',
         'cat-frappe': 'lf-slate', 'cat-frappe-mauve': 'lf-midnight', 'cat-frappe-green': 'lf-graphite',
-        'cat-latte': 'lf-paper', 'cat-latte-mauve': 'lf-mist', 'cat-latte-pink': 'lf-mist'
+        'cat-latte': 'lf-paper', 'cat-latte-mauve': 'lf-mist', 'cat-latte-pink': 'lf-mist',
+        /* v0.47.2 试制后又删除的 6 款主题 id 兜底迁移：本地若残留选择，落到同明暗的现存近似主题 */
+        'lf-dawn': 'lf-paper', 'lf-polar': 'lf-mist', 'lf-washi': 'lf-cream',
+        'lf-tokyo': 'lf-slate', 'lf-forest': 'lf-nocturne', 'lf-rose': 'lf-midnight'
       };
       if (map.hasOwnProperty(saved)) {
         try { localStorage.setItem(STORAGE_KEY, map[saved]); } catch (e) {}

@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.46.0 · 2026-09-18
+> **当前版本**：v0.47.3 · 2026-09-28
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -16,7 +16,7 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 - **本机服务** `wechat_scheduler/`（v0.26.0 起）— 微信定时消息后端：系统 PowerShell 模拟操作微信窗口发送（零 pip 依赖，引擎移植自 wxtimer）+ 定时调度 + 局域网静态托管（纯 Python 标准库，详见 §3.12）
 
 所有页面共用：
-- `theme.css` / `theme.js` — 9 款主题体系（低饱和苹果风 7 款 + 灵感库配色 2 款：轨道 Orbit / 夜曲 Nocturne）+ 玻璃拟态/噪点质感；设计规范源：《网页设计灵感参考库》（`I:\claude_code\dsh_operation\网页设计灵感参考库.html`）
+- `theme.css` / `theme.js` — 10 款主题体系（浅 5 + 深 5：苹果风 8 款 + 灵感库配色 2 款「轨道 Orbit / 夜曲 Nocturne」，默认 青屿 Verdant）+ 玻璃拟态/噪点质感；设计规范源：《网页设计灵感参考库》（`I:\claude_code\dsh_operation\网页设计灵感参考库.html`）
 - `ai-service.js`（网页版根目录 & `chrome_extension/ai-service.js`）— AI 配置读写 + chat 调用 + 任务抽取 + 提示词生成
 
 ## 2. 当前功能矩阵
@@ -62,6 +62,38 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 - **明暗分组改为 `html[data-mode="light|dark"]`**：`theme.js` 的 `applyTheme()` 在设置主题同时设置 `data-mode`；页面/质感层选择器统一按 `data-mode` 分组，替代旧版 `html[data-theme^="cat-latte"]` 前缀判断 → 未来新增主题无需再改选择器
 - **旧主题自动迁移**：`getSavedTheme()` 内置 12 个 `cat-*` → 新主题映射，老用户保存的主题自动落到同明暗的新主题
 - ⚠️ **改动主题时注意**：`theme.css` / `theme.js` 根目录与 `chrome_extension/` 下各有一份副本（`theme.css` 完全相同、`theme.js` 仅 side panel 注释差异），必须同步修改
+
+#### 3.4.1 主题全集与新增主题的注册点（v0.47.2 更新）
+
+**10 款 = 浅 5 + 深 5**（`lf-*` 前缀，`theme.css` 第 1 节按块定义，每块约 96 行 / 85 项变量）：
+
+| 明暗 | 主题 id | 名称 | 配色来源 |
+|---|---|---|---|
+| 浅 | `lf-verdant` | 青屿 Verdant（**默认**，同时锚定 `:root` 回退） | 自研（晨雾青白×松林绿×珊瑚） |
+| 浅 | `lf-paper` / `lf-mist` / `lf-cream` | 纸感白 / 雾霭 / 奶油 | 苹果风自研 |
+| 浅 | `lf-sky` | 晴空 Sky | 灵感库（Clear Sky 提亮版） |
+| 深 | `lf-graphite` / `lf-slate` / `lf-midnight` | 石墨 / 板岩 / 午夜 | 苹果风自研 |
+| 深 | `lf-orbit` / `lf-nocturne` | 轨道 / 夜曲 | 灵感库 / ML 监控面板风 |
+
+> **v0.47.2 试制后又全部删除的 6 款**（勿重复踩坑，色值留档便于复用）：晨曦 Dawn（Rosé Pine Dawn `#faf4ed`/`#286983`/`#907aa9`）、极地 Polar（Nord Snow Storm `#eceff4`/`#5e81ac`/`#88c0d0`）、和纸 Washi（Kanagawa Lotus `#f6f1d2`/`#4d699b`/`#c84053`）、东京夜 Tokyo（Tokyo Night `#1a1b26`/`#7aa2f7`/`#bb9af7`）、深林 Forest（Everforest Dark `#2d353b`/`#a7c080`/`#dbbc7f`）、玫瑰松 Rosé（Rosé Pine `#191724`/`#c4a7e7`/`#eb6f92`）。六款的变量块/色板/`THEME_GROUPS`/`DARK_THEMES` 均已清理，`theme.css` 回到 2080 行、`theme.js` 247 行；grep `lf-dawn|lf-polar|lf-washi|lf-tokyo|lf-forest|lf-rose` 只剩 `getSavedTheme()` 的迁移键。
+> **删除主题的兜底迁移（重要规则）**：主题 id 一旦发布过又被删，本地 `localStorage('linguaflow_theme')` 的残留值会指向不存在的 `html[data-theme]` 块——CSS 变量全部回落到 `:root`（= verdant 浅色），且 `DARK_THEMES[id]` 为 undefined 会把 `data-mode` 判成 `light`，选过深色的用户被静默变浅色。故 `getSavedTheme()` 迁移 map 里同步登记了 `lf-dawn→lf-paper`、`lf-polar→lf-mist`、`lf-washi→lf-cream`、`lf-tokyo→lf-slate`、`lf-forest→lf-nocturne`、`lf-rose→lf-midnight`（与既有 `cat-*` 迁移同一机制）。**以后删主题必须在这里补映射，且目标必须是仍存在的 id。**
+
+**新增一款主题只需改 3 处 × 2 副本**（别再漏）：① `theme.css` 第 1 节加 `html[data-theme="lf-xxx"]` 变量块——**按上面 85 项协议写全**（`--primary/-light/-dark`、`--accent/-2`、`--neon-*`、`--orange/--red/--blue`、6 组 `-rgb` 三元组 + `--green`/`--green-a12`、`--bg-dark/--bg-gradient/--bg-body/--bg-card/--bg-card2/--bg-elevated`、`--glass-bg/-border/-shadow`、`--text/-secondary/-dim/-strong`、全套 alpha 变体、`--md-*` 9 项、`--orb/--scanline/--grid/--star/--glow/--card-border-glow/--noise-opacity`、`--header-gradient`/`--btn-gradient`/`--focus-ring`/`--scrollbar-*`、`color-scheme`），**不要写 `:root`**（`:root` 只归默认主题 verdant）；② 第 6 节色板区加 `.theme-swatch.swatch-lf-xxx`；③ `theme.js` 的 `THEME_GROUPS` 对应明暗分组的 `themes` 数组加一行 + 深色主题同时登记进 `DARK_THEMES`（漏登记会让 `data-mode` 判成浅色，深色页面级质感层全部失效）。
+**自检口径**：正文 `--text` 对 `--bg-body` ≥6.6:1、`--text-secondary` ≥4.5:1、`--text-dim` ≥3:1；背景不用纯黑/纯白（暗色非纯黑是灵感库硬规则）；`--btn-gradient` 亮端配白字时靠共享层 `text-shadow` 兜底。
+
+#### 3.4.2 立体感令牌体系（v0.47.3 新增，改阴影前必读）
+
+**问题**：升级前 `--shadow-1..4` 是 `:root` 里写死的纯黑单层阴影，10 套主题共用一套黑影——浅底发脏、深底发灰，卡片/控件都像"贴纸"没有厚度；而每套主题其实早就定义了自己的 `--shadow-tint-rgb`（投影染色三元组）却几乎没人用。
+
+**做法**（全部在 `theme.css`，双副本；**只动变量与共享层，不动 10 个主题块**）：
+
+1. **阴影刻度改为"色相 + 三层结构"**（第 8 节 `:root`）：`--shadow-1..4` = 接触阴影（贴地 1px）+ 定向主投影 + 环境光遮蔽；颜色写成 `rgba(var(--shadow-tint-rgb,0,0,0), α)`。**关键坑**：`--shadow-tint-rgb` 是**逗号三元组**，`var()` 的**回退也必须写成三元组**（`var(--shadow-tint-rgb,15,23,42)`），写成 `var(--shadow-tint-rgb, black)` 会让整条声明在计算值阶段失效 → 阴影整体消失。
+2. **浅/深两档强度**（`html[data-mode="light"]` / `html[data-mode="dark"]`）：浅色**只留色相投影、不加黑**（纸感干净）；深色在色相层外再叠一层纯黑做环境遮蔽（避免发灰泛蓝）。
+3. **4 个立体面令牌**（同两个 mode 块内定义，浅深各一套）：`--bevel-top` 顶缘受光（浅 .90 白 / 深 .12 白，统一"光从左上来"）、`--bevel-bottom` 底部接触线（给卡片厚度）、`--inset-field` 内凹面（上方暗 + 底部受光，用于输入框/凹槽）、`--vignette` 画布四周压暗（`.bg-canvas` 的 inset 阴影，浅 .07 / 深 .38）。
+4. **第 8b 节「立体感增强层」**（位置在**第 8 节末尾、第 9 节之前**，为的是压过第 2/6 节基础规则、又不影响第 12 节青屿专属层）：控件三态（静置 `--shadow-1` → 悬停 `--shadow-2` → 按下 `--inset-field`）、浮层层级（`.theme-panel`/弹窗/抽屉 → `--shadow-4`，Toast → `--shadow-3`）、内容面抬升（`.el-result-card`/`.word-card`/`.kb-col`/`.side-card` → `--shadow-2`）。**新增"有体积"的控件就往 8b.1 的类名列表里加**，别在各页面写死阴影。
+5. **页面级联动**：`english_learning.html` 的 `--el-shadow-sm/md/lg/xl/hover` 已改接全局刻度 + `--bevel-top`（写死黑阴影的地方一律换成变量）；`todolist.html` 分段控件 `.filter-group` 凹槽改用 `--inset-field`。
+
+**注意**：`--glass-shadow` 仍是**每套主题自洽定义**的 4 层玻璃阴影（第 1 节），8b 层只在卡片基座额外补 `var(--bevel-bottom)`；改主题块时不要删 `--shadow-tint-rgb`（删了会走三元组回退，10 套主题的投影色相一起丢）。第 12 节青屿专属层的阴影已改为 `var(--shadow-2/3), var(--bevel-top), 品牌绿辉光` 组合，新增/修改主题专属层时沿用这个写法。
 
 ### 3.5 Side Panel 现代极简 UI（v0.18.0）
 `sidepanel.css` 完全重写：
@@ -233,6 +265,10 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.47.3 | **全站立体感/质感升级（10 套主题自动受益）**：① `--shadow-1..4` 由纯黑单层改为「接触阴影 + 定向主投影 + 环境光遮蔽」三层结构，颜色统一取各自主题的 `--shadow-tint-rgb`（浅色只留色相不加黑、深色再叠纯黑遮蔽），**修掉"一套黑影套 10 个主题"**；`var()` 回退必须写成逗号三元组（`var(--shadow-tint-rgb,15,23,42)`），否则阴影整体失效。② 新增 4 个立体面令牌 `--bevel-top`（顶缘受光，浅 .90 白 / 深 .12 白）/ `--bevel-bottom`（底部接触线）/ `--inset-field`（内凹面）/ `--vignette`（画布四周压暗），在 `html[data-mode]` 浅深两块内分档定义。③ 新增 **第 8b 节「立体感增强层」**（置于第 8 节末、第 9 节前）：控件三态（静置 `--shadow-1` → 悬停 `--shadow-2` → 按下 `--inset-field` 沉入）、浮层 4 级（`.theme-panel`/弹窗/抽屉）/Toast 3 级、内容面 2 级（`.el-result-card`/`.word-card`/`.kb-col`/`.side-card`）；卡片基座补 `var(--bevel-bottom)`、`.bg-canvas` 补 `var(--vignette)`；浅/深卡片 hover 统一改为 `var(--shadow-3), var(--bevel-top), 品牌辉光`。④ 页面联动：`english_learning.html`（双副本）`--el-shadow-*` 由写死黑阴影改接全局刻度 + 顶缘受光；`todolist.html`（双副本）`.filter-group` 凹槽改用 `--inset-field`；青屿专属层（§12.3/12.4）hover 并入新刻度并保留品牌绿辉光。全程零新增颜色字面量、主题块未改动（仍 85 项变量自洽），新增规则只用变量。**验证**：两副本行号逐行对齐（`theme.css` 2080 → 2149 行，净增 69 行全部是令牌与 8b 层）；`rgba(var(...))` 括号闭合与 `var()` 三元组回退经 grep 审计；⚠️ 沙箱 PowerShell/git 仍不可用（`STATUS_DLL_INIT_FAILED`），**未跑浏览器实测/截图**，阴影层数与强度是按物理层次推导的，若某主题投影偏重/偏轻，只调该主题的 `--shadow-tint-rgb` 或在 mode 块微调 α 即可（勿改结构） |
+| v0.47.2 | **主题：试制 6 款网络参考配色主题、评审后全部删除，主题集维持 10 款（浅 5 + 深 5）**。曾做出（均按既有 85 项变量协议写全，`theme.css` 第 1 节 `1b` 子节、色板、`theme.js` 的 `THEME_GROUPS`/`DARK_THEMES` 四处齐全）：晨曦 Dawn（Rosé Pine Dawn）、极地 Polar（Nord Snow Storm）、和纸 Washi（Kanagawa Lotus）、东京夜 Tokyo（Tokyo Night）、深林 Forest（Everforest Dark）、玫瑰松 Rosé（Rosé Pine）——六款分两批按用户反馈删除，**最终 `theme.css` 2382 → 2080 行（= 本轮起点）、`theme.js` → 247 行**，变量块/色板/注册项零残留（grep 仅剩迁移键）。**保留的产物**：`getSavedTheme()` 迁移 map 新增 6 键（`lf-dawn→lf-paper`、`lf-polar→lf-mist`、`lf-washi→lf-cream`、`lf-tokyo→lf-slate`、`lf-forest→lf-nocturne`、`lf-rose→lf-midnight`），防止本地残留选择造成「变量回落 `:root` + 深色被误判浅色」；§3.4.1 沉淀了主题全集表与「新增/删除主题的 3 处注册点 + 迁移规则 + 对比度自检口径」。**过程验证**：全程无 shell（沙箱 `STATUS_DLL_INIT_FAILED`），靠逐行审读 + grep 审计（13 → 10 个 `html[data-theme]` 块、色板行数、`DARK_THEMES` 键数、两副本行号对齐）确认清理完整；未跑浏览器实测 |
+| v0.47.1 | **英语学习句子模式判定加固 + 模式回显**（v0.47.0 的 50 词分界在真实文本上会误判，本版修掉）：① 新增 IIFE 内 `countWords(text)` / `countSentences(text)`（均在 `english_learning.js` 第 500-530 行，双副本逐字一致），`learnWord()` 改用二者取代原先的 `word.split(/\s+/)` 与 `word.split(/[.!?]+(?:\s|$)/)`——`countWords` 只统计含 `\p{L}`/`\p{N}` 的 token（`—`、`...` 等纯标点不计词）；`countSentences` 要求句末标点**后接空白或文本结尾**并排除三类伪句末：词内句点（`3.14`、`U.S.`）、省略号（`...`/`…`）、缩写或单字母点链（`SENT_ABBR` 白名单含 Mr/Dr/Inc/Jan-Dec/u.s/e.g/a.m 等 + `/^[a-z](\.[a-z])+$/`），后接小写字母或逗号也不算句末，末尾无标点仍计一句。**修的 bug**：含缩写的单个长句（如 `... the U.S. government said ... Dr. Smith ...`）此前被算成 3+ 句 → `isPassage` 为真 → 落进材料模式，拿不到句式/时态讲解；现在正确走句子模式。② 新增 `isShortSentence = isSentence && wordCount <= 50`，提示词分支改用它；短句分支要求「所有单词（同一个词只讲一次）逐一讲解，一个都不要漏」；长句分支要求「只挑 8-15 个重点/较难单词，挑中的每个都 `is_difficult: true` 且 `detail` 不可省略」（原措辞允许长句分支返回 `is_difficult: false` + 空 detail，会让「重点讲解难点单词」落空）；两分支的 `structure` 均要求**先点明句型与核心时态的英文名称**（如「主从复合句 · 一般过去时」）再拆成分与语法点。③ `displayResult(result, meta)` 新增第二参数 `meta.wordCount`：句子卡汇总行改为模式回显（≤50 词「已对句中全部 M 个单词逐一讲解，其中 D 个难点单词已深入讲解」/ >50 词「已挑选 M 个重点/难点单词讲解，其中 D 个附难点详解」），无词数时回退原文案；`<p>` 加 `class="el-sense-note"`。调用点两处均传词数（`learnWord()` 传本次统计值；`loadHistory()` 传 `countWords(item.word)`，故历史回放与学习时回显一致，且无需改历史数据结构）。`resultToMarkdown` / `generateMarkdown` / `historyItemHTML` 的难点 ⭐ 与徽章逻辑未动。**验证**：双副本逐字一致（改动后两份均为 1292 行、关键行号完全对齐）；`countSentences` 逻辑经手工推演 12 例（`Hi. How are you?`→2；`Wait... what?`→1；`The U.S. economy is big.`→1；`Mr. Smith went home.`→1；`3.14 is pi.`→1；`He said "Stop." Then left.`→2；含 Dr./U.S. 的 57 词单句→1 → 走 >50 词分支；`One. Two. Three.`→3 → 材料模式）。⚠️ 本次运行的沙箱内 PowerShell / git 全不可用（进程创建报 `STATUS_DLL_INIT_FAILED 0xC0000142`），故 `node --check` 与浏览器实测**未能执行**，只做了逐行审读；接手者请补跑 §5.3 的语法检查与一次真机句子学习 |
+| v0.47.0 | **英语学习句子讲解按长度差异化（50 词分界）**：句子模式判定放宽为 `wordCount > 4 && sentenceCount <= 2`——去掉原 60 词上限（超 60 词单句此前会落入材料模式，拿不到句式讲解）。提示词按 50 词分界：≤50 词「对句中所有单词（去重）逐一讲解」；>50 词「不逐词，挑 8–15 个重点/较难单词，跳过 the/is/of 基础词」。两分支统一要求难点单词返回 `is_difficult: true` + `detail` 难点讲解（难在哪/常见搭配用法/易错点，简短 markdown），简单词留空；SENTENCE_SCHEMA 相应扩两字段。渲染：难点词卡片 `.el-sense-difficult` 高亮 + `.el-sense-difficult-badge`「难点」徽章 + `.el-sense-detail` 难点块（判定用 `is_difficult \|\| detail`，容错模型只给其一）；单词讲解汇总行显示难点词数；`resultToMarkdown` / `generateMarkdown` 句子分支加 ⭐ 标记与 `  - 难点讲解：` 嵌套子项（detail 换行折叠为空格，markdown.js 嵌套列表已支持）；`historyItemHTML` 历史回放/HTML 导出同步难点徽章与讲解。15000 字符超长截断由材料模式扩至句子模式共用（提示词引用 `material` 而非原始 `word`）。**双副本**：english_learning.js 根目录 + chrome_extension 逐字一致（cp 同步）；难点样式 6 行分别插入两份 english_learning.html（锚点不同：根版插在 `.el-result-card .md-rendered strong` 前、扩展版插在「学习历史」注释前）。≥3 句长材料仍走材料模式（未改动），≤4 词单词学习不变。验证：node --check 通过 + 模式边界 6 例实测（1/2 词→单词模式、17 词→逐词、57 词单句→难点、≥3 句→材料模式） |
 | v0.46.0 | **智能翻译译文一键转微信格式（网页版 + 扩展全页）**：译文区（`index.html` / `fullpage.html`）新增「微信格式」按钮，点击在翻译卡片底部（translate-bar 之后）展开「💬 微信格式」区块，复用共享 `markdownToWechat`（v0.45.0 结构还原版，未改动）转纯文本 + 独立复制按钮。数据源为 `outputText.dataset.text`（与复制/草稿/历史同源）；陈旧保护挂 5 个钩子（`renderResult` / `doTranslate` 起始 / 译文 `input` / `clearSource` / 草稿恢复）内容一变即隐藏。函数名 `convertResultToWechat` / `copyResultWechat` / `resetWechatSection`；index 用内联 onclick，fullpage 按 id 绑定。样式沿用 `.wechat-*` 模式但区块用主题变量自适应深浅色。微信格式转换至此覆盖 6 处（智能翻译×2 / 工作报告 / 邮件总结 / AI 解析 / AI 提示词 / 微信工具 AI 总结），接入清单见 §3.11。验证：Node 语法检查 + 内置浏览器实测两页（浅色纸感白/深色石墨主题、转换正确性、复制通路、陈旧隐藏、扩展页 bindEvents 手动执行无报错） |
 | v0.45.0 | **微信格式还原预览结构 + 8 处历史勾选导出 + 同步三断点 + 输入保护原则**：① `markdownToWechat` 重写（双副本）——表格转按显示宽度对齐、单元格列内折行的文本表格（`:---:` 生效，仅列数 >6 退回键值块）、标题全层级符号（`【】`/`■`/`▍`/`▸`）、多行引用转 `▎` 块并识别 `> [!warning]` 告警、ASCII 加粗转 Unicode 粗体（`isWide()` 须把 SMP 数学字母算窄，否则表格错位）、代码块缩进保留、收尾清理改为"表格/代码行只去行尾空格"。② 8 处历史区域统一「勾选 + 全选 + 导出 MD/HTML」（见 §3.17），移除原「导出全部 JSON」按钮（翻译历史/工作记录/英语学习/邮件总结）；AI 解析 parse 历史转任务表格 Markdown。③ 同步修复：manifest `content_scripts` 补 `all_frames: true`（index 内 7 个工具页是 iframe，此前内容脚本不注入 → 双向全断）、`onRecordSync` 网页分支匹配 `wr_`/`td_` 前缀键、index.html 顶层帧补 `record-sync` 订阅、英语学习扩展页启动引导改为以 chrome.storage 为权威（原会把旧副本推盖回云端）。④ 输入保护原则落地（见 §3.16）：保存/取消/导入不再清输入，载入历史前 confirm，输入框邻按钮 `mousedown` preventDefault（防输入法未上屏内容被丢），并补上扩展全页版/弹窗版**从未绑定**的 Markdown 预览按钮。⑤ 微信工具「AI 总结」按钮永久发灰修复（写死 `dim-50` + 读取失败不恢复禁用）。⑥ 翻译页输入区可 `resize: vertical`（须同时取消 flex 拉伸）；修两栏与分区线错位（`width:auto` 覆盖 theme.css 的 `width:100%`）；修 workreport `init()` 漏读 `work_summaries` 致历史总结刷新后恒空。验证：无头浏览器 44+13+19 项断言 + Node 单测，全绿 |
 | v0.44.0 | **同步覆盖审计 + 网页↔扩展记录互通补全**（系统性扫描 8 模块实际使用的 localStorage/chrome.storage 键 vs RECORD_SYNC_KEYS vs data-sync 收集范围）：缺口=① email_summary_draft（自动保存草稿）无反向 relay；② 微信工具 ws_api_base/ws_api_token/ws_risk_ack/ws_sum_lang/ws_contacts_cache 五键无任何跨端通道（扩展版 store.set 双写 chrome.storage ✓ 但映射表缺失，网页版 store.set 只写 file:// localStorage）。修复=record 同步映射表（background.js）与 content.js 启动预填清单各补 6 键（含 ws_api_token——本地双向一致，Drive 推送仍被 SECRET_DROP 剔除）；email_summary.js 草稿自动保存补 relayRecord；wechat_schedule.js store.set 网页分支补 `window.top` postMessage relay（数据入 chrome.storage）+ 双环境实时缓存刷新监听（扩展 onChanged / 网页 storage 事件更新 store.cache）。**Drive 同步确认**：data-sync.js 全量 localStorage/chrome.storage 收集 + SECRET_DROP 剔密已天然覆盖全部模块记录，无需改动 |
@@ -320,6 +356,9 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **输入框与其邻侧按钮** → 按钮点击默认会抢焦点，中文输入法**未上屏的合成内容会被浏览器丢弃**（表现为"一点按钮输入就没了"）。输入框附近的按钮统一加 `mousedown → preventDefault()`；HTML 内联属性仅限网页版，扩展页面必须用 `addEventListener`（MV3 CSP 禁内联处理器）
 - **新增/改动历史导出** → 按 §3.17 的清单接（复选框 + 全选 + 导出 MD/HTML + 列表点击委托首行守卫 + 重绘复位全选）；⚠️ 不要恢复已删除的"导出全部 JSON"按钮
 - **`markdownToWechat` 改动后** → 用含宽表格/多行引用/加粗中英混排/代码块的样例实测输出，重点看表格列是否对齐（Unicode 粗体的宽度归类最易出错）
+- **改阴影 / 立体感（v0.47.3 起）** → 只动 `theme.css` 令牌，别在页面里写死阴影：① 第 8 节 `:root` 的 `--shadow-1..4`（三层色相阴影，`var()` 回退必须写成三元组 `var(--shadow-tint-rgb,15,23,42)`）；② `html[data-mode="light"|"dark"]` 两块的 `--bevel-top`/`--bevel-bottom`/`--inset-field`/`--vignette`；③ 第 8b 节的控件（8b.1）/浮层（8b.2）/内容面（8b.3）类名清单——**新增"要有体积感"的控件类名加进 8b.1**。详见 §3.4.2
+- **清理工作区（交接口径）** → 可删 `.impeccable/`、`.zcode/`、`wechat_scheduler/__pycache__/`、`wechat_scheduler/*.log`、`wechat_scheduler/wechatauto_logs/`（运行时/agent 产物，已 gitignore）；**`wechat_scheduler/data/` 是用户数据，永远不要删**（微信任务/发送历史/AI 总结/云同步设置）；`node_modules/` 是 e2e 测试依赖（playwright-core），删了要重装才能跑 `tests/*.e2e.mjs`
+- **英语学习句子模式（v0.47.0 起）** → 分诊在 `english_learning.js` `learnWord()` 内，靠 `countWords()` / `countSentences()` 判定（纯标点不计词；缩写/小数/省略号不算句末——**别退回 `split(/[.!?]/)` 的朴素写法**，会把含 `Mr.`/`U.S.` 的长句误判成多句丢进材料模式）；50 词分界驱动提示词 `isShortSentence` 与结果卡 `displayResult(result, meta)` 的模式回显，两者必须同源；`countSentences` / 提示词 / 渲染三处任一改动都要同步根目录与 `chrome_extension/` 两份副本
 
 ### 5.3 测试脚本
 ```bash
@@ -370,7 +409,7 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 - [ ] **流式通道整体休眠（v0.25.6）** — 邮件总结已改回一次性输出（应用户反馈，撤销 v0.25.5 的逐行上屏），当前无任何模块使用流式；全部模块非流式，经代理桥时受 600s 总超时约束（开放跨域端点直连无此限制）。`proxyFetchStream` 与桥接分片协议保留，重启流式时可直接复用（接入范例见 git 历史 v0.25.5 的 email_summary.js）
 - [ ] **模型兼容性已知边界**（详见 README「模型兼容性说明」）— 仅支持 OpenAI 兼容协议（Anthropic/Gemini 原生协议不支持）；`REASONING_RE` 按模型名匹配，按参数开思考且名字无线索的模型（GLM 系）不命中（它们接受 temperature，正常工作，靠 400 重试兜底）；发送上限 6 万字符；扫描件 PDF 需 OCR
 
-- [x] **README_EN.md 已同步** — changelog 与功能特性已补至 v0.25.11（注意 v0.25.4 条目 EN 版缺失、v0.25.6/v0.25.9 中文条目较细，正文以中文 README 为准）
+- [x] **README_EN.md 已同步** — changelog 与功能特性已补至 v0.25.11（注意 v0.25.4 条目 EN 版缺失、v0.25.6/v0.25.9 中文条目较细，正文以中文 README 为准）；**v0.47.3 又做了一次现状订正**：版本徽章 → 0.47.3、主题条目 6 → 10 款（补 Verdant/Sky/Midnight/Orbit + 立体感令牌体系说明）、`theme.css` 结构注释同步，但 **EN changelog 仍停在 v0.25.11**（政策照旧：中文版为准，不在 EN 回填历史版本）
 - [ ] **`web_accessible_resources` 未包含新页面** — `manifest.json` 的 `web_accessible_resources` 目前只列出 `fullpage/workreport/todolist/english_learning`，未加 `ai_parse.html` / `ai_prompts.html` / `email_summary.html`（扩展内部相对路径访问不需要此声明，但若未来需要从外部网页嵌入则需补充）
 - [x] **`manifest.json` 版本号长期未同步** — v0.25.5 起已同步为 0.25.5（后续发版记得一并更新）
 - [ ] **`ai-service.js` 双副本维护** — 网页版与扩展版略有差异（扩展版多一个 `applyConfig` 写回 localStorage 的 shim），长期看应该考虑构建流程自动同步或抽成共享模块
@@ -378,14 +417,28 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 - [ ] **PDF 解析仍依赖 pdf.js 本地打包**（~1.3MB），每个 iframe 首次打开都会加载，可考虑按需动态 `import()`
 - [ ] **Apple 提醒事项 URL Scheme** 仅 macOS，Windows/Linux 用户无替代方案
 - [ ] **任务清单与 Google Calendar 同步** 仅实现了 .ics 下载，未做 OAuth 直连
-- [ ] **灵感库全站分批改版（v0.37.0 起动）** — 设计规范源：《网页设计灵感参考库》。已完成：主题体系（9 款，v0.40.0 移除书斋/鎏金/极光）+ 任务清单页（Bento KPI）+ **v0.38.0 设计评审十项落实（全局令牌刻度/焦点环/降级/打印/大纲/字体统一/去硬编码/断点/ai-panel.css 抽取）**。待跟进批次：工作报告→Bento 指标面板（L2 范式：KPI 左色条+等宽数字）、英语学习→杂志多栏阅读（L3 范式：衬线词头+等宽音标+多栏正文）、邮件总结/AI 解析→结论置顶卡片流（L4 范式：渐变 TL;DR 区+等宽编号要点）、智能翻译→双语对照分栏（L1 范式：行同步高亮+术语标注）；改版时遵守库内硬规则（暗色非纯黑、对比度≥4.5:1、60-30-10、数字全等宽、动画≤400ms）
+- [ ] **灵感库全站分批改版（v0.37.0 起动）** — 设计规范源：《网页设计灵感参考库》。已完成：主题体系（**10 款**：v0.40.0 移除书斋/鎏金/极光后为 9 款 + 此后新增 青屿 Verdant；v0.47.2 试制 6 款参考公开配色主题后**全部撤下**，见 §3.4.1）+ 任务清单页（Bento KPI）+ **v0.38.0 设计评审十项落实（全局令牌刻度/焦点环/降级/打印/大纲/字体统一/去硬编码/断点/ai-panel.css 抽取）**。待跟进批次：工作报告→Bento 指标面板（L2 范式：KPI 左色条+等宽数字）、英语学习→杂志多栏阅读（L3 范式：衬线词头+等宽音标+多栏正文）、邮件总结/AI 解析→结论置顶卡片流（L4 范式：渐变 TL;DR 区+等宽编号要点）、智能翻译→双语对照分栏（L1 范式：行同步高亮+术语标注）；改版时遵守库内硬规则（暗色非纯黑、对比度≥4.5:1、60-30-10、数字全等宽、动画≤400ms）
 - [ ] **index.html 深层选择器压平**（v0.38.0 评审报告遗留）— 最深 21 层选择器链，报告自身建议避免大重构，待后续小批次处理
+
+### v0.47.3 交接：待推送 / 待验收 / 清理口径
+
+- [ ] **待推送（阻塞项）** — 本次改动（`theme.css` 立体感系统、`english_learning.js/html` 句子模式、`todolist.html`、`theme.js`、README、本文件）在工作沙箱内**无法执行 git**：pwsh / cmd / git 任何进程创建都返回 `STATUS_DLL_INIT_FAILED (0xC0000142)`。需在宿主机执行：
+
+  ```powershell
+  cd F:\gitee\translate_tool
+  git status --short
+  git add -A
+  git commit -m "v0.47.3: 全站立体感/质感升级（主题色相阴影+立体面令牌+8b 层）；英语学习句子模式加固；主题集维持 10 款"
+  git push origin master     # origin 已配置 GitHub + Gitee 双 push URL；未生效则分别 push 两个远端
+  ```
+- [ ] **待真机验收** — ① `node --check` 全量（根目录 + `chrome_extension/`）；② 浏览器逐主题目视（阴影浓度/立体感是否过重，调 §3.4.2 的旋钮）；③ 英语学习三例（≤50 词逐词、>50 词单句难点、历史回放词数一致）；④ 任务清单分段控件与主题面板层级。
+- [x] **过程文件清理口径（本次已确认，勿误删）** — 可安全删除：`.impeccable/`（设计评审产物）、`.zcode/`（agent 计划文件）、`wechat_scheduler/__pycache__/`、`wechat_scheduler/wx_scheduler.log`、`wechat_scheduler/wechatauto_logs/`（均为运行时/agent 产物，且已在 `.gitignore` 内）。**绝不可删 `wechat_scheduler/data/`**（`tasks.json`/`history.json`/`summaries.json`/`settings.json`/`browser_state.json` = 微信任务、发送历史、AI 总结、云同步设置，属用户数据）；`node_modules/`（playwright-core）为 e2e 测试依赖，删了需重装。
 
 ## 7. 接手清单
 
 接手本项目时，按此顺序验证环境：
 
-1. `git pull` 拉最新 master，确认版本徽章为 v0.46.0（`chrome_extension/manifest.json` 的 `version`）
+1. `git pull` 拉最新 master，确认版本徽章为 v0.47.3（`chrome_extension/manifest.json` 的 `version`）
 2. 浏览器打开 `index.html`，配置 API（可用 DeepSeek `https://api.deepseek.com/v1` + `deepseek-chat` 测试）
 3. 依次点击 8 个 Tab，确认每个都能正常工作；在智能翻译生成一次译文、或在工作报告/邮件总结/AI 解析/AI 提示词生成一次结果后点「微信格式」，确认区域展开、内容无 `#`/`**` 残留且 emoji 正常；编辑译文/结果后区块应自动隐藏
 4. Chrome 加载 `chrome_extension/`（v0.25.11 起新增 `clipboardRead` 权限，加载/更新后需在扩展卡片点「重新加载」）：
@@ -395,8 +448,9 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
    - 点弹窗的原文「粘贴」按钮 → 应直接粘贴且不弹剪贴板授权框
 5. 在弹窗改 API 配置 → 切到侧边栏「AI 解析」，应立即使用新配置（无需刷新）
 6. 切换主题（右下角面板 / 侧边栏右下角圆形按钮）→ 全部 8 个 Tab + 弹窗 + 网页版全部同步
+7. 英语学习句子模式（v0.47.1）：贴一句 ≤50 词英文 → 三个卡片（句子翻译 / 句式讲解 / 单词讲解）+ 提示行应显示「句子较短（N 词）：已对句中全部 M 个单词逐一讲解…」，难点词带「难点」徽章与展开的难点讲解；再贴一句 **>50 词的单句**（可含 `Mr.` / `U.S.` / `3.14` 验证不被误判成多句）→ 应仍走句子模式、提示行显示「句子较长（N 词）：已挑选 M 个重点/难点单词讲解…」；点该条历史回放，提示行词数应与学习时一致。≥3 句的长材料仍应走材料模式（全文翻译 + ≤20 词）。
 
 ---
 
-**最后更新**：2026-09-18 · v0.46.0（智能翻译译文一键转微信格式：网页版 + 扩展全页，微信格式转换扩至 6 处；详见 §4 版本表与 §3.11）
+**最后更新**：2026-09-28 · v0.47.3（全站立体感/质感升级：阴影刻度改为按主题色相染色的三层结构 + 4 个立体面令牌（顶缘受光/底部接触/内凹面/画布暗角）+ 新增第 8b 节立体感增强层，10 套主题自动受益；改阴影前必读 §3.4.2；详见 §4 版本表）
 **参考文档**：`README.md` · `README_EN.md`（changelog 停在 v0.25.11，正文随版本更新，仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

@@ -84,7 +84,8 @@
     .filter-group {
       display: inline-flex; gap: 3px; padding: 3px;
       background: var(--bg-card2); border-radius: 12px;
-      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08), var(--glass-shadow);
+      /* v0.47.3：分段控件是"凹槽"，用全局内凹面令牌（上方暗 + 底部受光），选中项由 .pill 抬起 */
+      box-shadow: var(--inset-field);
     }
     .pill {
       height: 30px; padding: 0 14px; border: none; border-radius: 9px;
