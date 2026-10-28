@@ -1,7 +1,7 @@
 // ================================================================
-// LinguaFlow — 云同步抽屉组件 v0.31.0
+// LinguaFlow — 云同步抽屉组件 v0.32.0
 // 作用：让工作报告/任务清单/英语学习/邮件总结/AI解析/AI提示词/主页等页面，
-//       像「微信工具」页一样拥有完整的 Google Drive 云同步控制。
+//       像「微信工具」页一样拥有完整的云同步控制（Git 私有仓库双推 / 网盘文件夹镜像）。
 // 形态：自包含的右侧滑出抽屉 + 内嵌目录选择弹窗 + 自带 toast，不依赖宿主页结构。
 // 触发：data-sync.js 注入的「☁」状态胶囊点击 → LfCloudSync.toggle()。
 // 依赖：仅本机 wechat_scheduler 服务（/api/settings|backup|listdir|restore|autostart|browser-data）。
@@ -165,23 +165,37 @@
     var cloud = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>';
     d.innerHTML =
       '<div class="lfcs-head"><div class="ic">' + cloud + '</div>' +
-        '<div><div class="tt">数据与云同步</div><div class="sub">Google Drive · 全模块统一</div></div>' +
+        '<div><div class="tt">数据与云同步</div><div class="sub">云同步 · 全模块统一</div></div>' +
         '<button class="lfcs-x" id="lfcsClose" title="关闭">✕</button></div>' +
       '<div class="lfcs-body">' +
         '<div class="lfcs-status" id="lfcsStatusPill"><span class="d"></span><span id="lfcsStatus">加载中…</span></div>' +
-        '<div class="lfcs-sec">Google Drive 路径</div>' +
+        '<div class="lfcs-card" id="lfcsRemoteCard" style="display:none;margin-top:10px;border-color:rgba(232,163,61,.45);background:rgba(232,163,61,.08)">' +
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<div style="flex:1"><div style="font-weight:600;font-size:13px">☁ 云端有更新</div>' +
+            '<div class="lfcs-hint" style="margin:2px 0 0" id="lfcsRemoteAt"></div></div>' +
+            '<button class="lfcs-btn primary" id="lfcsRemoteRestore">立即恢复</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="lfcs-sec">同步文件夹路径</div>' +
         '<div class="lfcs-card">' +
-          '<div class="lfcs-row"><input class="lfcs-in" id="lfcsPath" placeholder="如 D:\\Google Drive（桌面客户端同步目录）"><button class="lfcs-btn" id="lfcsBrowse">浏览…</button></div>' +
-          '<div class="lfcs-hint">数据写入其下 LinguaFlow/ 子文件夹；含全部模块浏览器数据 + 微信任务/历史/总结。备份永不含 API Key 与口令。</div>' +
+          '<div class="lfcs-row"><input class="lfcs-in" id="lfcsPath" placeholder="如 D:\\LinguaFlowSync（Git 私有仓库）或任一网盘同步目录"><button class="lfcs-btn" id="lfcsBrowse">浏览…</button></div>' +
+          '<div class="lfcs-hint">数据写入其下 LinguaFlow/ 子文件夹；含全部模块浏览器数据 + 微信任务/历史/总结。备份永不含 API Key 与口令。指向 GitHub/Gitee <b>私有</b>仓库的克隆目录可启用 Git 自动双推（多机同步）。</div>' +
         '</div>' +
         '<div class="lfcs-card" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:12px">' +
           '<div><div style="font-weight:600;font-size:13px">自动备份</div><div class="lfcs-hint" style="margin:2px 0 0">数据变化后去抖 5 秒静默写入</div></div>' +
           '<label class="lfcs-sw"><input type="checkbox" id="lfcsAuto"><i></i></label>' +
         '</div>' +
+        '<div class="lfcs-card" id="lfcsGitCard" style="display:none;margin-top:10px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">' +
+            '<div><div style="font-weight:600;font-size:13px">Git 自动同步（私有仓库）</div>' +
+            '<div class="lfcs-hint" style="margin:2px 0 0" id="lfcsGitStatus">—</div></div>' +
+            '<label class="lfcs-sw"><input type="checkbox" id="lfcsGitAuto"><i></i></label>' +
+          '</div>' +
+        '</div>' +
         '<div class="lfcs-grid">' +
           '<button class="lfcs-btn primary" id="lfcsSave">保存并测试</button>' +
           '<button class="lfcs-btn" id="lfcsBackup">立即备份</button>' +
-          '<button class="lfcs-btn" id="lfcsRestore">从 Drive 恢复</button>' +
+          '<button class="lfcs-btn" id="lfcsRestore">从云端恢复</button>' +
           '<button class="lfcs-btn" id="lfcsImport">导入 JSON</button>' +
           '<button class="lfcs-btn" id="lfcsExport">导出 JSON</button>' +
           '<input type="file" id="lfcsFile" accept=".json,application/json" style="display:none">' +
@@ -195,7 +209,7 @@
     var mask = document.createElement('div');
     mask.className = 'lfcs-mask'; mask.id = 'lfcsMask';
     mask.innerHTML = '<div class="lfcs-modal"><h3>选择文件夹 <button class="lfcs-x" id="lfcsDirX">✕</button></h3>' +
-      '<div class="lfcs-cur" id="lfcsDirCur">（选择盘符）</div><div class="lfcs-list" id="lfcsDirList"></div>' +
+      '<div class="lfcs-cur" id="lfcsDirCur">（选择位置）</div><div class="lfcs-list" id="lfcsDirList"></div>' +
       '<div class="lfcs-grid" style="justify-content:flex-end"><button class="lfcs-btn" id="lfcsDirUp">↑ 上一级</button><button class="lfcs-btn primary" id="lfcsDirPick" disabled>选用此目录</button></div></div>';
     document.body.appendChild(mask);
     bind(d, mask);
@@ -209,11 +223,16 @@
       api('PUT', '/api/settings', { auto_backup: d.querySelector('#lfcsAuto').checked }).then(function () { toast('自动备份已' + (d.querySelector('#lfcsAuto').checked ? '开启' : '关闭'), 'ok'); refresh(); })
         .catch(function (e) { toast(failMsg(e), 'err'); d.querySelector('#lfcsAuto').checked = !d.querySelector('#lfcsAuto').checked; });
     };
+    d.querySelector('#lfcsGitAuto').onchange = function () {
+      api('PUT', '/api/settings', { git_auto: d.querySelector('#lfcsGitAuto').checked }).then(function () { toast('Git 自动同步已' + (d.querySelector('#lfcsGitAuto').checked ? '开启' : '关闭'), 'ok'); refresh(); })
+        .catch(function (e) { toast(failMsg(e), 'err'); d.querySelector('#lfcsGitAuto').checked = !d.querySelector('#lfcsGitAuto').checked; });
+    };
+    d.querySelector('#lfcsRemoteRestore').onclick = function () { restore({ name: 'latest.json' }, '云端较新备份'); };
     d.querySelector('#lfcsBackup').onclick = function () {
-      api('POST', '/api/backup').then(function (r) { toast(r.ok ? '已备份到 Drive' : '备份失败：' + r.error, r.ok ? 'ok' : 'err'); refresh(); })
+      api('POST', '/api/backup').then(function (r) { toast(r.ok ? '已完成备份' : '备份失败：' + r.error, r.ok ? 'ok' : 'err'); refresh(); })
         .catch(function (e) { toast(failMsg(e), 'err'); });
     };
-    d.querySelector('#lfcsRestore').onclick = function () { restore({ name: 'latest.json' }, 'Drive 最新备份'); };
+    d.querySelector('#lfcsRestore').onclick = function () { restore({ name: 'latest.json' }, '云端最新备份'); };
     d.querySelector('#lfcsExport').onclick = function () {
       api('GET', '/api/backup/snapshot?name=latest.json').then(function (r) {
         var blob = new Blob([JSON.stringify(r.bundle, null, 1)], { type: 'application/json' });
@@ -250,8 +269,8 @@
     d.querySelector('#lfcsSave').disabled = true;
     api('PUT', '/api/settings', { drive_path: p, test: !!p }).then(function (r) {
       if (r.test_error) toast('路径可用但试写失败：' + r.test_error, 'err');
-      else if (p) toast('Drive 路径已保存并完成首次备份', 'ok');
-      else toast('已清除 Drive 路径（停止云备份）', 'ok');
+      else if (p) toast('同步路径已保存并完成首次备份', 'ok');
+      else toast('已清除同步路径（停止云备份）', 'ok');
       refresh();
     }).catch(function (e) { toast(failMsg(e), 'err'); })
       .finally(function () { d.querySelector('#lfcsSave').disabled = false; });
@@ -273,14 +292,15 @@
     list.innerHTML = '<div class="lfcs-empty">加载中…</div>';
     api('GET', '/api/listdir?path=' + encodeURIComponent(p || '')).then(function (r) {
       dirState = { path: r.path || '', parent: r.parent };
-      mask.querySelector('#lfcsDirCur').textContent = r.path || '（选择盘符）';
+      mask.querySelector('#lfcsDirCur').textContent = r.path || '（选择位置）';
       mask.querySelector('#lfcsDirUp').style.visibility = r.path ? '' : 'hidden';
       mask.querySelector('#lfcsDirPick').disabled = !r.path;
       if (!r.dirs.length) { list.innerHTML = '<div class="lfcs-empty">此目录无子文件夹，可直接「选用此目录」</div>'; return; }
       var folder = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
       list.innerHTML = r.dirs.map(function (n) { return '<div class="lfcs-dir">' + folder + '<span>' + esc(n) + '</span></div>'; }).join('');
       Array.prototype.forEach.call(list.children, function (el, i) {
-        el.onclick = function () { loadDir(r.path ? (/[\\/]$/.test(r.path) ? r.path : r.path + '\\') + r.dirs[i] : r.dirs[i] + '\\'); };
+        var sep = r.path && r.path.charAt(0) === '/' ? '/' : '\\';   // POSIX 绝对路径用 /，Windows 盘符用 \
+        el.onclick = function () { loadDir(r.path ? (/[\\/]$/.test(r.path) ? r.path : r.path + sep) + r.dirs[i] : r.dirs[i] + sep); };
       });
     }).catch(function (e) { list.innerHTML = '<div class="lfcs-empty">读取失败：' + esc(failMsg(e)) + '</div>'; });
   }
@@ -295,8 +315,28 @@
       d.querySelector('#lfcsStatus').textContent = s.last_backup_at ? '最近备份 ' + fmtTime(s.last_backup_at) + (s.last_backup_error ? '（上次失败：' + s.last_backup_error + '）' : '') : '从未备份（配置路径后自动备份）';
       d.querySelector('#lfcsRestore').disabled = !s.drive_path;
       pill(s.last_backup_error ? 'warn' : (s.last_backup_at ? '' : 'warn'));
+      var gitCard = d.querySelector('#lfcsGitCard');
+      if (s.git_repo) {
+        gitCard.style.display = '';
+        d.querySelector('#lfcsGitAuto').checked = s.git_auto !== false;
+        var gs = '已连接 Git 仓库，变更自动提交并推送全部远端';
+        if (s.git_join_mode) gs = '本机首次接入：请先「从云端恢复」，或「立即备份」用本机数据覆盖';
+        else if (s.last_git_error) gs = '同步异常：' + s.last_git_error;
+        else if (s.last_git_push_at) gs = '最近推送 ' + fmtTime(s.last_git_push_at);
+        d.querySelector('#lfcsGitStatus').textContent = gs;
+      } else {
+        gitCard.style.display = 'none';
+      }
     }).catch(function (e) { d.querySelector('#lfcsStatus').textContent = failMsg(e); pill('err'); });
     api('GET', '/api/backup/status').then(function (r) {
+      var remote = r.remote || {};
+      var rc = d.querySelector('#lfcsRemoteCard');
+      if (remote.remote_newer) {
+        rc.style.display = '';
+        d.querySelector('#lfcsRemoteAt').textContent = '云端备份时间 ' + fmtTime(remote.remote_at) + '，比本机新（本机 ' + (fmtTime((r.settings || {}).last_backup_at) || '从未') + '）。';
+      } else {
+        rc.style.display = 'none';
+      }
       var snaps = r.snapshots || [];
       var box = d.querySelector('#lfcsSnaps');
       if (!snaps.length) { box.innerHTML = '<div class="lfcs-empty">未配置或暂无快照</div>'; return; }

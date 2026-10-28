@@ -420,7 +420,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/probe":
             return self._probe()
         if path == "/api/backup":
-            ok, err = SYNC.write_backup()
+            ok, err = SYNC.write_backup(force=True)
             return self._json({"ok": ok, "error": err, "settings": SYNC.get_settings()})
         if path == "/api/browser-data":
             body, err = self._read_json()
@@ -636,7 +636,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/settings":
             return self._json({"ok": True, "settings": SYNC.get_settings()})
         if path == "/api/backup/status":
-            return self._json({"ok": True, "settings": SYNC.get_settings(), "snapshots": SYNC.list_snapshots()})
+            return self._json({"ok": True, "settings": SYNC.get_settings(),
+                               "snapshots": SYNC.list_snapshots(), "remote": SYNC.remote_info()})
         if path == "/api/backup/snapshot":
             name = (parse_qs(query or "").get("name") or ["latest.json"])[0]
             try:
@@ -724,10 +725,10 @@ REST API（均带 CORS；设置 --token 后 /api/* 需请求头 X-Api-Token）�
   POST   /api/summaries          保存总结记录 {display, window, count, result}
   GET    /api/summaries          总结历史（新→旧）
   DELETE /api/summaries/<id>     删除单条总结；DELETE /api/summaries 清空
-  GET/PUT /api/settings          云同步设置 {drive_path, auto_backup, test:true 时保存即试写}
-  GET    /api/listdir            服务端目录浏览 ?path=（空=盘符列表；仅目录名，供管理页 Drive 路径选择器）
-  POST   /api/backup             立即备份（latest.json + 当日快照，保留 14 份）
-  GET    /api/backup/status      最近备份时间/错误 + Drive 内快照列表
+  GET/PUT /api/settings          云同步设置 {drive_path, auto_backup, git_auto, test:true 时保存即试写}
+  GET    /api/listdir            服务端目录浏览 ?path=（空=盘符/主目录列表；仅目录名，供管理页同步路径选择器）
+  POST   /api/backup             立即备份（latest.json + 当日快照，保留 14 份；git 仓库模式立即双推全部远端）
+  GET    /api/backup/status      最近备份时间/错误 + 同步文件夹内快照列表 + 云端较新检测（remote）
   GET    /api/backup/snapshot    ?name=latest.json|backup-YYYY-MM-DD.json 读取备份包
   POST/GET /api/browser-data     页面推送/拉取浏览器全量键值（服务端强制剥离 apiKey/token）
   POST   /api/restore            {source:'drive',name} 或 {bundle}：恢复微信数据并返回 browser_state 供页面写回

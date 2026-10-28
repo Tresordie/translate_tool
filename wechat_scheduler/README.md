@@ -11,8 +11,8 @@ LinguaFlow「微信定时消息」模块的后端：定时驱动 **PC 微信**�
 |---|---|---|---|
 | 服务本体（调度/REST/云同步/页面） | ✅ | ✅ | ✅ |
 | 定时发送 | ✅ `psauto`（已验证） | 🧪 `macauto` osascript（需真机验证 + 辅助功能授权） | 🧪 `linuxauto` xdotool（需 X11/XWayland；纯 Wayland 不可用） |
-| 聊天记录总结 | ✅ wechatauto-replica | ❌（经 Drive 查看结果 / 局域网访问 Win 主力机） | ❌（同左） |
-| Drive 云同步 | ✅ 官方客户端 | ✅ 官方客户端 | ⚠️ 无官方客户端（建议局域网访问主力机） |
+| 聊天记录总结 | ✅ wechatauto-replica | ❌（经云同步查看结果 / 局域网访问 Win 主力机） | ❌（同左） |
+| Git 云同步（v0.48.0） | ✅ | ✅ | ✅（私有仓库 + git，不依赖网盘客户端） |
 
 默认发送通道按系统自动选；`--sender` 可覆盖。开机自启按 OS 注册（计划任务/launchd/systemd-user）。
 
@@ -73,10 +73,10 @@ python server.py --port 8765 --token mysecret   :: 指定端口与访问口令
 | GET | `/api/messages` | **读聊天记录** `?target=wxid或名称&start=&end=`（本地 ISO；缺省 `hours=24`）。经 wechatauto-replica 本地解密读取，返回 `{messages:[{time,sender_name,type,content}], display, scanned}` |
 | POST/GET | `/api/summaries` | 保存/列出聊天记录 AI 总结记录（服务端存 `data/summaries.json`，上限 100） |
 | DELETE | `/api/summaries/<id>` · `/api/summaries` | 删除单条 / 清空总结记录 |
-| GET/PUT | `/api/settings` | 云同步设置 `{drive_path, auto_backup}`（PUT 带 `test:true` 保存即试写） |
+| GET/PUT | `/api/settings` | 云同步设置 `{drive_path, auto_backup, git_auto}`（PUT 带 `test:true` 保存即试写；git 模式返回 `git_repo/git_join_mode/last_git_*`） |
 | POST | `/api/backup` | 立即备份；GET `/api/backup/status` 最近备份+快照列表；GET `/api/backup/snapshot?name=` 读包 |
 | POST/GET | `/api/browser-data` | 页面推送/拉取浏览器数据（服务端强制剥离 apiKey/token） |
-| POST | `/api/restore` | 恢复：`{name}` Drive 快照 / `{bundle}` 上传文件；返回 browser_state 供页面写回 |
+| POST | `/api/restore` | 恢复：`{name}` 云端快照 / `{bundle}` 上传文件；返回 browser_state 供页面写回（git 模式读取前先拉取远端） |
 | GET/POST | `/api/autostart` | 开机自启状态 / `{enable:true|false}` 注册或取消 |
 
 任务体与调度模型：
@@ -125,15 +125,19 @@ store.py            # tasks.json / history.json 原子读写
 ps_driver.py        # Python ↔ PowerShell 驱动桥（UTF-8 JSON 作业文件，退出码表）
 wx_sender.py        # 通道统一接口：PsAutoSender(默认) / WechatAutoSender(可选) / MockSender
 wx_reader.py        # 聊天记录本地读取（wechatauto-replica WeChatDB，时间窗口过滤，供 AI 总结）
-sync.py             # 云同步引擎：Drive 读写/每日快照/自动备份去抖/恢复/脱密/开机自启注册
+sync.py             # 云同步引擎：同步文件夹读写/Git 双推/每日快照/自动备份去抖/恢复/脱密/开机自启注册
 scripts/WeChatAuto.ps1   # 界面驱动（移植自 wxtimer，真机打磨）：找窗口/哨兵剪贴板校验/前台断言/倒计时
 start_wx_scheduler.bat
 ```
 
-## 六、数据云同步与服务自启（v0.29.0）
+## 六、数据云同步与服务自启（v0.29.0 → v0.48.0）
 
-- **Google Drive 镜像**：设置 Drive 路径（Google Drive 桌面客户端的本地同步文件夹）后，服务把「浏览器数据 + 微信任务/历史/总结」写入 `<Drive>/<用户目录>/LinguaFlow/`：`latest.json` + 每日快照（保留 14 份）。数据变化去抖 5 秒自动备份；恢复/导入/导出均在云同步面板操作。**备份包永不含 API Key 与访问口令**（客户端+服务端双重剥离）。
-- **全模块入口（v0.31.0，v0.32.0 统一）**：`cloud-sync.js` 云同步抽屉——**每个模块页（含微信工具页）**左下角「☁」胶囊点开即得完整控制（Drive 路径/目录浏览器/自动备份/立即备份/恢复/快照/导入导出/开机自启），单一入口、单一实现；微信工具页不再有独立云卡片，「一键拉起服务」按钮在其「定时服务连接」区。
+- **通道双模（v0.48.0）**：`drive_path` 指向普通文件夹 = **网盘镜像**（坚果云/OneDrive/iCloud/Syncthing 等桌面客户端负责上云）；指向 **Git 私有仓库克隆目录**（Gitee/GitHub 等，`<drive_path>/.git` 存在即自动启用）= **自动双推**——每次备份 `add/commit`（作者固定 LinguaFlow，消息含主机名+时间）→ `pull --rebase -X theirs`（冲突本地新备份胜）→ `push` 到**全部**远端（手动备份立即推、自动备份去抖 60s），后台线程每 5 分钟拉取保持本机最新。凭据用各 OS git 凭据缓存（Win: GCM / macOS: 钥匙串），服务侧命令禁交互不挂起，settings 不存任何凭据；`.gitattributes`（`* -text`）+ LF 写盘保证跨平台无换行抖动。⚠️ **git 模式务必使用私有仓库**（备份含浏览器数据与任务记录）。
+- **首次接入保护**：本机从未同步过（无 `git_adopted` 标记）且仓库已有 `latest.json` 时，自动备份被阻止并提示先「从云端恢复」，防止新机器空/默认数据覆盖云端真实备份；恢复或手动「立即备份」解除。
+- **云端较新提示（通道无关）**：`/api/backup/status` 返回 `remote{remote_at, remote_newer}`；云端比本机新时「☁」胶囊显示「云端有更新」、抽屉出「立即恢复」提示卡（恢复仍带确认，不自动覆盖）。
+- **备份内容**（两模式一致）：`<同步目录>/LinguaFlow/` 下 `latest.json` + 每日快照（保留 14 份）。数据变化去抖 5 秒自动备份；恢复/导入/导出均在云同步抽屉操作。**备份包永不含 API Key 与访问口令**（客户端+服务端双重剥离）。
+- **全模块入口（v0.31.0，v0.32.0 统一）**：`cloud-sync.js` 云同步抽屉——**每个模块页（含微信工具页）**左下角「☁」胶囊点开即得完整控制（同步路径/目录浏览器/自动备份/Git 自动同步开关/立即备份/恢复/快照/导入导出/开机自启），单一入口、单一实现；微信工具页不再有独立云卡片，「一键拉起服务」按钮在其「定时服务连接」区。
+- **跨平台配置速查 / 首次切换平台**：分平台步骤表（git/Python/自启/凭据）与「首次接入保护」处理流程（新机器必须先「从云端恢复」）见 [USAGE.md](USAGE.md) §8.1/§8.2。
 - **开机自启（推荐）**：管理页「注册开机自启」= 服务生成 `launch_hidden.vbs`（静默、用当前解释器绝对路径）并注册 `schtasks /SC ONLOGON`；此后登录系统即有服务，无需再开 bat 窗口。
 - **一键拉起（可选）**：`chrome_extension/install_native_host_win.bat <扩展ID>` 注册 native host 后，装了扩展的浏览器在服务未启动时可点「一键拉起服务」（宿主探测 8765 端口，未监听则脱离会话启动 server.py）。卸载：`reg delete "HKCU\Software\Google\Chrome\NativeMessagingHosts\com.linguaflow.launcher" /f`。
 

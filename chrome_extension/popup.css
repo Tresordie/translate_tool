@@ -432,7 +432,8 @@ body::after {
   padding: 0 18px;
 }
 .settings-panel.open {
-  max-height: 380px;
+  /* 4 组表单 + 复选框 + 保存按钮实际高约 380px，余量不足会裁掉保存按钮 */
+  max-height: 480px;
   padding: 16px 18px;
 }
 .form-group {
@@ -785,7 +786,10 @@ body::after {
 }
 
 /* ========== Toast ========== */
-.toast {
+/* 用 #toast（ID 特异性）而非 .toast：theme.css 的主题断点规则（如
+   lf-verdant @768px 的 .toast{top/right/left:16px}）在 400px 弹窗里同样命中，
+   会把提示条撑成占满侧栏的大块；ID 特异性可隔绝一切页面级主题覆盖 */
+#toast {
   position: fixed;
   top: auto;
   right: auto;
@@ -808,9 +812,9 @@ body::after {
   gap: 6px;
   border: 1px solid rgba(var(--white-rgb),0.1);
 }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.toast.success { background: rgba(var(--green-rgb),0.88); box-shadow: 0 4px 20px rgba(var(--green-rgb),0.3); }
-.toast.error { background: rgba(239,68,68,0.88); box-shadow: 0 4px 20px rgba(239,68,68,0.3); }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.success { background: rgba(var(--green-rgb),0.88); box-shadow: 0 4px 20px rgba(var(--green-rgb),0.3); }
+#toast.error { background: rgba(239,68,68,0.88); box-shadow: 0 4px 20px rgba(239,68,68,0.3); }
 
 /* ========== Scrollbar ========== */
 ::-webkit-scrollbar { width: 4px; }
@@ -1173,8 +1177,8 @@ body::after {
   box-shadow: var(--shadow-card), 0 0 15px rgba(var(--primary-rgb),0.06) !important;
 }
 /* Toast glow */
-.toast.success { box-shadow: 0 4px 20px rgba(var(--green-rgb),0.4), 0 0 30px rgba(var(--green-rgb),0.1); }
-.toast.error { box-shadow: 0 4px 20px rgba(239,68,68,0.4), 0 0 30px rgba(239,68,68,0.1); }
+#toast.success { box-shadow: 0 4px 20px rgba(var(--green-rgb),0.4), 0 0 30px rgba(var(--green-rgb),0.1); }
+#toast.error { box-shadow: 0 4px 20px rgba(239,68,68,0.4), 0 0 30px rgba(239,68,68,0.1); }
 
 /* History text - support markdown rendering */
 .hi-text {

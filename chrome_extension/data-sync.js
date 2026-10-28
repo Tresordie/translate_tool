@@ -1,8 +1,9 @@
 // ================================================================
-// LinguaFlow — 数据云同步客户端 v0.29.0（所有页面引入）
+// LinguaFlow — 数据云同步客户端 v0.30.0（所有页面引入）
 // 职责：把本页可见的浏览器数据（localStorage 全量；扩展环境另并入
 //       chrome.storage.local）推给本机 wechat_scheduler 服务，由服务
-//       落本地 + 镜像到 Google Drive。恢复由「微信工具」页统一执行。
+//       落本地 + 同步到云端（Git 私有仓库双推 / 网盘文件夹镜像）。
+//       恢复入口为「☁」胶囊抽屉（cloud-sync.js）。
 // 红线：客户端与服务端双重脱密——API Key / 访问口令 / Tavily Key 永不上传。
 // 静默原则：服务没开/不可达时完全无感，不打扰、不弹错。
 // ================================================================
@@ -146,8 +147,13 @@
       return fetch(base() + '/api/settings', { headers: h }).then(function (r2) { return r2.json(); });
     }).then(function (d) {
       var s = (d && d.settings) || {};
-      if (!s.drive_path) { chipSet('☁ 未配置 Drive', true); return; }
-      chipSet(s.last_backup_at ? '☁ 已同步 ' + String(s.last_backup_at).slice(5, 16).replace('T', ' ') : '☁ 待首次备份');
+      if (!s.drive_path) { chipSet('☁ 未配置同步', true); return; }
+      var idle = s.last_backup_at ? '☁ 已同步 ' + String(s.last_backup_at).slice(5, 16).replace('T', ' ') : '☁ 待首次备份';
+      fetch(base() + '/api/backup/status', { headers: h }).then(function (r3) { return r3.json(); }).then(function (d2) {
+        if (d2 && d2.settings && d2.settings.git_join_mode) { chipSet('☁ 首次接入 · 建议先恢复', true); return; }
+        if (d2 && d2.remote && d2.remote.remote_newer) { chipSet('☁ 云端有更新', true); return; }
+        chipSet(idle);
+      }).catch(function () { chipSet(idle); });
     }).catch(function () {
       avail = { ok: false, at: Date.now() };
       chipSet('☁ 同步服务未启动', true);
@@ -159,7 +165,7 @@
     var el = document.createElement('div');
     el.id = 'lfSyncChip';
     el.textContent = '☁ …';
-    el.title = '数据与云同步 · 点击前往设置（Google Drive / 备份 / 恢复）';
+    el.title = '数据与云同步 · 点击前往设置（备份 / 恢复 / Git 仓库）';
     el.addEventListener('click', function () {
       if (global.LfCloudSync) { global.LfCloudSync.toggle(); return; }
       try { location.href = new URL('wechat_schedule.html', location.href).href; } catch (e) {}

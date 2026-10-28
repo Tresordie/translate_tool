@@ -157,7 +157,7 @@ def _get_db():
             if not sys.platform.startswith(("win", "cygwin", "msys")):
                 raise ReaderError(
                     "聊天记录读取目前仅支持 Windows 微信（wechatauto-replica）。"
-                    "跨平台用法：在 Windows 主力机上做总结，结果经 Google Drive 同步后所有系统可查看；"
+                    "跨平台用法：在 Windows 主力机上做总结，结果经云同步后所有系统可查看；"
                     "其他电脑也可经局域网直接访问主力机服务（http://<主力机IP>:8765/）使用总结功能")
             try:
                 from wechatauto import WeChatDB

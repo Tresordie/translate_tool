@@ -3,9 +3,10 @@
 // 运行：node tests/wx-scheduler-mock.e2e.mjs
 // Python 定位：环境变量 WX_SCHED_PY > python/py/py -3；都找不到则 SKIP 退出码 0。
 // 覆盖：状态/联系人/任务 CRUD/参数校验/到点定时发送/手动立即发送/开机补发（重启服务）/静态托管
+//       /云同步（快照/恢复/脱密/Git 双推/首次接入保护/云端较新检测）
 // ================================================================
-import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { execSync, spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -247,6 +248,67 @@ const ldRoot = await api('GET', '/api/listdir');
 assert(ldRoot.data.ok && Array.isArray(ldRoot.data.dirs) && ldRoot.data.dirs.length > 0, 'listdir 返回盘符列表');
 const ldSub = await api('GET', '/api/listdir?path=' + encodeURIComponent(ldRoot.data.dirs[0]));
 assert(ldSub.data.ok && typeof ldSub.data.parent === 'string', 'listdir 可下钻且有上级');
+
+// ===== Git 首次接入保护（防新机器空数据覆盖云端） =====
+const joinParent = mkdtempSync(path.join(os.tmpdir(), 'wxjoin-'));
+const joinRepo = path.join(joinParent, 'repo');
+execSync(`git init -b master "${joinRepo}"`, { stdio: 'ignore' });
+const joinBundle = { version: 1, exported_at: '2099-01-01T00:00:00',
+  browser_state: { from_other_machine: '"1"' },
+  wechat: { tasks: [{ id: 't_other', name: '他机任务' }], history: [], summaries: [] } };
+const joinLF = path.join(joinRepo, 'LinguaFlow');
+mkdirSync(joinLF, { recursive: true });
+writeFileSync(path.join(joinLF, 'latest.json'), JSON.stringify(joinBundle, null, 1));
+execSync(`git -C "${joinRepo}" add -A`);
+execSync(`git -C "${joinRepo}" -c user.name=Other -c user.email=o@x.local commit -m backup`, { stdio: 'ignore' });
+const setJoin = await api('PUT', '/api/settings', { drive_path: joinRepo.replace(/\\/g, '/'), test: true });
+assert(setJoin.data.ok && setJoin.data.test_error && setJoin.data.test_error.includes('首次接入'), '首次接入保护阻止自动备份覆盖云端');
+assert((await api('GET', '/api/settings')).data.settings.git_join_mode === true, '接入保护状态已置位');
+const setJoin2 = await api('PUT', '/api/settings', { drive_path: joinRepo.replace(/\\/g, '/'), test: true });
+assert(setJoin2.data.test_error && setJoin2.data.test_error.includes('首次接入'), '接入保护持续生效（后续自动备份仍被阻止）');
+const rsJoin = await api('POST', '/api/restore', { name: 'latest.json' });
+assert(rsJoin.data.ok, '首次接入后从云端恢复成功');
+assert((await api('GET', '/api/settings')).data.settings.git_join_mode === false, '恢复后解除接入保护');
+const bkJoin = await api('POST', '/api/backup');
+assert(bkJoin.data.ok, '恢复后立即备份成功（本机已采纳云端血缘）');
+
+// ===== Git 仓库双推（两个 bare 远端模拟 Gitee + GitHub） =====
+const bareA = path.join(mkdtempSync(path.join(os.tmpdir(), 'wxgit-')), 'remoteA.git');
+const bareB = path.join(mkdtempSync(path.join(os.tmpdir(), 'wxgit-')), 'remoteB.git');
+execSync(`git init --bare "${bareA}"`, { stdio: 'ignore' });
+execSync(`git init --bare "${bareB}"`, { stdio: 'ignore' });
+const gitWork = path.join(mkdtempSync(path.join(os.tmpdir(), 'wxgit-')), 'work');
+execSync(`git clone "${bareA}" "${gitWork}"`, { stdio: 'ignore' });
+execSync(`git remote add second "${bareB}"`, { cwd: gitWork });
+const setGit = await api('PUT', '/api/settings', { drive_path: gitWork.replace(/\\/g, '/') });
+assert(setGit.data.ok && setGit.data.settings.git_repo === true, 'git 仓库目录被识别（git_repo=true）');
+const bkGit = await api('POST', '/api/backup');
+assert(bkGit.data.ok, 'git 模式立即备份成功');
+const logA = execSync(`git --git-dir "${bareA}" log --oneline`).toString().trim();
+const logB = execSync(`git --git-dir "${bareB}" log --oneline`).toString().trim();
+assert(/backup .+ @ /.test(logA), '远端 A 收到 backup 提交');
+assert(/backup .+ @ /.test(logB), '远端 B 收到 backup 提交（双推）');
+assert(JSON.parse(execSync(`git --git-dir "${bareA}" show master:LinguaFlow/latest.json`).toString()).wechat, '远端 A 可读到 latest.json 且含 wechat 段');
+const stg = (await api('GET', '/api/settings')).data.settings;
+assert(stg.git_auto === true && stg.last_git_push_at, 'git 推送时间已记录');
+assert(!stg.last_git_error, 'git 双推无错误');
+
+// ===== 云端较新检测（通道无关，普通文件夹模式） =====
+await api('PUT', '/api/settings', { drive_path: driveDir.replace(/\\/g, '/') });
+await api('POST', '/api/backup');
+const remoteBundle = JSON.parse(readFileSync(latestPath, 'utf8'));
+remoteBundle.exported_at = '2099-01-01T00:00:00';
+writeFileSync(latestPath, JSON.stringify(remoteBundle, null, 1));
+const stR = await api('GET', '/api/backup/status');
+assert(stR.data.remote && stR.data.remote.remote_newer === true && stR.data.remote.remote_at === '2099-01-01T00:00:00', '云端 exported_at 较新时 remote_newer=true');
+assert((await api('POST', '/api/restore', { name: 'latest.json' })).data.ok, '云端较新提示下恢复成功');
+let stFall = null;
+for (let i = 0; i < 30; i++) {
+  await sleep(500);
+  stFall = await api('GET', '/api/backup/status');
+  if (stFall.data.remote && stFall.data.remote.remote_newer === false) break;
+}
+assert(stFall.data.remote.remote_newer === false, '恢复后自动备份重写 latest，remote_newer 回落 false');
 
 console.log(`\nALL PASS (${passed} checks)`);
 cleanup(0);
