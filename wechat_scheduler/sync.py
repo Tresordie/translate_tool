@@ -10,7 +10,7 @@
   - Git 首次接入保护：本机从未同步过且仓库已有备份时，自动备份被阻止并提示
     先「从云端恢复」，防止新机器空/默认数据覆盖云端真实备份。
   - 自动备份（数据变化去抖 5s 触发）+ 手动恢复/导入；每日快照 backup-YYYY-MM-DD.json，
-    latest.json 始终最新，保留最近 14 份；git 历史额外提供全量版本回溯。
+    latest.json 始终最新，保留最近 365 份（约一年）；git 历史额外提供全量版本回溯。
   - 安全红线：备份包**永不**包含 API Key / 访问口令（translate_config.apiKey、
     config.apiKey、ws_api_token、hn_tavily_key 等），写入与读取两侧都强制剥离。
 
@@ -29,7 +29,7 @@ from datetime import datetime
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SNAPSHOT_KEEP = 14          # 带日期快照保留份数
+SNAPSHOT_KEEP = 365         # 带日期快照保留份数（约一年）；超出才从工作文件夹轮转删除，git 历史仍永久保留
 BACKUP_DEBOUNCE_SEC = 5.0
 SUBDIR = "LinguaFlow"       # 同步目录下的子文件夹，避免污染同步根目录
 GIT_PUSH_DEBOUNCE = 60.0    # git 推送去抖（秒），避免频繁编辑时每次备份都推送

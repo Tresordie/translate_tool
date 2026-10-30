@@ -727,7 +727,7 @@ REST API（均带 CORS；设置 --token 后 /api/* 需请求头 X-Api-Token）�
   DELETE /api/summaries/<id>     删除单条总结；DELETE /api/summaries 清空
   GET/PUT /api/settings          云同步设置 {drive_path, auto_backup, git_auto, test:true 时保存即试写}
   GET    /api/listdir            服务端目录浏览 ?path=（空=盘符/主目录列表；仅目录名，供管理页同步路径选择器）
-  POST   /api/backup             立即备份（latest.json + 当日快照，保留 14 份；git 仓库模式立即双推全部远端）
+  POST   /api/backup             立即备份（latest.json + 当日快照，保留 365 份；git 仓库模式立即双推全部远端）
   GET    /api/backup/status      最近备份时间/错误 + 同步文件夹内快照列表 + 云端较新检测（remote）
   GET    /api/backup/snapshot    ?name=latest.json|backup-YYYY-MM-DD.json 读取备份包
   POST/GET /api/browser-data     页面推送/拉取浏览器全量键值（服务端强制剥离 apiKey/token）
