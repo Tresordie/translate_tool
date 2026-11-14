@@ -486,9 +486,12 @@
     const keyPointsTitle = isOutputChinese ? '要点总结' : 'Key Points';
     const detailTitle = isOutputChinese ? '要点详述' : 'Detailed Breakdown';
 
-    // System prompt — short and direct
+    // System prompt — 选中总结模板时走共享模板提示词（ai-template-kit）；否则保持默认要点总结
+    var tplId = ($('summaryTemplate') && $('summaryTemplate').value) || 'default';
     var systemPrompt;
-    if (isOutputChinese) {
+    if (tplId !== 'default' && window.AiService && window.AiService.summaryTemplatePrompt) {
+      systemPrompt = window.AiService.summaryTemplatePrompt(tplId, outputLangName);
+    } else if (isOutputChinese) {
       systemPrompt = '你是工作汇报总结助手。请阅读以下工作记录，提取关键要点并生成结构化的中文总结。\n\n输出格式：\n## 📋 ' + sectionTitle + ' (' + dateRange + ')\n### 🔑 ' + keyPointsTitle + '\n- [要点]\n### 📝 ' + detailTitle + '\n**1. [标题]** 详细阐述';
     } else {
       // For non-Chinese output: split system+user into a translation workflow
@@ -566,7 +569,7 @@
       footer.classList.add('visible');
 
       // Save to summary history
-      saveSummaryResult(dateRange, result, inputLang, outputLang);
+      saveSummaryResult(dateRange, result, inputLang, outputLang, tplId);
 
       showToast('总结生成完成', 'success');
     } catch (err) {
@@ -801,7 +804,7 @@
   }
 
   // ===== Save Summary to History =====
-  function saveSummaryResult(dateRange, resultText, inputLang, outputLang) {
+  function saveSummaryResult(dateRange, resultText, inputLang, outputLang, templateId) {
     var now = Date.now();
     summaries.unshift({
       id: now.toString(),
@@ -809,6 +812,7 @@
       content: resultText,
       inputLang: inputLang,
       outputLang: outputLang,
+      template: templateId || 'default',
       date: formatDate(now),
       time: formatTime(now),
       timestamp: now
@@ -891,6 +895,7 @@
       return;
     }
     list.innerHTML = summaries.map(function(s) {
+      var tpl = (s.template && s.template !== 'default' && window.AiService) ? AiService.getSummaryTemplate(s.template) : null;
       return '<div class="record-item summary-history-item" data-sid="' + s.id + '">'
         + '<input type="checkbox" class="record-checkbox sum-hist-check" data-sid="' + s.id + '" title="勾选后可导出选中项">'
         + '<div class="record-time">'
@@ -899,6 +904,7 @@
         + '</div>'
         + '<div class="record-content">'
         + escapeHtml(s.dateRange) + ' · ' + escapeHtml(LANG_NAMES[s.outputLang] || s.outputLang)
+        + (tpl ? ' · ' + escapeHtml(tpl.label) : '')
         + '<br><span style="color:var(--text-secondary);font-size:0.8rem;">'
         + escapeHtml(s.content.substring(0, 100)) + '...</span>'
         + '</div>'
@@ -939,6 +945,20 @@
         if (item) deleteSummaryItem(item.dataset.sid);
       });
     });
+  }
+
+  // ===== Summary Template Select（ai-template-kit 共享模板，默认要点总结保留） =====
+  function initTemplateSelect() {
+    var sel = $('summaryTemplate');
+    if (!sel) return;
+    var tpls = (window.AiService && AiService.SUMMARY_TEMPLATES) || [];
+    var html = '<option value="default">默认要点总结</option>';
+    tpls.forEach(function (t) {
+      html += '<option value="' + escapeHtml(t.id) + '" title="' + escapeHtml(t.hint || '') + '">' + escapeHtml(t.label) + '</option>';
+    });
+    sel.innerHTML = html;
+    sel.value = (config.summaryTemplate && sel.querySelector('option[value="' + config.summaryTemplate + '"]'))
+      ? config.summaryTemplate : 'default';
   }
 
   // ===== 历史总结：勾选后导出为 Markdown / HTML（v0.45.0） =====
@@ -1038,6 +1058,15 @@
       });
     }
 
+    // 总结模板选择 — 持久化到 work_config
+    var templateSel = $('summaryTemplate');
+    if (templateSel) {
+      templateSel.addEventListener('change', function() {
+        config.summaryTemplate = this.value;
+        storage.set({ work_config: config });
+      });
+    }
+
     // Keyboard shortcut — bound on workEditor.container after init
     // (see init function below)
 
@@ -1079,13 +1108,14 @@
   // ===== 插件配置同步（LinguaFlow 扩展广播） =====
   function applySyncedConfig(cfg) {
     if (!cfg || !cfg.baseUrl) return;
-    // 只同步连接信息，保留用户在本页选定的输入/输出语言
+    // 只同步连接信息，保留用户在本页选定的输入/输出语言与总结模板
     config = {
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
       model: cfg.model,
       inputLang: config.inputLang || 'zh',
       outputLang: config.outputLang || 'zh',
+      summaryTemplate: config.summaryTemplate || 'default',
     };
     if (cfg.baseUrl) $('baseUrl').value = cfg.baseUrl;
     if (cfg.apiKey) $('apiKey').value = cfg.apiKey;
@@ -1147,6 +1177,9 @@
       if (config.inputLang) $('inputLang').value = config.inputLang;
       if (config.outputLang) $('outputLang').value = config.outputLang;
     }
+
+    // 总结模板下拉（ai-template-kit）：填充选项并恢复上次选择（无保存配置时回落 default）
+    initTemplateSelect();
 
     if (!config.apiKey) {
       const panel = $('settingsPanel');

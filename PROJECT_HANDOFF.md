@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.47.3 · 2026-09-28
+> **当前版本**：v0.49.0 · 2026-11-14
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -282,10 +282,26 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **保存 toast 被主题规则污染成大块**：theme.css lf-verdant 的移动端断点规则 `@media (max-width:768px) { html[data-theme="lf-verdant"] .toast { top:16px; right:16px; left:16px } }`——popup 宽 400px 命中该断点，且主题选择器特异性 (0,2,1) 压过 popup.css 的 `.toast` (0,1,0)，toast 被定位成 top/left/bottom 16px + 收缩宽度 = 占满侧栏全高的绿色大块（保存成功的绿色 toast）。修：popup 自身 toast 选择器全部升为 `#toast`（ID 特异性 1,0,0），永久隔绝任何页面级主题覆盖；popup.js 靠 className 切状态不受影响。
 - **验证**：内置浏览器实测——修复前设 lf-verdant + 420px 视口触发保存 toast，实测 194×608px 完整复现用户截图；修复后 217×41px 底部居中、保存按钮完整可见。**教训**：popup 与模块页共享 theme.css，页面级的高特异性主题规则（断点块/主题块）会泄入 popup；**popup 专属组件的基础定位一律用 ID 选择器书写**，class 选择器只配主题变量。
 
+### 3.20 总结模板体系（v0.49.0，工作报告 / AI 解析共用）
+
+模板结构取自用户本机的 **ai-template-kit 技能**（`C:\Users\Administrator\.agents\skills\ai-template-kit\`，专业总结/会议纪要/图表总结/鱼骨图/思维导图五大类），**以提示词形式内嵌**进应用（运行时不读该目录——网页版与扩展必须自包含）。
+
+- **唯一定义点**：`ai-service.js`（根目录 + `chrome_extension/` 两副本，模板部分逐字一致）：
+  - `SUMMARY_TEMPLATES` = 8 项 `{id,label,hint}`（exec 一页纸高管摘要 / weekly 五段式周报 / kpt 复盘 KPT / star STAR 成果 / minutes 会议纪要 / chart 图表数据总结 / fishbone 鱼骨图根因分析 / mindmap 思维导图大纲）——**两个页面的下拉选项都从这份清单渲染**；
+  - `SUMMARY_TEMPLATE_RULES` = 通用铁律（数字纪律【待补】/ 结论先行 / 结构化 / 一个待办一个 owner / 分歧保留，取自 kit「六条硬规则」），置于每份模板正文前；
+  - `SUMMARY_TEMPLATE_PROMPTS` = 各模板结构正文（chart 为文字版图表页，不做真实 SVG 渲染）；
+  - `summaryTemplatePrompt(id, langName)`：langName **含「中文」** → 追加「全文使用 X 输出」；否则追加「输出语言（最高优先级）」覆盖段——与 `emailPrompt` 非 中文 输出同一模式（正文里的中文小节名仅为结构模板）。未知 id 返回 `''`（调用方回落默认 prompt）。
+  - **新增模板**：`SUMMARY_TEMPLATES` 加一项 + `SUMMARY_TEMPLATE_PROMPTS` 加对应正文即可，两副本都要加（`tests/summary-template.test.mjs` 有双副本一致性断言兜底）。
+- **prompt 优先级（`analyzeContent`）**：显式 `opts.template` > `email` 邮件线程 playbook > 默认结构化总结（`analyzePrompt`）。`opts.template` 为空串/缺省 = 原行为。
+- **工作报告接入**（`workreport.js`，双副本）：`doSummarize()` 读 `#summaryTemplate` 下拉——`default` 走原有「要点总结」prompt（**一字未改**），其余走 `AiService.summaryTemplatePrompt(tplId, outputLangName)`（outputLangName 来自既有 LANG_NAMES/LANG_NAMES_EN 机制，30 语种照常可用）；用户消息构造不变。选择持久化 `work_config.summaryTemplate`（`applySyncedConfig` 重建 config 时已补 `summaryTemplate` 字段防抹掉）；`saveSummaryResult` 存 `template` 字段，历史条目显示 `getSummaryTemplate().label`。下拉在 `init()` 的 `initTemplateSelect()` 填充——**在 `if (savedConfig)` 块外**，全新安装（无保存配置）也会填充。
+- **AI 解析接入**（`ai_parse.js`，双副本逐字一致）：`state.template`（默认 `'auto'`）持久化进 `ai_parse_state`；`#templateWrap` 由 `updateMode()` 控制——**仅分析模式显示**，任务抽取模式隐藏；`runAnalyze` 传 `template: state.template !== 'auto' ? state.template : ''`；历史条目存 `tpl` 并在 meta 里追加模板标签。
+- **验证**：`tests/summary-template.test.mjs`（27 项：清单/结构关键词/中英语言规则/未知 id 回落/模板优先于 playbook/双副本一致）；浏览器实测（http://127.0.0.1:8765 静态托管）：两页下拉填充与记忆、任务抽取模式隐藏、真实请求 messages[0] 携带模板 system prompt、总结历史显示模板标签。
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.49.0 | **总结模板体系（工作报告 + AI 解析，双端同步）**：模板结构取自 `ai-template-kit` 技能（专业总结/会议纪要/图表总结/鱼骨图/思维导图），8 套模板（exec/weekly/kpt/star/minutes/chart/fishbone/mindmap）集中定义在 `ai-service.js` 的 `SUMMARY_TEMPLATES` + `summaryTemplatePrompt(id, langName)`，双副本逐字一致；工作报告页「AI 要点总结」区新增「总结模板」下拉（**默认要点总结保留且行为不变**，选择持久化 `work_config.summaryTemplate`，总结历史追加模板标签）；AI 解析分析模式新增同款下拉（**任务抽取模式隐藏**，`auto`=原行为含邮件 playbook，显式模板优先于 playbook，持久化 `ai_parse_state.template`）；非中文输出走「输出语言最高优先级」覆盖段（同 emailPrompt 模式）。详见 §3.20。验证：新增 `tests/summary-template.test.mjs` 27 项全绿 + 既有测试套全绿 + 浏览器实测（下拉/联动/记忆/真实请求携带模板 prompt/历史标签） |
 | v0.48.1 | **快照保留份数 14 → 365（约一年）**：用户把 10-16 起的历史快照归档进同步仓库后，原 14 份上限会从次日起每天轮走最旧的归档快照（git 历史虽可找回，但抽屉快照列表不可见）。提高到 365 份；超出上限的轮转语义不变（删工作文件夹文件、git 提交记录删除）。改动仅 `sync.py SNAPSHOT_KEEP` + 全部文档表述同步（README/USAGE/wechat_scheduler README/server API_DOC）；服务重启生效，其他机器随项目代码拉取后生效。两台机器现均为 `gitee`+`github` 双远端对称配置（Windows 端由 v0.48.0 后的一次分叉修复完成：Mac 仅推/拉 gitee 致 Windows 被拒，已 merge -X ours 并入 Mac 提交并对齐三端） |
 | v0.48.0 | **Git 私有仓库云同步双推（Gitee+GitHub 互备）+ 首次接入保护 + 云端较新提示 + macOS 目录浏览修复**——云同步通道双模（git 克隆目录=自动 commit/pull --rebase/push 全部远端，普通文件夹=网盘镜像不变）；新机器接入保护防空数据覆盖云端；`remote_info` 云端较新提示（chip+抽屉一键恢复）；`list_dirs` POSIX 分支与 JS 分隔符自适应修 macOS「浏览…」失效；`.gitattributes`+LF 写盘消除跨平台换行抖动；文案全面去 Google 化。**架构/协议零破坏**：`drive_path` 字段名、备份包格式、快照策略、脱敏红线不变。详见 §3.18。验证：e2e 47→62 项全绿（含双 bare 远端双推、接入保护、云端较新）；**扩展弹窗两修复**：保存按钮被 max-height:380px 裁剪（→480px）、lf-verdant 断点 .toast 规则泄入 popup 致保存提示成满高大块（popup 专属组件升 #toast 特异性），见 §3.19 |
 | v0.47.3 | **全站立体感/质感升级（10 套主题自动受益）**：① `--shadow-1..4` 由纯黑单层改为「接触阴影 + 定向主投影 + 环境光遮蔽」三层结构，颜色统一取各自主题的 `--shadow-tint-rgb`（浅色只留色相不加黑、深色再叠纯黑遮蔽），**修掉"一套黑影套 10 个主题"**；`var()` 回退必须写成逗号三元组（`var(--shadow-tint-rgb,15,23,42)`），否则阴影整体失效。② 新增 4 个立体面令牌 `--bevel-top`（顶缘受光，浅 .90 白 / 深 .12 白）/ `--bevel-bottom`（底部接触线）/ `--inset-field`（内凹面）/ `--vignette`（画布四周压暗），在 `html[data-mode]` 浅深两块内分档定义。③ 新增 **第 8b 节「立体感增强层」**（置于第 8 节末、第 9 节前）：控件三态（静置 `--shadow-1` → 悬停 `--shadow-2` → 按下 `--inset-field` 沉入）、浮层 4 级（`.theme-panel`/弹窗/抽屉）/Toast 3 级、内容面 2 级（`.el-result-card`/`.word-card`/`.kb-col`/`.side-card`）；卡片基座补 `var(--bevel-bottom)`、`.bg-canvas` 补 `var(--vignette)`；浅/深卡片 hover 统一改为 `var(--shadow-3), var(--bevel-top), 品牌辉光`。④ 页面联动：`english_learning.html`（双副本）`--el-shadow-*` 由写死黑阴影改接全局刻度 + 顶缘受光；`todolist.html`（双副本）`.filter-group` 凹槽改用 `--inset-field`；青屿专属层（§12.3/12.4）hover 并入新刻度并保留品牌绿辉光。全程零新增颜色字面量、主题块未改动（仍 85 项变量自洽），新增规则只用变量。**验证**：两副本行号逐行对齐（`theme.css` 2080 → 2149 行，净增 69 行全部是令牌与 8b 层）；`rgba(var(...))` 括号闭合与 `var()` 三元组回退经 grep 审计；⚠️ 沙箱 PowerShell/git 仍不可用（`STATUS_DLL_INIT_FAILED`），**未跑浏览器实测/截图**，阴影层数与强度是按物理层次推导的，若某主题投影偏重/偏轻，只调该主题的 `--shadow-tint-rgb` 或在 mode 块微调 α 即可（勿改结构） |
@@ -475,5 +491,5 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 ---
 
-**最后更新**：2026-10-30 · v0.48.1（快照保留份数 14→365；详见 §4 版本表）
+**最后更新**：2026-11-14 · v0.49.0（总结模板体系；详见 §4 版本表与 §3.20）
 **参考文档**：`README.md` · `README_EN.md`（changelog 停在 v0.25.11，正文随版本更新，仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

@@ -25,7 +25,7 @@
 
   const STATE_KEY = 'ai_parse_state';
   const HISTORY_LIMIT = 30;
-  const state = { draft: '', instructions: '', lang: 'zh', history: [] };
+  const state = { draft: '', instructions: '', lang: 'zh', template: 'auto', history: [] };
 
   let saveTimer = null;
   function scheduleSave() {
@@ -94,6 +94,9 @@
     $('modeHint').innerHTML = analyze
       ? '当前模式：<strong>分析</strong>（有解析要求或附件，输出自由格式 Markdown 总结）'
       : '当前模式：<strong>任务抽取</strong>（从笔记中提取结构化任务列表）';
+    // 总结模板仅分析模式可用（任务抽取输出结构化任务卡，与模板无关）
+    const tplWrap = $('templateWrap');
+    if (tplWrap) tplWrap.style.display = analyze ? '' : 'none';
     if (!_busy) $('runBtn').innerHTML = runBtnHtml(analyze ? 'AI 分析' : 'AI 解析');
   }
 
@@ -366,11 +369,15 @@
     setLoading(true);
     $('runBtn').innerHTML = runBtnHtml('分析中...');
     try {
-      const md = await Ai.analyzeContent({ instructions, content, email, lang: state.lang });
+      const md = await Ai.analyzeContent({
+        instructions, content, email, lang: state.lang,
+        // 显式选择总结模板时传给 analyzeContent（auto = 默认结构 / 邮件 playbook）
+        template: state.template !== 'auto' ? state.template : '',
+      });
       currentSummaryMd = md;
       showSummary(md, email ? '邮件线程分析' : '分析结果');
       pushHistory({
-        mode: 'analyze', lang: state.lang, email: email,
+        mode: 'analyze', lang: state.lang, email: email, tpl: state.template,
         input: (instructions ? instructions + '\n' : '') + notes, md: md,
       });
       showToast(email ? '邮件线程总结已生成' : '分析完成', 'success');
@@ -438,6 +445,7 @@
         : String(h.md || '').replace(/[#|>*`-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90);
       const modeTag = h.mode === 'parse' ? '任务抽取' : (h.email ? '邮件分析' : '分析');
       const lang = Ai.getOutputLang(h.lang);
+      const tpl = (h.tpl && h.tpl !== 'auto') ? Ai.getSummaryTemplate(h.tpl) : null;
       return '<div class="history-item" data-index="' + i + '">'
         + '<input type="checkbox" class="history-check" data-index="' + i + '" title="勾选后可导出选中项">'
         + '<div class="history-item-body">'
@@ -445,6 +453,7 @@
         + '<div class="hi-preview">' + escapeHtml(preview || '(空)') + '</div>'
         + '<div class="hi-meta">'
         + '<span class="hi-tag">' + modeTag + '</span>'
+        + (tpl ? '<span class="hi-tag">' + escapeHtml(tpl.label) + '</span>' : '')
         + '<span class="hi-tag">' + escapeHtml(lang.label) + '</span>'
         + '<span>' + formatTime(h.ts) + '</span>'
         + '</div></div>'
@@ -560,6 +569,22 @@
     });
   }
 
+  /* ==================== 总结模板选择（ai-template-kit，仅分析模式生效） ==================== */
+
+  function initTemplateSelect() {
+    const sel = $('templateSelect');
+    if (!sel) return;
+    const tpls = Ai.SUMMARY_TEMPLATES || [];
+    sel.innerHTML = '<option value="auto" title="默认结构（邮件附件自动走邮件线程 playbook）">默认（自动）</option>'
+      + tpls.map((t) =>
+        '<option value="' + escapeHtml(t.id) + '" title="' + escapeHtml(t.hint || '') + '">' + escapeHtml(t.label) + '</option>').join('');
+    sel.value = state.template;
+    sel.addEventListener('change', () => {
+      state.template = sel.value;
+      saveNow();
+    });
+  }
+
   /* ==================== 状态加载 ==================== */
 
   function loadPersistedState() {
@@ -577,6 +602,7 @@
         if (typeof saved.draft === 'string') state.draft = saved.draft;
         if (typeof saved.instructions === 'string') state.instructions = saved.instructions;
         if (typeof saved.lang === 'string') state.lang = saved.lang;
+        if (typeof saved.template === 'string') state.template = saved.template;
         if (Array.isArray(saved.history)) state.history = saved.history;
       }
       // 迁移旧版草稿键（ai_parse_draft），避免升级后内容丢失
@@ -586,9 +612,11 @@
         if (legacy) state.draft = legacy;
       }
       if (!Ai.OUTPUT_LANGS.some((l) => l.code === state.lang)) state.lang = 'zh';
+      if (state.template !== 'auto' && !Ai.getSummaryTemplate(state.template)) state.template = 'auto';
       notesEditor.setMarkdown(state.draft);
       $('instructionsInput').value = state.instructions;
       $('langSelect').value = state.lang;
+      if ($('templateSelect')) $('templateSelect').value = state.template;
       updateMode();
       renderHistory();
     });
@@ -682,6 +710,7 @@
     initFiles(notesEditor);
     initActions();
     initLangSelect();
+    initTemplateSelect();
     initHistory();
     loadPersistedState();
     updateMode();

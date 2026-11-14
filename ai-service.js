@@ -667,6 +667,148 @@
     '仅输出 markdown 结果本身，无额外解释、无代码围栏。',
   ].join('\n');
 
+  /* ================= 总结模板（源自 ai-template-kit，工作报告 / AI 解析共用） ================= */
+
+  // 结构源自 ai-template-kit 技能（专业总结 / 会议纪要 / 图表总结 / 鱼骨图 / 思维导图五大类）。
+  // 新增模板：此处加一项 + SUMMARY_TEMPLATE_PROMPTS 加对应正文即可；label 显示在下拉框。
+  var SUMMARY_TEMPLATES = [
+    { id: 'exec', label: '一页纸高管摘要', hint: '结论标题 · 三条发现 · 风险 · A/B/C 决策 · 行动表' },
+    { id: 'weekly', label: '五段式周报', hint: 'TL;DR · 关键数据 · 问题根因 · 计划 · 风险支持' },
+    { id: 'kpt', label: '复盘 KPT', hint: 'Keep 继续 · Problem 问题 · Try 尝试 · 行动表' },
+    { id: 'star', label: 'STAR 成果', hint: '情境 · 任务 · 行动 · 量化结果' },
+    { id: 'minutes', label: '会议纪要', hint: '结论 · 议题分歧 · 决策 · 待办 owner · 风险' },
+    { id: 'chart', label: '图表数据总结', hint: '结论标题 · 指标卡 · 三条洞察 · 数据口径' },
+    { id: 'fishbone', label: '鱼骨图根因分析', hint: '效应 · 6M 分类 · 假设标签 · 验证计划' },
+    { id: 'mindmap', label: '思维导图大纲', hint: '中心主题 · 5-7 主分支 · ≤7 字节点 · 本周动作' },
+  ];
+
+  /** 按 id 查模板配置；未知返回 null */
+  function getSummaryTemplate(id) {
+    for (var i = 0; i < SUMMARY_TEMPLATES.length; i++) {
+      if (SUMMARY_TEMPLATES[i].id === id) return SUMMARY_TEMPLATES[i];
+    }
+    return null;
+  }
+
+  // 通用铁律（取自 ai-template-kit「六条硬规则」），置于每份模板正文之前
+  var SUMMARY_TEMPLATE_RULES = [
+    '# 通用铁律（违反即为失败）',
+    '1. 绝不编造：只使用材料中出现过的数字、人名、日期；材料缺失的信息写【待补】/【待确认】，禁止合理推测。',
+    '2. 结论先行：正文第一行永远是结论句，且尽量包含数字或对比；禁止用「XX 总结」「数据分析」这类空标题。',
+    '3. 结构化：markdown 标题 + 编号/列表/表格分区，禁止平铺长段落。',
+    '4. 每条待办只允许一个负责人（禁止「某某和某某一起」），截止日具体到日（不写「下周」），并给出验收标准。',
+    '5. 分歧与未决项原样保留，禁止强行写成「大家一致同意」。',
+    '',
+  ].join('\n');
+
+  // 各模板结构正文；输出语言规则由 summaryTemplatePrompt 追加
+  var SUMMARY_TEMPLATE_PROMPTS = {
+    // ai-template-kit references/summary.md §1
+    exec: [
+      '# 模板：一页纸高管摘要',
+      '按以下结构输出（章节顺序固定）：',
+      '1. **结论式标题**：一句话标题，必须包含关键数字或对比（如「Q3 营收 +18%，七成来自复购」），禁止用「XX 工作总结」。',
+      '2. **背景与目标**：两行以内——为什么做、原定目标。',
+      '3. **三条关键发现**：每条不超过 25 字，必须带数字或来源（注明来自材料哪一段），按重要性排序。',
+      '4. **影响与风险**：对业务/成本/时间的影响 + 两个最大不确定性（写清什么情况下会发生，不是「可能有风险」）。',
+      '5. **决策建议**：给出 A/B/C 三个选项，明确推荐一个并一句话说明理由；材料不适合决策时可省略本节并注明原因。',
+      '6. **下一步行动表**：markdown 表格（事项 / 负责人 / 截止日 / 验收标准），最多 5 行。',
+      '自检：没参与过的人读完这一页，60 秒内能做出「同意 / 再议」。',
+    ].join('\n'),
+    // ai-template-kit references/summary.md §1b
+    weekly: [
+      '# 模板：五段式日/周报',
+      '按以下五段输出（章节顺序固定）：',
+      '1. **结论先行 TL;DR**：不超过 3 句——成果一句（带最硬的数字）/ 判断与取舍 / 上级须知。',
+      '2. **关键数据**：markdown 表格（指标 | 本期 | 上期 | 目标 | Δ）+ 亮点不超过 3 条，每条 = 动作 → 结果（带数字）→ 可复制性。',
+      '3. **问题与根因**：每条 = 现象 + 1 个根因 + 证据出处。',
+      '4. **下一步计划**：markdown 表格（动作 | Owner | 截止 | 验收），四要素缺一不写。',
+      '5. **风险与所需支持**：markdown 表格（风险 | 概率 | 量化影响 | 需要谁拍板什么）。',
+      '材料中没有的数据写【待补充】，禁止合理推测。',
+    ].join('\n'),
+    // ai-template-kit references/summary.md §4
+    kpt: [
+      '# 模板：复盘 KPT',
+      '按以下四块输出：',
+      '- **K · Keep（继续保持）**：做对了什么、下次继续用，不超过 3 条。',
+      '- **P · Problem（问题与根因）**：卡在哪、根因是什么，区分「人的问题」与「机制问题」。',
+      '- **T · Try（下次尝试）**：下次要试的新做法，每条绑一个可验证指标。',
+      '- **Action · 行动表**：把 Try 转成待办 markdown 表格（事项 / 负责人 / 截止日 / 验收标准）。',
+      'Problem 少于 3 条时如实呈现，不硬凑。',
+    ].join('\n'),
+    // ai-template-kit references/summary.md §5
+    star: [
+      '# 模板：STAR 成果总结',
+      '按以下四段输出：',
+      '- **S · 情境**：业务背景与约束，1 句。',
+      '- **T · 任务**：要达成的目标，尽量量化。',
+      '- **A · 行动**：具体做了什么，突出关键动作与取舍。',
+      '- **R · 结果**：按数字收尾——提升多少、省多少、影响多少人；并补一句可复用性（成果后来在什么场景被谁复用）。',
+    ].join('\n'),
+    // ai-template-kit references/minutes.md §1
+    minutes: [
+      '# 模板：会议纪要（7 段式）',
+      '按以下七段输出（章节顺序固定）：',
+      '1. **会议信息**：主题 / 时间 / 参会人 / 记录人（材料缺失写【待确认】）。',
+      '2. **一句话结论**：不超过 40 字，回答「这场会定了什么」，禁止写「讨论了 XX」。',
+      '3. **议题与要点**：按议题分组，每条写成「观点 → 依据 → 分歧」，保留不同意见并标注谁提出。',
+      '4. **已达成决策**：决策内容 / 依据 / 生效范围 / 生效时间，写清谁拍板。',
+      '5. **待办清单**：markdown 表格（事项 / 唯一负责人 / 截止日 / 验收标准）。',
+      '6. **未决与风险**：卡点 / 需要谁拍板 / 最晚何时有答案，每条给出下次检查点。',
+      '7. **下次会议**：时间 / 预设议题（材料没有则写【待确认】）。',
+    ].join('\n'),
+    // ai-template-kit references/charts.md 版式一/版式二（文字形态，不渲染真实图表）
+    chart: [
+      '# 模板：图表数据总结（1-2-3 图表页 · 文字版）',
+      '按以下结构输出：',
+      '1. **结论式标题**：一句话，必须包含变化幅度或对比倍数，禁止用「数据概览」「各区域情况」这类标题。',
+      '2. **核心指标卡**：不超过 3 个关键指标，markdown 表格（指标 | 当前值 | 环比/对比 | 目标达成率）。',
+      '3. **主数据**：markdown 表格呈现支撑结论的核心数据（排名 / 趋势 / 构成，选最贴合材料的一种）。',
+      '4. **三条洞察**：每条固定格式「现象 + 可能原因 + 建议动作」，注明对应数据。',
+      '5. **注释**：样本量、时间窗、口径说明与数据缺陷（缺失值、口径变化）。',
+      '自检：遮住正文只看标题和表格，读者是否得出同一个结论。',
+    ].join('\n'),
+    // ai-template-kit references/fishbone.md 6M + 验证计划
+    fishbone: [
+      '# 模板：鱼骨图根因分析（6M）',
+      '按以下步骤输出：',
+      '1. **可观测效应**：把问题改写成一句「可观测的效应陈述」，包含时间、范围、幅度，不含任何猜测、不写原因。',
+      '2. **原因分类（6M）**：按 人 Man / 机 Machine / 料 Material / 法 Method / 环 Environment / 测 Measurement 分类（与材料无关的类别注明「不适用」，不要硬凑），每类 2-4 条二级原因。',
+      '3. **标签**：每条原因标注【已验证】/【假设】/【待查】，并说明需要什么证据才能确认。',
+      '4. **优先验证**：挑 1-3 条最可疑的原因，用 5 Why 深挖到可执行动作。',
+      '5. **验证计划表**：markdown 表格（假设 / 验证方法 / 观测指标 / 负责人 / 截止时间），结论列写「待验证」。',
+      '鱼骨图产出的是假设清单，不是结论；没有验证计划不算完成。',
+    ].join('\n'),
+    // ai-template-kit references/mindmap.md 规则 + 大纲格式
+    mindmap: [
+      '# 模板：思维导图大纲',
+      '用 markdown 标题层级（# 中心 → ## 主分支 → ### 子节点 → #### 末级）输出，可直接粘贴到 XMind / 幕布等工具导入：',
+      '1. **中心主题**：1 个，一句话概括材料核心命题。',
+      '2. **主分支**：5-7 个，遵循 MECE（互不重叠、合起来尽量穷尽），每个主分支建议一个 emoji 图标。',
+      '3. **子节点**：每个主分支下 2-4 个子节点；末级节点压缩成不超过 7 字的关键词，不写整句。',
+      '4. **优先级与状态**：用（P0/P1）标记优先级、（已确认/待验证）标记状态。',
+      '5. **本周动作**：最后单独列出 3 个「可以本周就执行」的行动（事项 / 负责人 / 截止日）。',
+      '同一层语义重叠的分支先合并再输出。',
+    ].join('\n'),
+  };
+
+  /**
+   * 总结模板 system prompt（工作报告 / AI 解析共用）。
+   * langName 为输出语言的展示名：含「中文」走中文规则，否则追加「输出语言最高优先级」覆盖段
+   * （与 emailPrompt 非 中文 输出的处理同一模式）。
+   */
+  function summaryTemplatePrompt(id, langName) {
+    var body = SUMMARY_TEMPLATE_PROMPTS[id];
+    if (!body) return '';
+    var lang = String(langName || '中文').trim();
+    var isZh = lang.indexOf('中文') !== -1;
+    var rule = isZh
+      ? '# 输出语言\n全文使用' + lang + '输出。'
+      : '# 输出语言（最高优先级）\n上文中的中文小节名称与提示字样仅为结构模板：实际输出必须全部使用' + lang +
+        '，包括所有章节标题、表头与正文；章节结构与顺序保持不变。';
+    return SUMMARY_TEMPLATE_RULES + body + '\n\n' + rule;
+  }
+
   /** 任务抽取 system prompt（按语种注入） */
   function tasksPrompt(langCode) {
     return SYSTEM_PROMPT_TASKS.split('{{LANG}}').join(getOutputLang(langCode).name);
@@ -750,18 +892,22 @@
 
   /* ================= AI Parse — 自由分析 / 邮件线程 ================= */
 
-  /** 自由分析：instructions 与/或附件 → 结构化 markdown 总结；email=true 走邮件线程 playbook；lang 为输出语种 code */
+  /**
+   * 自由分析：instructions 与/或附件 → 结构化 markdown 总结；lang 为输出语种 code。
+   * prompt 优先级：显式 template（总结模板，见 SUMMARY_TEMPLATES）> email 邮件线程 playbook > 默认结构化总结
+   */
   async function analyzeContent(opts) {
     var instructions = String(opts.instructions || '').trim();
     var content = String(opts.content || '').trim();
     var user = instructions
       ? '【解析要求】\n' + instructions + '\n\n———\n\n【内容】\n' + content
       : content;
+    var tplPrompt = opts.template ? summaryTemplatePrompt(opts.template, getOutputLang(opts.lang).name) : '';
     return chat({
       temperature: 0.3,
       maxTokens: 3000,
       messages: [
-        { role: 'system', content: opts.email ? emailPrompt(opts.lang) : analyzePrompt(opts.lang) },
+        { role: 'system', content: tplPrompt || (opts.email ? emailPrompt(opts.lang) : analyzePrompt(opts.lang)) },
         { role: 'user', content: user },
       ],
     });
@@ -962,6 +1108,9 @@
     getExtensionVersion: getExtensionVersion,
     OUTPUT_LANGS: OUTPUT_LANGS,
     getOutputLang: getOutputLang,
+    SUMMARY_TEMPLATES: SUMMARY_TEMPLATES,
+    getSummaryTemplate: getSummaryTemplate,
+    summaryTemplatePrompt: summaryTemplatePrompt,
     parseNotes: parseNotes,
     analyzeContent: analyzeContent,
     generatePrompt: generatePrompt,
