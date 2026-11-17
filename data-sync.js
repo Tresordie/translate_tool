@@ -177,9 +177,59 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountChip);
   else mountChip();
 
+  // ===== 重装自动恢复兜底 + 恢复提示（v0.50.0，仅扩展页） =====
+  // background 已在 onInstalled 时尝试恢复；若当时服务未启动，这里在页面打开时补一次：
+  // 本地 chrome.storage 为空 → 消息请求 background 执行恢复（拉取+键名归一化只此一份），
+  // 成功后刷新页面（sessionStorage 守卫防循环）。
+  function maybeAutoRestore() {
+    try {
+      if (sessionStorage.getItem('lf_auto_restored')) { showRestoredToast(); return; } // 本轮已恢复过，防循环
+      chrome.storage.local.get(null, function (res) {
+        if (res && Object.keys(res).length > 0) { showRestoredToast(); return; }
+        try {
+          chrome.runtime.sendMessage({ action: 'linguaflow:autoRestore' }, function (reply) {
+            if (chrome.runtime.lastError) return;
+            if (reply && reply.restored) {
+              sessionStorage.setItem('lf_auto_restored', '1');
+              setTimeout(function () { location.reload(); }, 800);
+            }
+          });
+        } catch (e) {}
+      });
+    } catch (e) {}
+  }
+
+  // 恢复成功提示：chrome.storage 有 lf_restored_info（background 或页面恢复时写入）
+  // → 显示「已从本地备份恢复 N 项数据」3 秒淡出，并删除该键避免重复提示。
+  function showRestoredToast() {
+    try {
+      chrome.storage.local.get('lf_restored_info', function (res) {
+        var info = res && res.lf_restored_info;
+        if (!info) return;
+        chrome.storage.local.remove('lf_restored_info');
+        var el = document.createElement('div');
+        el.textContent = '☁ 已从本地备份恢复 ' + (info.count || 0) + ' 项数据';
+        el.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:100000;' +
+          'font:12px/1.6 -apple-system,"Segoe UI","Noto Sans SC",sans-serif;padding:6px 16px;border-radius:999px;' +
+          'background:rgba(20,24,32,.85);color:#cfe3cf;border:1px solid rgba(255,255,255,.18);' +
+          'box-shadow:0 4px 14px rgba(0,0,0,.25);transition:opacity .4s';
+        document.body.appendChild(el);
+        setTimeout(function () { el.style.opacity = '0'; }, 2600);
+        setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 3100);
+      });
+    } catch (e) {}
+  }
+
   // 触发：加载后延迟推一次；storage 变更去抖推；心跳兜底
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedulePush);
   else schedulePush();
   global.addEventListener('storage', schedulePush);
   setInterval(push, HEARTBEAT_MS);
+  // v0.50.0：扩展页加载时，若本地存储为空而服务有备份 → 自动恢复（重装兜底）+ 恢复提示
+  if (isExtension) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', maybeAutoRestore);
+    else maybeAutoRestore();
+    // v0.50.0：chrome.storage 变化 → 及时推送备份（消除 60s 心跳窗口内记录保存的丢失）
+    try { chrome.storage.onChanged.addListener(schedulePush); } catch (e) {}
+  }
 })(typeof window !== 'undefined' ? window : this);

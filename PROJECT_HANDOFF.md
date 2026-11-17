@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.49.0 · 2026-11-14
+> **当前版本**：v0.50.0 · 2026-11-17
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -297,10 +297,23 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **AI 解析接入**（`ai_parse.js`，双副本逐字一致）：`state.template`（默认 `'auto'`）持久化进 `ai_parse_state`；`#templateWrap` 由 `updateMode()` 控制——**仅分析模式显示**，任务抽取模式隐藏；`runAnalyze` 传 `template: state.template !== 'auto' ? state.template : ''`；历史条目存 `tpl` 并在 meta 里追加模板标签。
 - **验证**：`tests/summary-template.test.mjs`（27 项：清单/结构关键词/中英语言规则/未知 id 回落/模板优先于 playbook/双副本一致）；浏览器实测（http://127.0.0.1:8765 静态托管）：两页下拉填充与记忆、任务抽取模式隐藏、真实请求 messages[0] 携带模板 system prompt、总结历史显示模板标签。
 
+### 3.21 重装自动恢复页面记录（v0.50.0）
+
+移除扩展时 Chrome 会清空 `chrome.storage.local`（全部页面记录所在）。本版补上「重装后自动恢复」入口，数据源为既有备份体系（§3.13/§3.18），无需新权限。
+
+- **两条恢复路径**（服务交互与键名归一化逻辑只在 background 维护一份）：
+  1. `background.js` `onInstalled`：`details.reason === 'install'` 且 `chrome.storage.local.get(null)` 为空 → `autoRestoreFromLocalService()`：`GET http://127.0.0.1:8765/api/browser-data`（3s 超时；推送态为空再兜底 `GET /api/backup/snapshot?name=latest.json` 取 `bundle.browser_state`）→ `applyRestoredState()` 写回；服务不可达静默跳过。右键菜单创建仍无条件执行。
+  2. `data-sync.js` `maybeAutoRestore()`（仅扩展页）：页面加载时本地为空 → `chrome.runtime.sendMessage({action:'linguaflow:autoRestore'})` 交给 background → 回 `restored:true` 后 sessionStorage 守卫 + 800ms 后 `location.reload()`。覆盖「安装时服务未启动，之后开页面再恢复」场景。
+- **键名归一化（关键坑）**：服务端 `put_browser_state`（`sync.py`）是**最后推送者胜**（整体替换），备份可能来自网页版推送——键为页面 localStorage 名（`wr_work_records`/`translate_history`/`td_todo_items`/`translate_config`…）。`applyRestoredState` 按 `RECORD_SYNC_KEYS` 逆映射 + `translate_config→config`（config 不在 RECORD_SYNC_KEYS，单独补）把镜像键翻译回扩展本名；两侧同名时保留扩展侧（权威源），不覆盖。值逐键 `JSON.parse`（失败保留原字符串），与 `applyState` 扩展分支一致。
+- **恢复提示**：恢复成功写 `lf_restored_info={at,count}`；模块页加载读到该键 → 顶部「☁ 已从本地备份恢复 N 项数据」3 秒淡出并删除该键。两条路径共用此机制。
+- **防覆盖红线**：恢复仅在本地存储为空时发生（onInstalled 与页面兜底双重检查）；普通「重新加载」（存储保留）绝不触发；全新安装但服务无数据时静默跳过。备份永不含 API Key（双端脱密红线不变），恢复后需重填。
+- **配套**：`data-sync.js` 新增 `chrome.storage.onChanged → schedulePush`（扩展环境）——保存记录 4 秒内推送备份，消除 60s 心跳窗口内记录保存的丢失。
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.50.0 | **重装扩展自动恢复页面记录**：Chrome 移除扩展清空 `chrome.storage.local`，本版补「重装后自动恢复」——`onInstalled`（install 且本地为空）拉本机服务 `GET /api/browser-data`（空则兜底 latest.json 快照）写回；页面兜底经 `linguaflow:autoRestore` 消息复用同一逻辑；**键名归一化**（备份最后推送者胜、可能为网页版键名，按 RECORD_SYNC_KEYS 逆映射 + translate_config→config 翻译回扩展本名，同名保留扩展侧）；恢复成功 `lf_restored_info` → 页面轻提示「已恢复 N 项」；`chrome.storage.onChanged→schedulePush` 消除 60s 心跳备份窗口；仅本地为空才恢复（重新加载不移除绝不覆盖），API Key 红线不变恢复后需重填。详见 §3.21。验证：语法检查 + 既有单测全绿 + 服务真实备份数据仿真归一化（work_records 5/summaries 4/history 5 等正确还原） |
 | v0.49.0 | **总结模板体系（工作报告 + AI 解析，双端同步）**：模板结构取自 `ai-template-kit` 技能（专业总结/会议纪要/图表总结/鱼骨图/思维导图），8 套模板（exec/weekly/kpt/star/minutes/chart/fishbone/mindmap）集中定义在 `ai-service.js` 的 `SUMMARY_TEMPLATES` + `summaryTemplatePrompt(id, langName)`，双副本逐字一致；工作报告页「AI 要点总结」区新增「总结模板」下拉（**默认要点总结保留且行为不变**，选择持久化 `work_config.summaryTemplate`，总结历史追加模板标签）；AI 解析分析模式新增同款下拉（**任务抽取模式隐藏**，`auto`=原行为含邮件 playbook，显式模板优先于 playbook，持久化 `ai_parse_state.template`）；非中文输出走「输出语言最高优先级」覆盖段（同 emailPrompt 模式）。详见 §3.20。验证：新增 `tests/summary-template.test.mjs` 27 项全绿 + 既有测试套全绿 + 浏览器实测（下拉/联动/记忆/真实请求携带模板 prompt/历史标签） |
 | v0.48.1 | **快照保留份数 14 → 365（约一年）**：用户把 10-16 起的历史快照归档进同步仓库后，原 14 份上限会从次日起每天轮走最旧的归档快照（git 历史虽可找回，但抽屉快照列表不可见）。提高到 365 份；超出上限的轮转语义不变（删工作文件夹文件、git 提交记录删除）。改动仅 `sync.py SNAPSHOT_KEEP` + 全部文档表述同步（README/USAGE/wechat_scheduler README/server API_DOC）；服务重启生效，其他机器随项目代码拉取后生效。两台机器现均为 `gitee`+`github` 双远端对称配置（Windows 端由 v0.48.0 后的一次分叉修复完成：Mac 仅推/拉 gitee 致 Windows 被拒，已 merge -X ours 并入 Mac 提交并对齐三端） |
 | v0.48.0 | **Git 私有仓库云同步双推（Gitee+GitHub 互备）+ 首次接入保护 + 云端较新提示 + macOS 目录浏览修复**——云同步通道双模（git 克隆目录=自动 commit/pull --rebase/push 全部远端，普通文件夹=网盘镜像不变）；新机器接入保护防空数据覆盖云端；`remote_info` 云端较新提示（chip+抽屉一键恢复）；`list_dirs` POSIX 分支与 JS 分隔符自适应修 macOS「浏览…」失效；`.gitattributes`+LF 写盘消除跨平台换行抖动；文案全面去 Google 化。**架构/协议零破坏**：`drive_path` 字段名、备份包格式、快照策略、脱敏红线不变。详见 §3.18。验证：e2e 47→62 项全绿（含双 bare 远端双推、接入保护、云端较新）；**扩展弹窗两修复**：保存按钮被 max-height:380px 裁剪（→480px）、lf-verdant 断点 .toast 规则泄入 popup 致保存提示成满高大块（popup 专属组件升 #toast 特异性），见 §3.19 |

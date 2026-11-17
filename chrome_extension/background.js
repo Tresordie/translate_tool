@@ -1,7 +1,7 @@
 // LinguaFlow - Background Service Worker
 
 // Context menu for right-click translation
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   chrome.contextMenus.create({
     id: 'linguaflow-translate',
     title: 'AI Tool Box 翻译 "%s"',
@@ -15,7 +15,69 @@ chrome.runtime.onInstalled.addListener(() => {
       contexts: ['all'],
     });
   }
+  // 全新安装（含移除后重装）：本地数据为空时自动从本机备份服务恢复（v0.50.0）
+  if (details && details.reason === 'install') autoRestoreFromLocalService();
 });
+
+// ===== 重装自动恢复（v0.50.0） =====
+// 移除扩展会清空 chrome.storage.local；若本机 wechat_scheduler 服务已有备份
+// （data-sync.js 推送的全量键值），重新加载扩展时自动写回，页面记录无感恢复。
+// 红线：仅在本地存储为空时拉取（绝不覆盖现有数据）；服务不可达时静默跳过。
+const SYNC_SERVICE_BASE = 'http://127.0.0.1:8765';
+
+function fetchWithTimeout(url, ms) {
+  const ctl = new AbortController();
+  const tm = setTimeout(() => ctl.abort(), ms);
+  return fetch(url, { signal: ctl.signal }).finally(() => clearTimeout(tm));
+}
+
+function autoRestoreFromLocalService(done) {
+  const finish = (res) => { if (done) { try { done(res || { restored: false }); } catch (e) {} } };
+  chrome.storage.local.get(null, (existing) => {
+    if (existing && Object.keys(existing).length > 0) { finish({ restored: false, reason: 'nonempty' }); return; } // 存储仍在（未移除仅重载），绝不覆盖
+    fetchWithTimeout(SYNC_SERVICE_BASE + '/api/browser-data', 3000)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const state = d && d.ok && d.state && typeof d.state === 'object' ? d.state : null;
+        if (state && Object.keys(state).length > 0) return state;
+        // 服务在但推送态为空：兜底读最近备份快照 latest.json
+        return fetchWithTimeout(SYNC_SERVICE_BASE + '/api/backup/snapshot?name=latest.json', 3000)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d2) => {
+            const bs = d2 && d2.ok && d2.bundle && d2.bundle.browser_state;
+            return bs && Object.keys(bs).length > 0 ? bs : null;
+          })
+          .catch(() => null);
+      })
+      .then((state) => {
+        if (!state) { finish({ restored: false, reason: 'empty' }); return; }
+        applyRestoredState(state);
+        finish({ restored: true, count: Object.keys(state).length });
+      })
+      .catch(() => finish({ restored: false, reason: 'unreachable' })); // 服务未启动/不可达：无感跳过
+  });
+}
+
+// 与 data-sync.js applyState 扩展分支一致：备份值均为字符串，逐键 JSON.parse（失败保留原样）
+// 键名归一化：备份可能来自网页版推送（键为页面 localStorage 名，如 wr_work_records/
+// translate_history/translate_config），逆映射回扩展本名（work_records/history/config），
+// 否则扩展模块读不到。两侧同名时保留扩展本名（权威源），不覆盖。
+function applyRestoredState(state) {
+  const obj = {};
+  Object.keys(state).forEach((k) => {
+    try { obj[k] = JSON.parse(state[k]); } catch (e) { obj[k] = state[k]; }
+  });
+  const LS_TO_CS = { translate_config: 'config' }; // API 配置网页侧叫 translate_config（不在 RECORD_SYNC_KEYS）
+  Object.keys(RECORD_SYNC_KEYS).forEach((sk) => { LS_TO_CS[RECORD_SYNC_KEYS[sk]] = sk; });
+  Object.keys(LS_TO_CS).forEach((lsKey) => {
+    if (obj[lsKey] !== undefined && obj[LS_TO_CS[lsKey]] === undefined) obj[LS_TO_CS[lsKey]] = obj[lsKey];
+  });
+  obj.lf_restored_info = { at: new Date().toISOString(), count: Object.keys(state).length };
+  chrome.storage.local.set(obj, () => {
+    const err = chrome.runtime.lastError;
+    console.log('[LinguaFlow] 重装自动恢复' + (err ? '失败：' + err.message : '完成：' + Object.keys(state).length + ' 项'));
+  });
+}
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'linguaflow-open-side-panel') {
@@ -227,6 +289,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
     sendResponse({ ok: true });
     return;
+  }
+
+  // 重装自动恢复兜底（v0.50.0）：扩展页发现本地存储为空时，请求 background 执行恢复
+  // （键名归一化等服务交互逻辑只在 background 维护一份；服务不可达时回 {restored:false}）
+  if (msg.action === 'linguaflow:autoRestore') {
+    autoRestoreFromLocalService((res) => sendResponse(res || { restored: false }));
+    return true; // async response
   }
 
   if (msg.action === 'translate') {
