@@ -95,3 +95,24 @@ chrome.storage.local.get(['config'], ({ config }) => {
   loadConfig(config);
 });
 switchTab('translate');
+
+// ===== 闲置自愈（v0.50.1）：页面不再「全灰、无 GUI」=====
+// ① 扩展被重载/更新后，已打开的侧边栏扩展上下文失效（渲染还在但 chrome 调用全部报错，
+//    子页 iframe 也随之失效）。回到前台检测到失效即重载整个侧边栏（含全部子页 iframe），
+//    自动加载新版本；自身设置面板或子页弹层开着时不刷，防丢未保存的草稿。
+// ② 休眠/锁屏后 GPU 进程重启可能合成失效发灰 → 回到前台强制重排触发重画。
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  try {
+    const b = document.body;
+    if (b) { b.style.transform = 'translateZ(0)'; void b.offsetHeight; b.style.transform = ''; }
+  } catch (e) { /* ignore */ }
+  let stale = false;
+  try { chrome.runtime.getManifest(); } catch (e) { stale = true; }
+  if (!stale) return;
+  const draftOpen = document.querySelector('.sp-settings.open') ||
+    Array.from(document.querySelectorAll('.sp-frame')).some((f) => {
+      try { return !!(f.contentDocument && f.contentDocument.querySelector('.modal-overlay.open, .lfcs-mask.open')); } catch (e) { return false; }
+    });
+  if (!draftOpen) location.reload();
+});

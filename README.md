@@ -2,7 +2,7 @@
 
 > 基于大模型 API 的在线翻译工具，支持网页版和 Chrome 扩展，全球 30+ 语言互译，支持划词翻译。
 
-![Version](https://img.shields.io/badge/version-0.49.0-blue)
+![Version](https://img.shields.io/badge/version-0.50.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **语言 / Language**：中文 | [English](README_EN.md)
@@ -299,6 +299,14 @@ translation_tool/
 - Safari 15+
 
 ## 📝 更新日志
+
+### v0.50.1 (2026-11-17)
+- **同步回滚三缺陷修复（任务清单「回退」根因）+ 页面闲置灰屏自愈** — 修复「上午创建的任务晚上消失、页面显示更早内容」的数据回退问题与「页面闲置一段时间后整页发灰、无 GUI」的显示问题。
+  - **content.js 启动拉取键名映射修复**：启动同步自 v0.25.3 起误用网页键名（`td_todo_items` 等）直读 `chrome.storage`，而那里的记录存的是扩展本名（`todo_items` 等）——8 个映射键的「扩展为权威源」启动拉取从未生效，各页面源只能读到本源旧 localStorage。现按 `RECORD_SYNC_KEYS` 做 CS→LS 映射，页面打开即与扩展权威数据对齐（这是跨端不一致与恢复后旧值反复复活的根因）。
+  - **恢复写回补键名归一化**（`data-sync.js` `applyState`）：备份键多为网页 localStorage 名，现逆映射回扩展本名写入 `chrome.storage`（与 background `applyRestoredState` 同一规则、同名保留扩展侧），恢复后扩展各模块也能读到数据。
+  - **恢复确认框明示新旧**（`cloud-sync.js`）：恢复前显示「备份时间 vs 本机最后备份时间」，备份比本机旧时显式 ⚠ 警告——多机同仓时「云端较新」只代表备份时间新，内容未必新。
+  - **页面闲置自愈**：① 标签页被 Chrome 内存节省程序丢弃后重画失败整页灰掉 → 检测 `document.wasDiscarded` 回到前台自动刷新；② 休眠/锁屏后 GPU 进程重启合成失效发灰 → 回到前台强制重排触发重画；③ 扩展被重载/更新后旧页面上下文失效 → 扩展页与侧边栏（含全部子页 iframe）回到前台自动重载新版本。弹层/设置面板开着时不自动刷新，防丢未保存草稿。覆盖全部工具页（扩展 + 网页版）与侧边栏。
+  - **验证**：node --check 全部通过；事故现场经备份仓库 git 历史（8000+ 快照提交）逐时核对定位；另提供按时间点抢救任务清单的恢复文件（仅替换任务清单键，其余数据原样）。
 
 ### v0.50.0 (2026-11-17)
 - **重装扩展自动恢复页面记录（移除 → 重新加载无感找回）** — Chrome 移除扩展时会清空 `chrome.storage.local`（全部页面记录所在），本版在重新加载扩展后自动从本机 `wechat_scheduler` 备份服务拉回最近数据，页面记录无感恢复。

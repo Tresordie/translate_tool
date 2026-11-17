@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.50.0 · 2026-11-17
+> **当前版本**：v0.50.1 · 2026-11-17
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -151,7 +151,7 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 ### 3.9 记录全端双向同步体系（原「热点雷达」章节，模块已于 v0.29.0 移除）
 > 热点雷达模块（hotnews.html/js、Tavily 检索链、hn_cards/hn_tavily_key 同步键、Side Panel「热点」Tab、Popup 入口）在 v0.29.0 整体下线；本节编号保留，内容改为纯记录同步体系说明（该机制与模块无关，全站仍在用）。
 
-- **记录全端双向同步（v0.25.0）**：映射表 `RECORD_SYNC_KEYS` 在 background.js（chrome.storage 键 ↔ 网页 localStorage 键，覆盖 td_/wr_ 前缀及 popup 的 history/draft 命名差异）。网页适配器写入后 postMessage `save-record` → content.js → background 写 chrome.storage；扩展写入 → background onChanged 广播 `linguaflow:syncRecord` → 各标签页 content.js 写对应 localStorage → 页面既有 storage 监听自动刷新。**新增需同步的记录：在映射表加一行 + content.js 启动拉取列表加一个键 + 适配器写入处加一条 postMessage 即可。** 实时刷新仅覆盖已有 storage 监听的页面（任务清单/智能翻译历史），其余模块为落盘同步（刷新可见）。
+- **记录全端双向同步（v0.25.0）**：映射表 `RECORD_SYNC_KEYS` 在 background.js（chrome.storage 键 ↔ 网页 localStorage 键，覆盖 td_/wr_ 前缀及 popup 的 history/draft 命名差异）。网页适配器写入后 postMessage `save-record` → content.js → background 写 chrome.storage；扩展写入 → background onChanged 广播 `linguaflow:syncRecord` → 各标签页 content.js 写对应 localStorage → 页面既有 storage 监听自动刷新。**新增需同步的记录：在映射表加一行 + 适配器写入处加一条 postMessage 即可**；content.js 启动拉取（CS→LS）与 data-sync.js `applyState` 恢复归一化（LS→CS）两处映射表自 v0.50.1 起也从 RECORD_SYNC_KEYS 派生，**三处必须同步改**（v0.50.0 及之前 content.js 误用网页键名直读 chrome.storage，8 个映射键的启动拉取从未生效——见 §3.22）。实时刷新仅覆盖已有 storage 监听的页面（任务清单/智能翻译历史），其余模块为落盘同步（刷新可见）。
 - **v0.45.0 修复的三个同步断点（重要 ⚠️，三者叠加导致"网页与扩展历史不同步"）**：
   1. **`manifest.content_scripts` 缺 `all_frames`** → 内容脚本只注入顶层帧，而 index.html 的 7 个工具页全是 iframe，这些页面的记录既不上报也收不到推送。已加 `"all_frames": true`。**⚠️ 改 manifest 后必须在 `chrome://extensions` 重新加载扩展**，否则表现为"改了没生效"。
   2. **`AiService.onRecordSync` 网页分支键名不匹配** → content.js 写的是**映射后的 localStorage 键**（`wr_work_records`/`td_todo_items`），而页面订阅的是原始键（`work_records`），`e.key === key` 永远为 false。已改为同时匹配 `[key, 'wr_'+key, 'td_'+key]`。**新增带前缀的页面时沿用该规则即可，别再改回单键比较。**
@@ -309,10 +309,36 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **防覆盖红线**：恢复仅在本地存储为空时发生（onInstalled 与页面兜底双重检查）；普通「重新加载」（存储保留）绝不触发；全新安装但服务无数据时静默跳过。备份永不含 API Key（双端脱密红线不变），恢复后需重填。
 - **配套**：`data-sync.js` 新增 `chrome.storage.onChanged → schedulePush`（扩展环境）——保存记录 4 秒内推送备份，消除 60s 心跳窗口内记录保存的丢失。
 
+### 3.22 同步回滚三缺陷修复 + 闲置灰屏自愈（v0.50.1）
+
+**事故复盘（2026-11-17）**：用户上午创建的任务清单条目晚上「消失，页面显示更早内容」。经备份仓库 git 历史（每分钟一条快照提交）逐时核对还原时间线：上午任务 10:10-12:51 陆续入库且 15:33 的备份（提交 `d2c28a47`）完好；页面闲置至 **20:08:09/20:08:19 两次「恢复」（服务日志）**，用的备份比 15:33 旧 → 被删的测试任务复活、新任务被抹掉；20:11 起页面心跳推送把回滚态固化进备份。**三个既有缺陷叠加 + 一次手动恢复 = 数据回退**：
+
+1. **content.js 启动拉取键名映射错误（核心，v0.25.3 起即存在）**：`RECORD_LS_KEYS` 用网页键名（`td_todo_items`/`translate_history`/`wr_*` 等 8 个与扩展本名不一致的键）直读 `chrome.storage`——但那里存的是扩展本名（`todo_items`/`history`/`work_records`…），启动拉取对这 8 键**从未生效**，「扩展为权威源」只在页面开着时的实时广播方向成立；页面重开只能读本源旧 localStorage。修复：`RECORD_CS_TO_LS` 映射（CS 名 → localStorage 名），从 `chrome.storage` 读扩展本名、写网页名。**此处也是「恢复后旧值复活」的放大器**：恢复把 `td_todo_items` 等影子键原样写进 chrome.storage，旧 content.js 每次页面加载把它播回各源。
+2. **`applyState` 恢复写回无键名归一化**：备份键多为网页名，原样写 chrome.storage → 扩展各模块读不到恢复数据（扩展本名键仍缺）。修复：补 `LS_TO_CS` 映射（与 background `applyRestoredState` 同规则：同名保留扩展侧），恢复后扩展侧同步可用。
+3. **恢复确认框无新旧对比**：多机同仓时「云端较新」只代表备份时间新，内容未必新（另一台机器可推来更旧的全量状态）。修复：`cloud-sync.js restore()` 恢复前取 bundle `exported_at` 与 `/api/settings` 的 `last_backup_at` 对比，确认框明示两个时间、备份更旧显式 ⚠。
+
+**闲置灰屏自愈（用户报告「页面闲置一段时间全灰、无 GUI」）**——三层按场景处理，挂 `visibilitychange → visible`：
+
+- ① 标签页被 Chrome 内存节省程序**丢弃**后重画失败整页灰掉 → `document.wasDiscarded` 即 `location.reload()`；
+- ② 休眠/锁屏后 **GPU 进程重启**合成失效发灰 → 强制重排触发重画（body `translateZ(0)` 抖动一次，无感知）；
+- ③ **扩展被重载/更新**后旧页面上下文失效（`chrome.runtime.getManifest()` 抛错即判失效）→ 扩展页回到前台自动重载新版本；`sidepanel.js` 同款（重载整个侧边栏含全部子页 iframe，iframe 内弹层经同源 `contentDocument` 探测）。
+- **防丢草稿红线**：`.modal-overlay.open` / `.lfcs-mask.open`（工具页）或 `.sp-settings.open`（侧边栏）开着时**不自动刷新**，关掉后下一次回到前台自动完成。
+- 覆盖面：data-sync.js（根目录 + 扩展两副本）覆盖全部工具页（含网页版与侧边栏 iframe）；sidepanel.js 覆盖侧边栏宿主。popup 生命周期短不加。网页版无 chrome API，③ 天然不触发。
+
+**数据抢救与运维教训（重要）**：
+
+- **备份 git 历史是最终兜底**（每分钟快照 + 双远端）：任何数据事故先 `git log LinguaFlow/latest.json` 对照内容时间线。本次即从提交 `d2c28a47` 抢回上午全部任务。
+- 抢救文件 `recover-todo-20261117-1533.json`（项目根目录，已入 .gitignore）：**当前** browser_state 只替换 `td_todo_items`（并补 `todo_items` 供扩展侧）为 15:33 版本、其余键与 wechat 段原样——经 ☁ 抽屉「导入 JSON」恢复；**从扩展版任务清单页执行导入**可同时修复 chrome.storage（网页环境写不到）。含用户浏览器数据（已脱密但属个人内容），**不入库**。
+- **多源整包覆盖**：服务端 `put_browser_state` 最后推送者胜，而 127.0.0.1 / 192.168.31.28 / file:// / 扩展页是各自独立 localStorage 源——键名映射修复后各 http 源加载即对齐扩展权威源；**file:// 源若未开「允许访问文件网址」仍是孤岛**（content.js 不注入），勿用它作为数据录入面。
+- 排查此类问题先看三处证据：服务日志（恢复/备份事件，无日期需按内容推断）、备份仓库 git log（`git log --format='%h|%ad|%s' LinguaFlow/latest.json`，消息含推送主机名）、`data/browser_state.json`（服务当前态）。
+
+**验证**：node --check 全过；备份仓库 8000+ 提交时间线核对定位回滚点；两副本（根目录/扩展）改动逐字一致。
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.50.1 | **同步回滚三缺陷修复 + 页面闲置灰屏自愈**：① content.js 启动拉取改按 RECORD_SYNC_KEYS 做 CS→LS 键名映射（v0.25.3 起误用网页键名直读 chrome.storage，8 个映射键的「扩展权威源」启动同步从未生效——跨端不一致与恢复后旧值复活循环的根因）；② data-sync.js `applyState` 补 LS→CS 归一化（与 background applyRestoredState 同规则），恢复后扩展模块可读到数据；③ cloud-sync.js 恢复确认框明示备份时间 vs 本机最后备份、备份更旧显式 ⚠；④ 闲置自愈三层（wasDiscarded 丢弃页刷新 / GPU 合成失效强制重排 / 扩展上下文失效自动重载，弹层开着不刷防丢草稿），sidepanel.js 同款含全部 iframe。事故复盘与数据抢救（git 提交 `d2c28a47` → 恢复文件，不入库）见 §3.22。验证：node --check 全过 + 备份仓库 8000+ 提交时间线核对 + 两副本逐字一致 |
 | v0.50.0 | **重装扩展自动恢复页面记录**：Chrome 移除扩展清空 `chrome.storage.local`，本版补「重装后自动恢复」——`onInstalled`（install 且本地为空）拉本机服务 `GET /api/browser-data`（空则兜底 latest.json 快照）写回；页面兜底经 `linguaflow:autoRestore` 消息复用同一逻辑；**键名归一化**（备份最后推送者胜、可能为网页版键名，按 RECORD_SYNC_KEYS 逆映射 + translate_config→config 翻译回扩展本名，同名保留扩展侧）；恢复成功 `lf_restored_info` → 页面轻提示「已恢复 N 项」；`chrome.storage.onChanged→schedulePush` 消除 60s 心跳备份窗口；仅本地为空才恢复（重新加载不移除绝不覆盖），API Key 红线不变恢复后需重填。详见 §3.21。验证：语法检查 + 既有单测全绿 + 服务真实备份数据仿真归一化（work_records 5/summaries 4/history 5 等正确还原） |
 | v0.49.0 | **总结模板体系（工作报告 + AI 解析，双端同步）**：模板结构取自 `ai-template-kit` 技能（专业总结/会议纪要/图表总结/鱼骨图/思维导图），8 套模板（exec/weekly/kpt/star/minutes/chart/fishbone/mindmap）集中定义在 `ai-service.js` 的 `SUMMARY_TEMPLATES` + `summaryTemplatePrompt(id, langName)`，双副本逐字一致；工作报告页「AI 要点总结」区新增「总结模板」下拉（**默认要点总结保留且行为不变**，选择持久化 `work_config.summaryTemplate`，总结历史追加模板标签）；AI 解析分析模式新增同款下拉（**任务抽取模式隐藏**，`auto`=原行为含邮件 playbook，显式模板优先于 playbook，持久化 `ai_parse_state.template`）；非中文输出走「输出语言最高优先级」覆盖段（同 emailPrompt 模式）。详见 §3.20。验证：新增 `tests/summary-template.test.mjs` 27 项全绿 + 既有测试套全绿 + 浏览器实测（下拉/联动/记忆/真实请求携带模板 prompt/历史标签） |
 | v0.48.1 | **快照保留份数 14 → 365（约一年）**：用户把 10-16 起的历史快照归档进同步仓库后，原 14 份上限会从次日起每天轮走最旧的归档快照（git 历史虽可找回，但抽屉快照列表不可见）。提高到 365 份；超出上限的轮转语义不变（删工作文件夹文件、git 提交记录删除）。改动仅 `sync.py SNAPSHOT_KEEP` + 全部文档表述同步（README/USAGE/wechat_scheduler README/server API_DOC）；服务重启生效，其他机器随项目代码拉取后生效。两台机器现均为 `gitee`+`github` 双远端对称配置（Windows 端由 v0.48.0 后的一次分叉修复完成：Mac 仅推/拉 gitee 致 Windows 被拒，已 merge -X ours 并入 Mac 提交并对齐三端） |
@@ -490,7 +516,7 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 接手本项目时，按此顺序验证环境：
 
-1. `git pull` 拉最新 master，确认版本徽章为 v0.47.3（`chrome_extension/manifest.json` 的 `version`）
+1. `git pull` 拉最新 master，确认版本徽章为 v0.50.1（`chrome_extension/manifest.json` 的 `version`）
 2. 浏览器打开 `index.html`，配置 API（可用 DeepSeek `https://api.deepseek.com/v1` + `deepseek-chat` 测试）
 3. 依次点击 8 个 Tab，确认每个都能正常工作；在智能翻译生成一次译文、或在工作报告/邮件总结/AI 解析/AI 提示词生成一次结果后点「微信格式」，确认区域展开、内容无 `#`/`**` 残留且 emoji 正常；编辑译文/结果后区块应自动隐藏
 4. Chrome 加载 `chrome_extension/`（v0.25.11 起新增 `clipboardRead` 权限，加载/更新后需在扩展卡片点「重新加载」）：
@@ -504,5 +530,5 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 ---
 
-**最后更新**：2026-11-14 · v0.49.0（总结模板体系；详见 §4 版本表与 §3.20）
+**最后更新**：2026-11-17 · v0.50.1（同步回滚三缺陷修复 + 闲置灰屏自愈；详见 §4 版本表与 §3.22）
 **参考文档**：`README.md` · `README_EN.md`（changelog 停在 v0.25.11，正文随版本更新，仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

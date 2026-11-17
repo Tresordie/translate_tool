@@ -276,8 +276,34 @@
       .finally(function () { d.querySelector('#lfcsSave').disabled = false; });
   }
 
+  // 恢复（v0.50.1）：先取备份与本机最后备份时间，确认框内明示新旧，防把较新的本机数据
+  // 回滚到旧备份（多机同仓时「云端较新」只代表备份时间新，内容未必新）。
   function restore(body, label) {
-    if (!confirm('确定用「' + label + '」覆盖本地全部数据？\n（不影响 Drive 里的备份；API Key 不在备份内，恢复后需重填）')) return;
+    var pre;
+    if (body.bundle) {
+      pre = Promise.resolve(body.bundle);
+    } else {
+      pre = api('GET', '/api/backup/snapshot?name=' + encodeURIComponent(body.name || 'latest.json')).then(function (r) { return r.bundle; });
+    }
+    pre.then(function (bundle) {
+      return api('GET', '/api/settings').then(function (r) {
+        var remoteAt = (bundle && bundle.exported_at) || '';
+        var localAt = (r.settings || {}).last_backup_at || '';
+        var warn = (remoteAt && localAt && remoteAt < localAt)
+          ? '\n\n⚠ 备份（' + fmtTime(remoteAt) + '）比本机最后备份（' + fmtTime(localAt) + '）旧：恢复会丢失其间的本机改动！'
+          : '';
+        if (!confirm('确定用「' + label + '」覆盖本地全部数据？\n备份时间：' + (remoteAt || '未知') +
+            '，本机最后备份：' + (localAt ? fmtTime(localAt) : '从未') + warn +
+            '\n（不影响 Drive 里的备份；API Key 不在备份内，恢复后需重填）')) return;
+        doRestore(body, label);
+      });
+    }).catch(function (e) {
+      if (!confirm('确定用「' + label + '」覆盖本地全部数据？（备份时间读取失败：' + failMsg(e) + '）')) return;
+      doRestore(body, label);
+    });
+  }
+
+  function doRestore(body, label) {
     api('POST', '/api/restore', body).then(function (r) {
       if (global.LinguaFlowDataSync && r.browser_state) LinguaFlowDataSync.applyState(r.browser_state);
       toast('已恢复（' + label + '），2 秒后刷新…', 'ok');

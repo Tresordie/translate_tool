@@ -20,23 +20,41 @@
   let tooltipEl = null;
   let selectedText = '';
 
-  // ===== 记录启动拉取（v0.25.3）=====
+  // ===== 记录启动拉取（v0.25.3；v0.50.1 修复键名映射）=====
   // content script 以 document_start 注入（先于页面脚本执行）；把 chrome.storage 中的
   // 全部同步记录键预先写入 localStorage，保证页面初始化读到的是最新数据——
   // 页面关闭期间在扩展/其他端产生的记录，刷新后依然存在（扩展为权威源）。
-  // 键列表须与 background.js 的 RECORD_SYNC_KEYS 值保持一致。
+  // chrome.storage 用扩展本名（RECORD_SYNC_KEYS 的键名），页面 localStorage 用其映射的
+  // 网页名；v0.50.0 及之前误用网页名去读 chrome.storage，导致名字不一致的 8 个键
+  // （todo_items/td_todo_items 等）启动拉取永远落空，页面只能读到本源旧 localStorage。
+  // 映射表须与 background.js 的 RECORD_SYNC_KEYS 保持一致。
   try {
-    const RECORD_LS_KEYS = [
-      'td_todo_items', 'td_todo_cal_config', 'translate_history', 'translate_draft',
-      'wr_work_records', 'wr_work_summaries', 'wr_work_config', 'wr_work_draft',
-      'email_summary_history', 'email_summary_config',
-      'learningHistory', 'englishLearningData', 'ai_parse_state', 'ai_prompts_state',
-      'email_summary_draft', 'ws_api_base', 'ws_api_token', 'ws_risk_ack', 'ws_sum_lang', 'ws_contacts_cache'
-    ];
-    chrome.storage.local.get(RECORD_LS_KEYS, (res) => {
-      Object.keys(res || {}).forEach((k) => {
-        if (res[k] === undefined) return;
-        try { localStorage.setItem(k, JSON.stringify(res[k])); } catch (e) { /* ignore */ }
+    const RECORD_CS_TO_LS = {
+      todo_items: 'td_todo_items',              // 任务清单
+      todo_cal_config: 'td_todo_cal_config',    // 任务清单日历配置
+      history: 'translate_history',             // 智能翻译历史（popup/fullpage ↔ index）
+      draft: 'translate_draft',                 // 智能翻译草稿
+      work_records: 'wr_work_records',          // 工作报告记录
+      work_summaries: 'wr_work_summaries',      // 工作报告 AI 总结
+      work_config: 'wr_work_config',            // 工作报告配置
+      work_draft: 'wr_work_draft',              // 工作报告草稿
+      email_summary_history: 'email_summary_history',
+      email_summary_config: 'email_summary_config',
+      learningHistory: 'learningHistory',
+      englishLearningData: 'englishLearningData',
+      ai_parse_state: 'ai_parse_state',
+      ai_prompts_state: 'ai_prompts_state',
+      email_summary_draft: 'email_summary_draft',
+      ws_api_base: 'ws_api_base',
+      ws_api_token: 'ws_api_token',
+      ws_risk_ack: 'ws_risk_ack',
+      ws_sum_lang: 'ws_sum_lang',
+      ws_contacts_cache: 'ws_contacts_cache',
+    };
+    chrome.storage.local.get(Object.keys(RECORD_CS_TO_LS), (res) => {
+      Object.keys(RECORD_CS_TO_LS).forEach((csKey) => {
+        if (!res || res[csKey] === undefined) return;
+        try { localStorage.setItem(RECORD_CS_TO_LS[csKey], JSON.stringify(res[csKey])); } catch (e) { /* ignore */ }
       });
     });
   } catch (e) { /* ignore */ }

@@ -113,6 +113,28 @@
         Object.keys(state).forEach(function (k) {
           try { obj[k] = JSON.parse(state[k]); } catch (e) { obj[k] = state[k]; }
         });
+        // 键名归一化（v0.50.1，与 background.js applyRestoredState 同一规则）：备份键多为
+        // 网页 localStorage 名（td_todo_items/translate_history/…），逆映射回扩展本名写入
+        // chrome.storage，否则扩展各模块读不到恢复的数据。两侧同名时保留扩展本名（权威源）。
+        // 映射须与 background.js RECORD_SYNC_KEYS 一致。
+        var LS_TO_CS = {
+          translate_config: 'config',
+          td_todo_items: 'todo_items', td_todo_cal_config: 'todo_cal_config',
+          translate_history: 'history', translate_draft: 'draft',
+          wr_work_records: 'work_records', wr_work_summaries: 'work_summaries',
+          wr_work_config: 'work_config', wr_work_draft: 'work_draft',
+          email_summary_history: 'email_summary_history', email_summary_config: 'email_summary_config',
+          learningHistory: 'learningHistory', englishLearningData: 'englishLearningData',
+          ai_parse_state: 'ai_parse_state', ai_prompts_state: 'ai_prompts_state',
+          email_summary_draft: 'email_summary_draft',
+          ws_api_base: 'ws_api_base', ws_api_token: 'ws_api_token',
+          ws_risk_ack: 'ws_risk_ack', ws_sum_lang: 'ws_sum_lang', ws_contacts_cache: 'ws_contacts_cache',
+        };
+        Object.keys(LS_TO_CS).forEach(function (lsKey) {
+          if (obj[lsKey] !== undefined && obj[LS_TO_CS[lsKey]] === undefined) {
+            obj[LS_TO_CS[lsKey]] = obj[lsKey];
+          }
+        });
         chrome.storage.local.set(obj);
       } catch (e) {}
     }
@@ -225,6 +247,27 @@
   else schedulePush();
   global.addEventListener('storage', schedulePush);
   setInterval(push, HEARTBEAT_MS);
+  // v0.50.1 闲置自愈（目标：页面闲置后不再「全灰、无 GUI」）。三个闲置场景分别处理：
+  // ① 标签页被 Chrome「内存节省程序」丢弃后重画失败整页灰掉 → 回到前台自动刷新；
+  // ② 系统休眠/锁屏使 GPU 进程重启后合成失效、内容发灰 → 回到前台强制重排触发重画；
+  // ③ 扩展被重载/更新后，旧页面的扩展上下文失效（渲染还在但一切 chrome 调用报错）→
+  //    扩展页回到前台自动加载新版本。弹层开着时不自动刷新，防止丢未保存的草稿。
+  // 网页版无 chrome API，③ 天然不触发，①② 已覆盖。
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    if (document.wasDiscarded) { try { location.reload(); } catch (e) {} return; }
+    try {
+      var b = document.body;
+      if (b) { b.style.transform = 'translateZ(0)'; void b.offsetHeight; b.style.transform = ''; }
+    } catch (e) {}
+    if (isExtension) {
+      var staleCtx = false;
+      try { chrome.runtime.getManifest(); } catch (e) { staleCtx = true; }
+      if (staleCtx && !document.querySelector('.modal-overlay.open, .lfcs-mask.open')) {
+        try { location.reload(); } catch (e) {}
+      }
+    }
+  });
   // v0.50.0：扩展页加载时，若本地存储为空而服务有备份 → 自动恢复（重装兜底）+ 恢复提示
   if (isExtension) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', maybeAutoRestore);
