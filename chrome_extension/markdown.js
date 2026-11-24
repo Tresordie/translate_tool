@@ -18,6 +18,39 @@
       .replace(/'/g, '&#39;');
   }
 
+  /* ---------- Inline SVG passthrough ----------
+   * G-SPEC 视觉套件会输出内联 SVG 封面/示意图，默认全转义会把 SVG 显示成源码文本。
+   * 对 <svg>...</svg> 块净化后原样放行：剔除 <script>、on* 事件属性与 javascript: 链接，
+   * 其余标签与属性保留（内容来自用户自己的材料 / AI 输出）。
+   */
+  function sanitizeSvg(s) {
+    return String(s)
+      .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
+      .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/\s(?:href|xlink:href)\s*=\s*(?:"[^"]*javascript:[^"]*"|'[^']*javascript:[^']*'|javascript:[^\s>]*)/gi, '');
+  }
+
+  /* ---------- Raw HTML passthrough（G-SPEC 时间轴骨架等 <style>/<div> 块） ----------
+   * 技能时间轴规范要求按骨架原样输出 <style>+<div>；默认全转义会把骨架显示成源码。
+   * 放行时净化（剔 <script>/HTML 注释/on* 事件属性/javascript: 链接），并把 <style>
+   * 内的选择器加 .md-embed 前缀作用域化（防骨架样式泄漏影响页面其余部分），
+   * 整块包一层 <div class="md-embed">——预览与单文件 HTML 导出同样生效。
+   */
+  function sanitizeHtmlFragment(s) {
+    return String(s)
+      .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/\s(?:href|xlink:href|src)\s*=\s*(?:"[^"]*javascript:[^"]*"|'[^']*javascript:[^']*'|javascript:[^\s>]*)/gi, '');
+  }
+
+  function scopeCss(css) {
+    // 简易作用域化：顶层规则（非 @media/@keyframes）的每个选择器前缀 .md-embed
+    return String(css).replace(/(^|\})\s*((?![@\s}])[^{}]+)\{/g, function (m, brace, sel) {
+      return brace + sel.split(',').map(function (s) { return '.md-embed ' + s.trim(); }).join(',') + '{';
+    });
+  }
+
   /* ---------- Inline formatting (input is already HTML-escaped) ---------- */
 
   function formatEmphasis(t) {
@@ -152,6 +185,52 @@
       // Blank line
       if (line.trim() === '') { i++; continue; }
 
+      // Inline SVG block（G-SPEC 封面/示意图）：净化后原样渲染，不转义
+      if (/^\s*<svg[\s>]/i.test(line)) {
+        var svgBuf = [];
+        while (i < n) {
+          svgBuf.push(lines[i]);
+          if (/<\/svg\s*>/i.test(lines[i])) { i++; break; }
+          i++;
+        }
+        html.push(sanitizeSvg(svgBuf.join('\n')));
+        continue;
+      }
+
+      // 独立 HTML 注释（骨架自带的用法说明）：静默跳过
+      if (/^\s*<!--/.test(line)) {
+        while (i < n && !/-->/.test(lines[i])) i++;
+        i++;
+        continue;
+      }
+
+      // Raw HTML block（G-SPEC 时间轴骨架等 <style>/<div>）：净化放行 + 样式作用域化
+      if (/^\s*<(style|div)\b/i.test(line)) {
+        var isStyleBlk = /^\s*<style\b/i.test(line);
+        var htmlBuf = [];
+        var depth = 0;
+        while (i < n) {
+          var hline = lines[i];
+          htmlBuf.push(hline);
+          if (isStyleBlk) {
+            if (/<\/style\s*>/i.test(hline)) { i++; break; }
+          } else {
+            var openTags = hline.match(/<div\b/gi); depth += openTags ? openTags.length : 0;
+            var closeTags = hline.match(/<\/div>/gi); depth -= closeTags ? closeTags.length : 0;
+            if (depth <= 0) { i++; break; }
+          }
+          i++;
+        }
+        var frag = sanitizeHtmlFragment(htmlBuf.join('\n'));
+        if (isStyleBlk) {
+          frag = frag.replace(/<style([^>]*)>([\s\S]*?)<\/style>/gi, function (m0, attrs, css) {
+            return '<style' + attrs + '>' + scopeCss(css) + '</style>';
+          });
+        }
+        html.push('<div class="md-embed">' + frag + '</div>');
+        continue;
+      }
+
       // Fenced code block
       var fence = line.match(RE_FENCE);
       if (fence) {
@@ -160,8 +239,22 @@
         i++;
         while (i < n && !/^```\s*$/.test(lines[i])) { code.push(lines[i]); i++; }
         i++; // skip closing fence
+        // ```svg / ```xml 围栏内的 SVG 同样放行渲染（模型常把封面 SVG 包进围栏）
+        var codeText = code.join('\n');
+        if ((lang === 'svg' || lang === 'xml') && /^\s*<svg[\s>]/i.test(codeText)) {
+          html.push(sanitizeSvg(codeText));
+          continue;
+        }
+        // ```html 围栏内的时间轴骨架（tl-* 类）放行渲染（模型有时把骨架包进围栏）
+        if (lang === 'html' && /class="tl-/.test(codeText)) {
+          var tlFrag = sanitizeHtmlFragment(codeText).replace(/<style([^>]*)>([\s\S]*?)<\/style>/gi, function (m0, attrs, css) {
+            return '<style' + attrs + '>' + scopeCss(css) + '</style>';
+          });
+          html.push('<div class="md-embed">' + tlFrag + '</div>');
+          continue;
+        }
         html.push('<pre><code' + (lang ? ' class="lang-' + escapeHtml(lang) + '"' : '') + '>' +
-          escapeHtml(code.join('\n')) + '</code></pre>');
+          escapeHtml(codeText) + '</code></pre>');
         continue;
       }
 

@@ -174,6 +174,142 @@
   // Draft auto-save is handled via MdEditor onInput callback (see init)
   // Keyboard shortcut is bound on workEditor.container (see init)
 
+  // ===== 附件支持（多文件；统一单文件 150MB 上限，AiService 共用助手） =====
+  // v0.52.0 交互调整：附件内容不灌入输入框，仅显示附件清单（每项可单独移除），随总结请求发送
+  var loadedFiles = [];   // [{ name, content }]
+  // pdf.js worker 本地加载（扩展 MV3 CSP 不允许远程脚本，须打包在目录内）
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
+  }
+
+  // 附件清单渲染（对齐 voice transcription AI 总结页样式）：纵向卡片 = 文件名 + 大小·状态行
+  // + 完成勾 / 红色错误行 + 独立移除按钮；失败的附件留在清单中标红、不参与总结
+  function renderAttachmentList() {
+    var list = $('fileList');
+    if (!list) return;
+    if (!loadedFiles.length) {
+      list.classList.remove('visible');
+      list.innerHTML = '';
+      return;
+    }
+    list.classList.add('visible');
+    var html = '';
+    for (var i = 0; i < loadedFiles.length; i++) {
+      var f = loadedFiles[i];
+      var metaCls = f.status === 'error' ? 'err' : (f.status === 'done' ? 'ok' : '');
+      html += '<div class="file-item">'
+        + '<div class="fi-main">'
+        + '<span class="fi-name" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</span>'
+        + '<span class="fi-meta ' + metaCls + '">' + escapeHtml((AiService.formatBytes ? AiService.formatBytes(f.size) : '') + ' · ' + (f.stage || '')) + '</span>'
+        + (f.status === 'error' && f.error ? '<span class="fi-meta err">' + escapeHtml(f.error) + '</span>' : '')
+        + '</div>'
+        + (f.status === 'done' ? '<span class="fi-ok" title="文本已提取">✓</span>' : '')
+        + '<button type="button" class="fi-remove" data-idx="' + i + '" title="移除该附件">✕</button>'
+        + '</div>';
+    }
+    list.innerHTML = html;
+  }
+
+  function clearAttachment() {
+    loadedFiles = [];
+    var inp = $('fileInput');
+    if (inp) inp.value = '';
+    renderAttachmentList();
+  }
+
+  // 兜底总结来源：已提取完成的附件内容（带「===== 附件 N：文件名 =====」分界，供 AI 区分来源）+ 输入框正文
+  function buildInputSourceText() {
+    var parts = [];
+    for (var i = 0; i < loadedFiles.length; i++) {
+      if (loadedFiles[i].status !== 'done') continue;
+      parts.push('===== 附件 ' + (parts.length + 1) + '：' + loadedFiles[i].name + ' =====\n' + loadedFiles[i].content);
+    }
+    var editorText = workEditor ? workEditor.getMarkdown().trim() : '';
+    if (editorText) parts.push(editorText);
+    return parts.join('\n\n———\n\n');
+  }
+
+  async function handleAttachments(fileList) {
+    // 逐个处理：先入清单（解析中状态行实时更新），完成后置绿勾；失败的留在清单中标红、不参与总结
+    for (var i = 0; i < fileList.length; i++) {
+      var file = fileList[i];
+      var entry = { name: file.name, size: file.size, content: '', status: 'extracting', stage: '解析中…', error: '' };
+      loadedFiles.push(entry);
+      renderAttachmentList();
+      // 统一附件上限 150MB（三页共用 AiService.checkAttachment 校验）
+      var tooBig = (window.AiService && AiService.checkAttachment) ? AiService.checkAttachment(file) : null;
+      if (tooBig) {
+        entry.status = 'error';
+        entry.stage = '超过大小上限';
+        entry.error = tooBig;
+        renderAttachmentList();
+        continue;
+      }
+      try {
+        if (/\.pdf$/i.test(file.name)) {
+          // 大文件（如 150MB）读取/解析耗时较长，进度写入清单状态行（避免误以为卡死）
+          var buf = await AiService.readAttachmentBuffer(file, function(ld, total) {
+            if (file.size > 20 * 1024 * 1024) {
+              entry.stage = '读取中 ' + Math.round(ld / total * 100) + '%';
+              renderAttachmentList();
+            }
+          });
+          entry.stage = '解析 PDF 页面…';
+          renderAttachmentList();
+          var text = await AiService.extractPdfText(buf, function(p, total) {
+            entry.stage = '解析第 ' + p + '/' + total + ' 页';
+            renderAttachmentList();
+          });
+          if (!text.trim()) {
+            entry.status = 'error';
+            entry.stage = '未能提取文本';
+            entry.error = '可能是扫描件/图片型 PDF，需先 OCR';
+          } else {
+            entry.content = text;
+            entry.status = 'done';
+            entry.stage = '文本已提取';
+          }
+        } else if (/\.(docx|xlsx|xlsm|pptx)$/i.test(file.name)) {
+          // Office 文档（docx/xlsx/pptx）：JSZip 解包 + XML 规则提取，预算内自动截取首尾
+          entry.stage = '解压解析中…';
+          renderAttachmentList();
+          var ro = await AiService.extractOfficeText(file);
+          entry.content = ro.text;
+          entry.status = 'done';
+          entry.stage = '文本已提取' + (ro.truncated ? '（超长已截取首尾）' : '');
+        } else {
+          // 文本类附件：≤10MB 全文提取；>10MB（≤150MB）自动截取首尾至预算
+          var rr = await AiService.readAttachmentText(file);
+          entry.content = rr.text;
+          entry.status = 'done';
+          entry.stage = '文本已提取' + (rr.truncated ? '（超长已截取首尾）' : '');
+        }
+      } catch (err) {
+        entry.status = 'error';
+        entry.stage = '提取失败';
+        entry.error = String((err && err.message) || err);
+      }
+      renderAttachmentList();
+    }
+    var okCount = 0, failed = 0;
+    for (var j = 0; j < loadedFiles.length; j++) {
+      if (loadedFiles[j].status === 'done') okCount++;
+      else if (loadedFiles[j].status === 'error') failed++;
+    }
+    if (okCount > 0) showToast('已加载 ' + okCount + ' 个附件', 'success');
+    if (failed > 0) showToast(failed + ' 个附件提取失败，将不参与总结（详见清单）', 'error');
+  }
+
+  function clearWorkInput() {
+    clearAttachment();
+    if (workEditor) workEditor.clear();
+    storage.set({ work_draft: '' });
+    const hint = $('draftHint');
+    if (hint) hint.textContent = '输入内容自动保存草稿';
+    if (_mdPreviewOpen) updateMdPreview();
+    showToast('输入已清空', 'info');
+  }
+
   // ===== Save / Update Record =====
   function saveRecord() {
     if (!workEditor) return;
@@ -410,6 +546,8 @@
     element.classList.add('md-fade-in');
     // Store raw markdown for MD download
     element.dataset.rawText = text;
+    // mermaid 源码块渲染成图（思维导图/流程图等；库不可用时保持源码块）
+    if (window.AiService && AiService.enhanceMermaid) AiService.enhanceMermaid(element);
     return Promise.resolve();
   }
 
@@ -435,9 +573,15 @@
       filtered = filtered.filter(function(r) { return selectedRecordIds.indexOf(r.id) >= 0; });
     }
 
+    // 无匹配记录时兜底：输入区有内容或载入有附件 → 直接总结（附件内容带文件名分界随请求发送）
+    var usingEditor = false;
     if (filtered.length === 0) {
-      showToast('当前筛选条件下无工作记录，请调整日期范围', 'error');
-      return;
+      var draftText = workEditor ? workEditor.getMarkdown().trim() : '';
+      if (!draftText && !loadedFiles.some(function(f) { return f.status === 'done'; })) {
+        showToast('当前筛选条件下无工作记录，且输入区为空；请调整日期范围、保存记录、粘贴内容或选择附件', 'error');
+        return;
+      }
+      usingEditor = true;
     }
 
     if (!config.baseUrl || !config.apiKey || !config.model) {
@@ -470,8 +614,8 @@
     resetWechatSection();
     loadingBar.classList.add('active');
 
-    // Build records text
-    const recordsText = filtered.map((r, i) => {
+    // Build records text（兜底来源：附件内容 + 输入框正文，附件不占输入框）
+    const recordsText = usingEditor ? buildInputSourceText() : filtered.map((r, i) => {
       return `[${i + 1}] ${r.date} ${r.time}\n${r.content}`;
     }).join('\n\n---\n\n');
 
@@ -479,14 +623,16 @@
     const isOutputChinese = outputLang === 'zh';
     const rangeSep = isOutputChinese ? ' 至 ' : ' to ';
 
-    const dateRange = filtered.length > 1
-      ? filtered[filtered.length - 1].date + rangeSep + filtered[0].date
-      : filtered[0].date;
+    const dateRange = usingEditor
+      ? formatDate(Date.now())
+      : (filtered.length > 1
+        ? filtered[filtered.length - 1].date + rangeSep + filtered[0].date
+        : filtered[0].date);
     const sectionTitle = isOutputChinese ? '工作总结' : 'Work Summary';
     const keyPointsTitle = isOutputChinese ? '要点总结' : 'Key Points';
     const detailTitle = isOutputChinese ? '要点详述' : 'Detailed Breakdown';
 
-    // System prompt — 选中总结模板时走共享模板提示词（ai-template-kit）；否则保持默认要点总结
+    // System prompt — 选中总结模板时走共享模板提示词（scenario-templates 25 套）；否则保持默认要点总结
     var tplId = ($('summaryTemplate') && $('summaryTemplate').value) || 'default';
     var systemPrompt;
     if (tplId !== 'default' && window.AiService && window.AiService.summaryTemplatePrompt) {
@@ -499,12 +645,18 @@
       systemPrompt = 'Role: English-only work summarizer.\nRule: You read ' + inputLangName + ' input but write ONLY in ' + outputLangName + '.\nFormat:\n## 📋 ' + sectionTitle + '\n### 🔑 ' + keyPointsTitle + '\n- point\n### 📝 ' + detailTitle + '\n**1. title** elaboration.';
     }
 
-    // Build user message — for non-Chinese, isolate Chinese records in a clearly-marked block
+    // 解析要求（可选）：随内容一起发给 AI，与模板结构并行生效（同 AI 解析页 analyzeContent 模式）
+    const instruction = (($('summaryInstruction') || {}).value || '').trim();
+
+    // Build user message — 解析要求在前，来源为工作记录或编辑器输入内容；非中文时隔离输入语言块
+    var srcLabel = usingEditor ? (isOutputChinese ? '输入内容' : 'input content') : (isOutputChinese ? '工作记录' : 'work records');
     var userMsgContent;
     if (isOutputChinese) {
-      userMsgContent = '请用' + outputLangName + '总结以下工作记录（' + dateRange + '）：\n\n' + recordsText;
+      userMsgContent = (instruction ? '【解析要求】\n' + instruction + '\n\n———\n\n' : '')
+        + '请用' + outputLangName + '总结以下' + srcLabel + '（' + dateRange + '）：\n\n' + recordsText;
     } else {
-      userMsgContent = 'Produce a ' + outputLangName + ' summary of these work records (' + dateRange + ').\n'
+      userMsgContent = (instruction ? '[Instructions]\n' + instruction + '\n\n———\n\n' : '')
+        + 'Produce a ' + outputLangName + ' summary of this ' + srcLabel + ' (' + dateRange + ').\n'
         + 'Respond ENTIRELY in ' + outputLangName + '. Do NOT write any ' + inputLangName + '.\n\n'
         + '=== BEGIN INPUT (read in ' + inputLangName + ', respond in ' + outputLangName + ') ===\n'
         + recordsText
@@ -649,149 +801,29 @@
     return msg || '未知错误，请稍后重试';
   }
 
-  function downloadSummary(format) {
+  async function downloadSummary(format) {
     const text = $('summaryResult').textContent;
     if (!text || text.includes('选择日期范围')) {
       showToast('暂无总结内容可下载', 'error');
       return;
     }
+    // 必须使用原始 Markdown（dataset.rawText）：textContent 已被 renderMarkdown 渲染剥离了
+    // Markdown 语法（##、**、1. 等），直接转换会丢失全部格式，导致导出与界面显示不一致
+    var raw = $('summaryResult').dataset.rawText || text;
     var filename, mime, content;
     if (format === 'md') {
       filename = 'work-summary-' + formatDate(Date.now()) + '.md';
       mime = 'text/markdown;charset=utf-8';
-      // Get raw markdown from dataset, fallback to textContent
-      content = $('summaryResult').dataset.rawText || text;
+      content = raw;
     } else {
+      // 单文件 HTML 导出统一走 AiService（scenario-templates R2 交互式版式；
+      // mdToHtmlAsync 额外把 mermaid 块（思维导图/流程图）内嵌打包库渲染成图）
       filename = 'work-summary-' + formatDate(Date.now()) + '.html';
       mime = 'text/html;charset=utf-8';
-
-      // Convert summary markdown to HTML
-      // 必须使用原始 Markdown（dataset.rawText）：textContent 已被 renderMarkdown 渲染剥离了
-      // Markdown 语法（##、**、1. 等），直接转换会丢失全部格式，导致导出 HTML 与界面显示不一致
-      var htmlBody = markdownToHtml($('summaryResult').dataset.rawText || text);
-
-      content = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8"/>\n'
-        + '<title>Work Summary</title>\n'
-        + '<style>\n'
-        + '  body{font-family:Inter,"Noto Sans SC",sans-serif;background:#0a0a0f;color:#e8eaf0;'
-        + 'padding:40px 48px;max-width:960px;margin:0 auto;line-height:1.85;font-size:15px;}\n'
-        + '  h2{color:#a78bfa;font-size:1.5rem;border-bottom:1px solid rgba(139,92,246,0.3);padding-bottom:10px;margin:32px 0 16px;}\n'
-        + '  h3{color:#22d3ee;font-size:1.15rem;margin:24px 0 10px;}\n'
-        + '  h4{color:#c4b5fd;font-size:1rem;margin:18px 0 8px;}\n'
-        + '  ul,ol{margin:8px 0 16px 20px;}\n'
-        + '  li{margin:6px 0;line-height:1.7;}\n'
-        + '  strong{color:#c4b5fd;}\n'
-        + '  hr{border:none;border-top:1px solid rgba(139,92,246,0.15);margin:24px 0;}\n'
-        + '  p{margin:8px 0;}\n'
-        + '  code{background:rgba(139,92,246,0.12);padding:2px 6px;border-radius:4px;font-size:0.9em;}\n'
-        + '  a{color:#22d3ee;}\n'
-        + '</style>\n</head>\n<body>\n'
-        + htmlBody
-        + '\n</body>\n</html>';
+      content = (window.AiService && AiService.mdToHtmlAsync)
+        ? await AiService.mdToHtmlAsync(raw, 'Work Summary')
+        : (window.AiService && AiService.mdToHtml ? AiService.mdToHtml(raw, 'Work Summary') : raw);
     }
-
-  // Apply inline markdown formatting (bold, italic, code)
-  function applyInlineFormatting(text) {
-    // Bold: **text**
-    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    // Italic: *text* (but not inside strong tags already applied)
-    text = text.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
-    // Inline code: `code`
-    text = text.replace(/`(.+?)`/g, '<code>$1</code>');
-    return text;
-  }
-
-  // Convert summary markdown text to HTML
-  function markdownToHtml(md) {
-    // Escape HTML entities first
-    var html = md
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-    // Split into lines
-    var lines = html.split('\n');
-    var result = [];
-    var inList = null; // 'ul' or 'ol' or null
-
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i];
-      var trimmed = line.trim();
-
-      // Blank line — close any open list
-      if (trimmed === '') {
-        if (inList) { result.push('</' + inList + '>'); inList = null; }
-        continue;
-      }
-
-      // Horizontal rule
-      if (/^---+\s*$/.test(trimmed)) {
-        if (inList) { result.push('</' + inList + '>'); inList = null; }
-        result.push('<hr>');
-        continue;
-      }
-
-      // H2: ## heading
-      var m = trimmed.match(/^##\s+(.+)/);
-      if (m) {
-        if (inList) { result.push('</' + inList + '>'); inList = null; }
-        result.push('<h2>' + applyInlineFormatting(m[1]) + '</h2>');
-        continue;
-      }
-
-      // H3: ### heading
-      m = trimmed.match(/^###\s+(.+)/);
-      if (m) {
-        if (inList) { result.push('</' + inList + '>'); inList = null; }
-        result.push('<h3>' + applyInlineFormatting(m[1]) + '</h3>');
-        continue;
-      }
-
-      // H4: #### heading
-      m = trimmed.match(/^####\s+(.+)/);
-      if (m) {
-        if (inList) { result.push('</' + inList + '>'); inList = null; }
-        result.push('<h4>' + applyInlineFormatting(m[1]) + '</h4>');
-        continue;
-      }
-
-      // Unordered list: - item or * item
-      m = trimmed.match(/^[-*]\s+(.+)/);
-      if (m) {
-        if (inList !== 'ul') {
-          if (inList) result.push('</' + inList + '>');
-          result.push('<ul>');
-          inList = 'ul';
-        }
-        result.push('<li>' + applyInlineFormatting(m[1]) + '</li>');
-        continue;
-      }
-
-      // Ordered list: 1. item
-      m = trimmed.match(/^\d+\.\s+(.+)/);
-      if (m) {
-        if (inList !== 'ol') {
-          if (inList) result.push('</' + inList + '>');
-          result.push('<ol>');
-          inList = 'ol';
-        }
-        result.push('<li>' + applyInlineFormatting(m[1]) + '</li>');
-        continue;
-      }
-
-      // End list on non-list line
-      if (inList) { result.push('</' + inList + '>'); inList = null; }
-
-      // Apply inline formatting for regular paragraph
-      trimmed = applyInlineFormatting(trimmed);
-
-      // Regular paragraph
-      result.push('<p>' + trimmed + '</p>');
-    }
-
-    // Close any open list at end
-    if (inList) result.push('</' + inList + '>');
-
-    return result.join('\n');
-  }
     var blob = new Blob([content], { type: mime });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -929,6 +961,7 @@
             resultEl.innerHTML = renderMarkdown(sm.content);
             resultEl.classList.add('visible', 'md-fade-in');
             resultEl.dataset.rawText = sm.content;
+            if (window.AiService && AiService.enhanceMermaid) AiService.enhanceMermaid(resultEl);
           }
           if (footer) footer.classList.add('visible');
           resetWechatSection();
@@ -947,14 +980,21 @@
     });
   }
 
-  // ===== Summary Template Select（ai-template-kit 共享模板，默认要点总结保留） =====
+  // ===== Summary Template Select（scenario-templates 共享模板 25 套，按场景分组，默认要点总结保留） =====
   function initTemplateSelect() {
     var sel = $('summaryTemplate');
     if (!sel) return;
     var tpls = (window.AiService && AiService.SUMMARY_TEMPLATES) || [];
+    var scenes = ['会议纪要', '日报周报', '任务提取', '邮件总结', '邮件撰写'];
     var html = '<option value="default">默认要点总结</option>';
-    tpls.forEach(function (t) {
-      html += '<option value="' + escapeHtml(t.id) + '" title="' + escapeHtml(t.hint || '') + '">' + escapeHtml(t.label) + '</option>';
+    scenes.forEach(function (sc) {
+      var group = tpls.filter(function (t) { return t.scene === sc; });
+      if (!group.length) return;
+      html += '<optgroup label="' + escapeHtml(sc) + '">';
+      group.forEach(function (t) {
+        html += '<option value="' + escapeHtml(t.id) + '" title="' + escapeHtml(t.hint || '') + '">' + escapeHtml(t.label) + '</option>';
+      });
+      html += '</optgroup>';
     });
     sel.innerHTML = html;
     sel.value = (config.summaryTemplate && sel.querySelector('option[value="' + config.summaryTemplate + '"]'))
@@ -976,14 +1016,15 @@
     return '## ' + head + '\n\n' + (s.content || '');
   }
 
-  function exportSelectedSummaries(format) {
+  async function exportSelectedSummaries(format) {
     var items = selectedSummaries();
     if (!items.length) { showToast('请先勾选要导出的总结', 'error'); return; }
     if (!window.AiService || !AiService.downloadText) { showToast('导出功能不可用', 'error'); return; }
     var md = items.map(summaryItemMarkdown).join('\n\n---\n\n');
     var stamp = new Date().toISOString().slice(0, 10);
     if (format === 'html') {
-      AiService.downloadText('ai-toolbox-work-summaries-' + stamp + '.html', AiService.mdToHtml(md, '工作报告总结'), 'text/html;charset=utf-8');
+      var html = AiService.mdToHtmlAsync ? await AiService.mdToHtmlAsync(md, '工作报告总结') : AiService.mdToHtml(md, '工作报告总结');
+      AiService.downloadText('ai-toolbox-work-summaries-' + stamp + '.html', html, 'text/html;charset=utf-8');
     } else {
       AiService.downloadText('ai-toolbox-work-summaries-' + stamp + '.md', md, 'text/markdown;charset=utf-8');
     }
@@ -998,6 +1039,33 @@
     if (btn) btn.addEventListener('click', saveSettings);
     btn = $('saveRecordBtn');
     if (btn) btn.addEventListener('click', saveRecord);
+
+    // 附件与清空输入（多文件；统一单文件 150MB 上限）
+    btn = $('selectFileBtn');
+    if (btn) btn.addEventListener('click', function() { var fi = $('fileInput'); if (fi) fi.click(); });
+    btn = $('fileInput');
+    if (btn) btn.addEventListener('change', function(e) {
+      // FileList 是活绑定的，须先拷贝成静态数组再清空 input，否则异步处理中途 length 变 0
+      var files = Array.prototype.slice.call(e.target.files || []);
+      if (!files.length) return;
+      handleAttachments(files);
+      e.target.value = '';
+    });
+    btn = $('fileList');
+    if (btn) btn.addEventListener('click', function(e) {
+      var t = e.target;
+      if (t && t.classList && t.classList.contains('fi-remove')) {
+        var idx = parseInt(t.getAttribute('data-idx'), 10);
+        if (!isNaN(idx) && loadedFiles[idx]) {
+          var removedName = loadedFiles[idx].name;
+          loadedFiles.splice(idx, 1);
+          renderAttachmentList();
+          showToast('已移除附件：' + removedName, 'info');
+        }
+      }
+    });
+    btn = $('clearInputBtn');
+    if (btn) btn.addEventListener('click', clearWorkInput);
     btn = $('applyFilterBtn');
     if (btn) btn.addEventListener('click', applyFilter);
     btn = $('clearFilterBtn');
@@ -1067,6 +1135,15 @@
       });
     }
 
+    // 解析要求输入框（v0.52.0）— 持久化到 work_config
+    var instrInput = $('summaryInstruction');
+    if (instrInput) {
+      instrInput.addEventListener('change', function() {
+        config.summaryInstruction = this.value.trim();
+        storage.set({ work_config: config });
+      });
+    }
+
     // Keyboard shortcut — bound on workEditor.container after init
     // (see init function below)
 
@@ -1108,7 +1185,7 @@
   // ===== 插件配置同步（LinguaFlow 扩展广播） =====
   function applySyncedConfig(cfg) {
     if (!cfg || !cfg.baseUrl) return;
-    // 只同步连接信息，保留用户在本页选定的输入/输出语言与总结模板
+    // 只同步连接信息，保留用户在本页选定的输入/输出语言、总结模板与解析要求
     config = {
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
@@ -1116,6 +1193,7 @@
       inputLang: config.inputLang || 'zh',
       outputLang: config.outputLang || 'zh',
       summaryTemplate: config.summaryTemplate || 'default',
+      summaryInstruction: config.summaryInstruction || '',
     };
     if (cfg.baseUrl) $('baseUrl').value = cfg.baseUrl;
     if (cfg.apiKey) $('apiKey').value = cfg.apiKey;
@@ -1178,8 +1256,11 @@
       if (config.outputLang) $('outputLang').value = config.outputLang;
     }
 
-    // 总结模板下拉（ai-template-kit）：填充选项并恢复上次选择（无保存配置时回落 default）
+    // 总结模板下拉（scenario-templates）：填充选项并恢复上次选择（无保存配置时回落 default）
     initTemplateSelect();
+
+    // 解析要求输入框：恢复上次输入
+    if ($('summaryInstruction')) $('summaryInstruction').value = config.summaryInstruction || '';
 
     if (!config.apiKey) {
       const panel = $('settingsPanel');

@@ -41,28 +41,37 @@
       transform: translateY(-1px);
     }
     .btn-tool svg { width: 15px; height: 15px; }
-    .file-name-tag {
+    .file-list {
       display: none;
-      align-items: center; gap: 6px;
-      padding: 6px 14px;
-      border-radius: 100px;
-      background: var(--primary-a08);
-      border: 1px solid var(--primary-a15);
-      font-size: 0.78rem;
-      color: var(--text-secondary);
-      max-width: 420px;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
     }
-    .file-name-tag.visible { display: inline-flex; }
-    .file-name-tag span {
+    .file-list.visible { display: flex; }
+    .file-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--primary-a15);
+      background: var(--white-a06);
+    }
+    .file-item .fi-main { min-width: 0; flex: 1; }
+    .file-item .fi-name {
+      display: block; font-size: 0.85rem; font-weight: 500; color: var(--text);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .file-name-tag .file-clear {
-      cursor: pointer;
-      color: var(--text-dim);
-      font-weight: 700;
-      padding: 0 2px;
+    .file-item .fi-meta { display: block; margin-top: 2px; font-size: 0.72rem; color: var(--text-dim); }
+    .file-item .fi-meta.ok { color: var(--neon-cyan); }
+    .file-item .fi-meta.err { color: var(--red); }
+    .file-item .fi-ok { flex: none; color: var(--neon-cyan); font-weight: 700; }
+    .file-item .fi-remove {
+      flex: none; cursor: pointer;
+      border: 1px solid var(--primary-a15); border-radius: 8px;
+      background: transparent; color: var(--text-dim);
+      padding: 4px 9px; font-size: 0.78rem; line-height: 1;
+      font-family: inherit;
     }
-    .file-name-tag .file-clear:hover { color: var(--red); }
+    .file-item .fi-remove:hover { color: var(--red); border-color: var(--red); }
 
     /* ========== Instructions Input ========== */
     .instructions-section { padding: 0 20px 8px; }
@@ -456,12 +465,7 @@
             </svg>
             选择附件
           </button>
-          <input type="file" id="fileInput" accept=".txt,.md,.eml,.log,.csv,.json,.html,.htm,.pdf" multiple style="display:none" />
-          <div class="file-name-tag" id="fileNameTag">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <span id="fileNameText"></span>
-            <span class="file-clear" id="fileClearBtn" title="清除附件内容">✕</span>
-          </div>
+          <input type="file" id="fileInput" accept=".txt,.md,.eml,.log,.csv,.json,.html,.htm,.pdf,.docx,.xlsx,.xlsm,.pptx" multiple style="display:none" />
           <button class="btn-tool" id="clearInputBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
@@ -470,6 +474,9 @@
           </button>
           <div style="flex:1;"></div>
         </div>
+
+        <!-- 附件清单（纵向卡片，内容不占输入框，随请求发送） -->
+        <div class="file-list" id="fileList"></div>
 
         <!-- Instructions -->
         <div class="instructions-section">
@@ -636,6 +643,7 @@
 
   <script src="markdown.js"></script>
   <script src="md-editor.js"></script>
+  <script src="pdf.min.js"></script>
   <script src="ai-service.js"></script>
   <script src="ai_parse.js"></script>
   <script src="data-sync.js"></script>

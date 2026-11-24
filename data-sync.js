@@ -247,19 +247,40 @@
   else schedulePush();
   global.addEventListener('storage', schedulePush);
   setInterval(push, HEARTBEAT_MS);
-  // v0.50.1 闲置自愈（目标：页面闲置后不再「全灰、无 GUI」）。三个闲置场景分别处理：
+  // v0.50.1 闲置自愈（目标：页面闲置后不再「全灰、无 GUI」）。四个闲置场景分别处理：
   // ① 标签页被 Chrome「内存节省程序」丢弃后重画失败整页灰掉 → 回到前台自动刷新；
-  // ② 系统休眠/锁屏使 GPU 进程重启后合成失效、内容发灰 → 回到前台强制重排触发重画；
-  // ③ 扩展被重载/更新后，旧页面的扩展上下文失效（渲染还在但一切 chrome 调用报错）→
+  // ② 丢弃后 Chrome 自动重载出的新文档一出生就是 visible，visibilitychange 不会再
+  //    触发，而重载页恰是灰屏高发时刻 → 加载时检测 wasDiscarded 主动强刷一次绘制；
+  // ③ 系统休眠/锁屏使 GPU 进程重启后合成失效、内容发灰 → 回到前台 / 唤醒看门狗
+  //    强制离线重排重建绘制树（单独 translateZ 对合成失效基本无效，故升级为强招）；
+  // ④ 扩展被重载/更新后，旧页面的扩展上下文失效（渲染还在但一切 chrome 调用报错）→
   //    扩展页回到前台自动加载新版本。弹层开着时不自动刷新，防止丢未保存的草稿。
-  // 网页版无 chrome API，③ 天然不触发，①② 已覆盖。
+  // 网页版无 chrome API，④ 天然不触发，①②③ 已覆盖。
+  // 强制重绘：根节点 display 离线重排逼 Chrome 重建绘制树（同一同步任务内完成，
+  // 无中间帧，视觉无闪烁；display 切换会丢滚动位置，先记后补），最后挂合成层
+  // 提示再强制一次重新光栅化。只动绘制层，不改 DOM 内容，草稿/弹层不受影响。
+  function forceRepaint() {
+    try {
+      var html = document.documentElement, b = document.body;
+      if (!html || !b) return;
+      var x = window.scrollX, y = window.scrollY;
+      html.style.display = 'none';
+      void html.offsetHeight;
+      html.style.display = '';
+      if (x || y) window.scrollTo(x, y);
+      b.style.transform = 'translateZ(0)';
+      void b.offsetHeight;
+      b.style.transform = '';
+    } catch (e) {}
+  }
+  var lastTick = Date.now();
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible') return;
+    var away = Date.now() - lastTick;
+    lastTick = Date.now();
     if (document.wasDiscarded) { try { location.reload(); } catch (e) {} return; }
-    try {
-      var b = document.body;
-      if (b) { b.style.transform = 'translateZ(0)'; void b.offsetHeight; b.style.transform = ''; }
-    } catch (e) {}
+    if (away > 30000) forceRepaint(); // 闲置较久（含休眠唤醒）→ 强招；快速切回只需轻量重绘
+    else try { var b = document.body; if (b) { b.style.transform = 'translateZ(0)'; void b.offsetHeight; b.style.transform = ''; } } catch (e) {}
     if (isExtension) {
       var staleCtx = false;
       try { chrome.runtime.getManifest(); } catch (e) { staleCtx = true; }
@@ -268,6 +289,17 @@
       }
     }
   });
+  // 唤醒看门狗（场景③）：覆盖「休眠唤醒后页面一直在前台」——此时 visibilitychange
+  // 不触发。休眠期间定时器被冻结，唤醒后第一个 tick 心跳缺口远超周期 → 强制重绘。
+  // 后台标签 timer 被节流到 ≥1min，但此时 visible=false 不会误触；阈值取 2min 留裕量。
+  setInterval(function () {
+    var now = Date.now();
+    if (now - lastTick > 120000 && document.visibilityState === 'visible') forceRepaint();
+    lastTick = now;
+  }, 30000);
+  // 丢弃重载后的灰屏兜底（场景②）：Chrome 丢弃标签后激活时自动重载，新文档
+  // wasDiscarded=true 且出生即 visible，加载完成后主动强刷一次绘制。
+  if (document.wasDiscarded) setTimeout(forceRepaint, 300);
   // v0.50.0：扩展页加载时，若本地存储为空而服务有备份 → 自动恢复（重装兜底）+ 恢复提示
   if (isExtension) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', maybeAutoRestore);

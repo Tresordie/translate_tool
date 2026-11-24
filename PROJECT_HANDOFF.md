@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.50.1 · 2026-11-17
+> **当前版本**：v0.52.0 · 2026-11-23
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -115,7 +115,7 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 主标题字体为 **Sora**（Google Fonts，与 Syne/Jakarta/Inter 一并异步加载）；Side Panel 因 v0.18.0 起刻意移除 Google Fonts 依赖，改用系统级字体栈。
 
 ### 3.7 AI 服务层（`ai-service.js`）
-706 行（网页版）/ 723 行（扩展版），IIFE 封装暴露 `window.AiService`：
+1849 行（网页版）/ 1865 行（扩展版），IIFE 封装暴露 `window.AiService`：
 - `initConfigSync()` — 配置读写 + 监听插件广播
 - `chat({messages, options})` — OpenAI 兼容 chat/completions（内部经 `buildUrl()` 归一化地址、经 `proxyFetch()` 走跨域通道）
 - `proxyFetch(url, options)` — **跨域请求通道，各页面统一入口**（详见 §3.10）；返回值 Response 兼容 `ok/status/text()/json()`
@@ -334,10 +334,69 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 
 **验证**：node --check 全过；备份仓库 8000+ 提交时间线核对定位回滚点；两副本（根目录/扩展）改动逐字一致。
 
+**复发跟踪（2026-11-22）**：四层增强自愈（v0.50.1 + 工作区未提交的 display 离线重排/唤醒看门狗/丢弃重载强刷）运行后仍现「整页中性灰、无 GUI、手动刷新恢复」。判定为 **Chrome 层面标签页丢弃（内存节省程序）/ 渲染进程死亡**形态，页面侧已无法再防：灰屏时页面 JS 已被终止，`visibilitychange`/`wasDiscarded`/看门狗全部没有执行机会（四层自愈只能在文档存活时生效）；截图纯灰（中性 #3a3a3a 一整片）与 app 任何 DOM 状态（浅色 `#f4f4f7`、深色 `#0F1121`）都对不上，而与 Chrome 丢弃/崩溃占位页一致；Chrome 存在「丢弃标签激活后不自动重载、需手动刷新」的已知缺陷。**处置转为 Chrome 侧**：`chrome://discards` 对工具页逐个关掉 Auto Discardable（file:// 页可用，最精准）或 `chrome://settings/performance` 调整/关闭内存节省程序；若 Discard count=0 仍灰屏 → GPU 合成形态，关硬件加速。数据无虞：灰屏是 Chrome 占位页，localStorage + 60s 心跳未受影响，刷新即恢复（与现象吻合）。
+
+### 3.23 总结模板切换为 scenario-templates 25 套（v0.51.0，工作报告 / 邮件总结 / AI 解析三页共用）
+
+按用户要求：① 工作报告与 AI 解析页删掉默认模板以外全部旧模板（v0.49.0 的 8 套 ai-template-kit：exec/weekly/kpt/star/minutes/chart/fishbone/mindmap，**旧保存的选择因 id 查不到自动回落默认**，无需迁移）；② 三页加入用户本机 **scenario-templates 技能**的 25 套总结模板，生成内容/格式与技能输出一致。
+
+- **模板源**：`C:\Users\Administrator\.agents\skills\scenario-templates\`（`references/scenario-skills.md` 内 25 个 ```text 围栏块 = 可粘贴提示词，末段为共享【输出契约】G-SPEC）。**运行时不读该目录**（网页版与扩展必须自包含），已用脚本逐字提取内嵌：每套 = 专属正文 + 构建时统一拼接的 `SUMMARY_TEMPLATE_GSPEC`（25 块的契约段逐字相同，提取时已校验）。
+- **唯一定义点**：`ai-service.js`（根目录 + `chrome_extension/` 两副本，模板部分逐字一致）：
+  - `SUMMARY_TEMPLATES` = 25 项 `{id,label,hint,scene}`：M1-M5 会议纪要 / D1-D5 日报周报 / T1-T5 任务提取 / E1-E5 邮件总结 / W1-W5 邮件撰写，id 用技能路由表大写编号（M1…W5），`scene` 供下拉 optgroup 分组；
+  - `SUMMARY_TEMPLATE_PROMPTS` = 25 段专属正文（技能提示词去掉末尾契约段的原样文本）；
+  - `summaryTemplatePrompt(id, langName)` = 正文 + GSPEC + `# 材料与占位符`（{{...}} 占位符以用户消息材料为准，缺失写【待确认】，禁止占位符原样出现在输出）+ 输出语言规则（含「中文」→「全文使用 X 输出」，否则「最高优先级」覆盖段，与 emailPrompt 同模式）。未知 id 返回 `''`（调用方回落默认 prompt）。
+- **三页接入**（下拉均为「默认项 + 5 组 optgroup × 5 套」）：
+  - 工作报告（`workreport.js` 双副本）：`default`=默认要点总结（原 prompt 一字未改），其余走 `summaryTemplatePrompt`；持久化 `work_config.summaryTemplate`，历史条目沿用 `getSummaryTemplate().label` 标签。
+  - AI 解析（`ai_parse.js` 双副本）：`auto`=原行为（邮件附件自动走 playbook），显式模板优先；持久化 `ai_parse_state.template`。
+  - 邮件总结（**本版新增下拉**，`email_summary.html` input-toolbar 内 + `email_summary.js`）：`default`=`SKILL_PROMPT`（邮件线程四段式 + To Do List，原行为不变），其余走 `summaryTemplatePrompt`，用户消息相应改为「严格按系统提示中的模板结构总结」；持久化 `email_summary_config.template`，`applySyncedConfig`/translate_config 兜底两处重建 config 时保留 `template` 字段（同 workreport 先例）。
+- **接入方式不变**：`analyzeContent` 优先级仍是显式 template > 邮件 playbook > 默认总结；工作报告/邮件总结直接把 system prompt 换成模板 prompt。
+- **导出与预览修复（v0.51.0 用户反馈，两轮）**：模板按 G-SPEC 输出内联 SVG 封面与大量表格，修复前「HTML 导出全是乱的 + SVG 无法显示」。根因：`markdown.js` 的 `renderMarkdown` 全量 HTML 转义（SVG 变源码文本），且三页 HTML 导出各自为政——workreport 本地转换器**不支持表格**、email 本地转换器无代码围栏、ai_parse 用的 `mdToHtml` 无任何 CSS。修复：
+  - `markdown.js`（双副本）：`<svg>…</svg>` 块与 ` ```svg `/` ```xml ` 围栏经 `sanitizeSvg` 净化后放行渲染（剔除 `<script>`、`on*` 事件属性、`javascript:` 链接；非 SVG HTML 仍转义，XSS 水位不降）——预览与导出同时受益；
+  - `ai-service.js`（双副本）：`mdToHtml` 重构为**与技能生成的交互式纪要同款版式**（用户提供 agent 生成样张后按其升级）——`MD_TO_HTML_CSS`（teal 主色 #0f766e + 浅底 #eef1f5 深字 #1a2332、白卡片、表格 teal 表头/斑马纹/.tablewrap 横滚、`.fig` SVG 图框、`.body pre:has(code.mermaid-src)` 源码块、`@media print` 打印样式）+ `MD_TO_HTML_JS`（逐模块复制 / 全部展开折叠 / 打印按钮 / beforeprint 自动全展开）；`mdSplitSections` 按顶级标题（#/##，**围栏内不切分**）把正文切成 `<details class="mod">` 模块卡：第一个一级标题提取为 `header.top h1` 文档标题，h2 起每段一卡（首卡默认展开、按标题关键词 `MD_SECTION_ICONS` 配图标、「复制本模块」内嵌 `modsrc` markdown 原文）；无标题结构回退单模块；
+  - `workreport.js`/`email_summary.js`（双副本）：结果区 HTML 导出统一改走 `AiService.mdToHtml`，删除各自的本地简易转换器（workreport 的 `applyInlineFormatting`/`markdownToHtml`、email 的 `markdownToHtml`）；
+  - MD 导出保持技能原样不改（SVG 在 .md 里是源码形态——与技能生成的 .md 一致；VS Code/Typora/Obsidian 可渲染，GitHub 会剥离；图形完整呈现走 HTML 导出）；
+  - **时间轴按技能规范渲染（用户反馈「时间轴没有按照 skill 中的定义」，两处根因）**：① 技能调用方式第 3 步「涉及时间轴时加读 references/timeline.md」在内嵌提示词时缺失——G-SPEC 只写「可复制骨架见 references/timeline.md」，模型拿不到骨架，只能输出普通表格；② 渲染端除 SVG 外全转义，即使模型输出骨架 HTML 也显示为源码。修复：`ai-service.js` 新增 `TIMELINE_TEMPLATE_IDS`（M1/M2/M3/M4/D2/D4/T3/E2，输出模块含时间轴）+ `TIMELINE_SPEC`（timeline.md 语义规则 6 条 + 事件轴/任务轴两套骨架逐字内嵌，样式 A 浅色正序/样式 B 深色倒序），`summaryTemplatePrompt` 对这些模板追加；`markdown.js` 放行 `<style>`/`<div>` 块（`sanitizeHtmlFragment` 净化：剔 `<script>`/HTML 注释/on* 事件/javascript: 链接）+ `scopeCss` 把骨架样式选择器加 `.md-embed` 前缀作用域化（防骨架样式泄漏影响页面其余部分），整块包 `<div class="md-embed">`，` ```html ` 围栏内含 `class="tl-` 的骨架同样放行，独立 HTML 注释静默跳过——预览与导出均按技能定义渲染（彩点竖线/日期胶囊/深色任务卡/P2 徽章/划线灰淡/active 蓝描边）。
+  - **Mermaid 图离线渲染（用户反馈「思维导图/flow chart 无法显示」+「导出不够美观」）**：G-SPEC 让模型输出 ` ```mermaid `，此前只显示源码（agent 版是 Hermes 自算 SVG 等效图）。打包 **mermaid 10.9.1 UMD**（`mermaid.min.js` 3.3MB，根目录 + `chrome_extension/`，与 pdf.min.js 同模式）：
+    - `ai-service.js` 新增 `getMermaidLib()`（缓存 fetch：扩展 getURL → 同目录 → jsdelivr/unpkg CDN 兜底，>50KB 校验防 404 页）、`mdToHtmlAsync(md,title)`（doc 含 mermaid-src 块时把每块换成 `<div class="mmd"><pre class="mermaid">源码</pre><details class="mmd-src">折叠源码</details></div>` 并在 `</body>` 前内嵌整库 + `mermaid.initialize({theme:'base',securityLevel:'strict',suppressErrors:true,themeVariables:{teal 配置}})` + `mermaid.run`；**必须函数替换** `doc.replace('</body>', function(){return init;})` —— 字符串替换会被库内 `$'`/`$&` 序列按 replace 模式展开，导致文档截断/DOM 重组（实测教训））、`enhanceMermaid(container)`（应用内预览增强：`<script src>` 加载打包库——MV3 CSP 禁 eval，src 方式两端安全——把 `code.mermaid-src, code.lang-mermaid` 替换为 `pre.mermaid` 渲染；renderMarkdown 输出 lang-mermaid，mdToHtml 管线输出 mermaid-src，两者都匹配）；
+    - 早退检查用完整标签 `<pre><code class="mermaid-src">`（CSS 文本里的 `:has(code.mermaid-src)` 片段会误匹配类名）；
+    - 三页导出全部改 async：workreport `downloadSummary`/`exportSelectedSummaries`、email `downloadSummary`/`exportSelectedHistory`、ai_parse `downloadHtmlBtn`/`exportSelectedHistory`；预览调用点：workreport `typeText`+历史点击、email `showResult`、ai_parse `showSummary`；
+    - 导出壳美化：header 顶部 teal 渐变色条（`::before`）+ 日期/来源 `.pill` 胶囊（打印隐藏）、`summary .ico` 底色芯片、`details.mod` hover/[open] 描边、`.mmd` 图卡与 `.mmd-src` 打印隐藏；
+    - **宽图防挤压（用户反馈「时间图挤在一起」）**：mermaid 默认 `useMaxWidth:true` 会给 SVG 设 `max-width:100%`，timeline/甘特等宽图被等比缩小后轴标签/事件文字全部重叠——`MERMAID_THEME` 对 flowchart/timeline/mindmap/gantt/sequence/class/er/journey/quadrantChart/gitGraph/requirement/c4 全部设 `useMaxWidth:false`（自然尺寸输出），`.mmd` 图卡 `overflow-x:auto` 横滚、`pre.mermaid{width:max-content;margin:0 auto}`（窄图居中、宽图随内容伸展；**不能用 flex center**——溢出时左侧被裁无法滚到）；`enhanceMermaid` 把 `pre.mermaid` 包进同款 `.mmd` 容器并注入同规则 CSS（预览与导出行为一致）；
+    - 含 mermaid 块的导出约 +3.3MB（内嵌库），无图导出与之前一致。
+  - **版式验证**：从用户提供的 agent 生成纪要 HTML 的 `modsrc` 反提取原始 markdown（12 模块）+ 把 agent 内联的 8 个 SVG 回填到图片引用位 → 走本管线重新导出 → 浏览器截图与 agent 原版对比：header 大标题卡/工具栏/模块折叠卡/teal 表格/封面 SVG 图框效果一致；注入两套时间轴骨架与 mermaid 思维导图/流程图实测预览与导出渲染（截图验证：mindmap 彩色分支树、flowchart 决策菱形、时间轴两样式）。
+- **验证**：`tests/summary-template.test.mjs` 重写为 89 项断言（25 套清单与 id 集合 / 五组各 5 套 / 旧 8 id 已移除 / 每套专属正文关键词 + 契约仅拼接一次 + 中英语言规则 / analyzeContent 优先级 / 双副本一致）全绿 + 新增 `tests/markdown-export.test.mjs` 22 项全绿（SVG 放行/净化/转义不回归/表格任务列表引用/mdToHtml 壳/双副本一致）+ 既有测试套全绿；浏览器实测（python http.server 静态托管）：三页下拉分组渲染 26 项、邮件页选 W3 持久化、工作报告页旧 id `exec` 回落 default、选 M2 正常持久化、预览 SVG 封面渲染为真实图形、导出 HTML 打开即技能规范效果（截图验证）；内嵌提示词与技能原文逐字比对一致。
+
+### 3.24 附件统一处理：150MB 上限 + 三页多文件附件/清空输入补齐（v0.51.1，工作报告 / 邮件总结 / AI 解析）
+
+按用户需求「三页支持文本输入 + 附件（最大 150MB，多文件）+ 输入内容清除按键」补齐差口。三页统一规则：**任何附件 >150MB 拒绝并提示拆分**；PDF 走 pdf.js 本地提取（500 页 / 12 万字符预算自动提前终止）；文本类 ≤10MB 全文载入、10MB～150MB 读后截取首尾载入（编辑器不适合塞 150MB 原文；email 页发送前 autoTruncate 6 万字符兜底不变）。
+
+- **共享助手**：`ai-service.js`（双副本，附件段逐字一致，新增导出）——`MAX_ATTACHMENT_BYTES`（150MB）+ `checkAttachment(file)`（超限返回可直接 toast 的文案）/ `extractPdfText(buffer, onProgress)`（**自 email_summary.js 原样上移**，showToast 改 onProgress 回调，页面各自接进度提示）/ `truncateLargeText(text, budget)`（首 60% + 尾 40%，中间标注省略与字符数）/ `readAttachmentText(file)`（≤10MB 全文，>10MB 截到 12 万字符预算，与 PDF 预算一致）/ `readAttachmentBuffer(file, onProgress)`（PDF 提取前读 ArrayBuffer，带读取进度回调——150MB 级文件读取耗时，避免误以为卡死）。
+- **多文件附件（三页统一）**：工作报告与邮件总结 fileInput 加 `multiple`（AI 解析原有）；change 处理循环逐个文件：checkAttachment 超限 → toast 跳过不中断；PDF 提取为空 → 跳过并提示需 OCR；全部成功后一次性 `applyLoadedFiles` 载入；toast 单文件保持「已读取文件：X」、多文件「已加载 N 个附件」（有跳过时补「已载入 N 个，跳过 M 个」）。
+- **附件清单模式（v0.52.0 用户交互调整，对齐 voice transcription 项目 AI 总结页样式）**：三页的附件内容**不再 setMarkdown 灌入输入框**，改为 `loadedFiles` 会话态数组（条目 `{name, size, content, isEmail?, status: 'extracting'|'done'|'error', stage, error}`）+ 输入区下方**纵向卡片清单**（`.file-list#fileList` 移出工具栏置于编辑器上方；`.file-item` 行卡片：`.fi-main`（`.fi-name` 文件名 escapeHtml + `.fi-meta` 状态行 `formatBytes(size) · stage`，状态色 done=绿/error=红，`.fi-ok` 完成勾、`.fi-remove` 独立移除按钮事件委托 data-idx；失败条目留清单标红、错误原因内联、不参与总结，汇总 toast「N 个附件提取失败，详见清单」）；**解析进度实时写入状态行**（PDF 读取百分比/逐页进度、Office 解压中，替代原逐文件进度 toast）；旧单标签 fileNameTag/fileClearBtn/fileClear 全部移除（ai_parse 同步升级，`updateFileNameTag` 删除）；`formatBytes` 加入 ai-service 共享导出）。内容随总结请求发送——email `buildFullText()` / workreport `buildInputSourceText()` / ai_parse `runAnalyze` 均按 `status === 'done'` 过滤后组装「`===== 附件 N：文件名 =====` 分界 + 输入框正文」拼 `———` 连接；输入框只保留用户手输文本（可与附件并存）；「清空输入」连清单一起清；草稿仅存输入框文本（附件为会话态，刷新后需重新选择）；workreport 无记录兜底条件改为「输入框文本或已提取附件任一存在」；ai_parse 分析模式判定/邮件识别同按 done 过滤。**实现坑**：逐文件进度回调改写 `entry.stage` 后需同步 `renderAttachmentList()`（innerHTML 重渲染）。另：文本读取层补拒 `.doc/.xls/.ppt` 旧二进制格式（此前会读出乱码并标「完成」）。验证：浏览器实测三页（email 含成功 2 行 + 失败 1 行红标、编辑器保持为空、逐项移除、拦截请求确认附件全文与解析要求均在 user message 中；workreport 兜底模式；ai_parse 分析模式）。
+- **email_summary（双副本）**：旧「PDF 200MB / 文本 10MB 超限即拒」改为统一 150MB + 大文本截断（大文本文件从「不可用」变「可用」）；本地 `extractPdfText` 删除改调共享版；`loadedFileName` 变为「，」连接的文件名串（总结元信息 `来源 …` 与历史 `file` 字段沿用，无需改动）；.eml 归一化、fileClear/clearInput 按键不变。
+- **ai_parse（双副本）**：**修附件读取缺陷**——accept 含 `.pdf` 但此前 `readTextFile`（readAsText）直读 PDF 产生二进制乱码，现 PDF 走共享提取；页内补引 `pdf.min.js` + workerSrc 配置；补 150MB 校验（超限跳过不中断同批，仅统计实际成功数 toast）；多文件循环处理原有，PDF 读取换 `readAttachmentBuffer` 补读取进度。
+- **workreport（本版新增附件支持 + 清空输入，双副本）**：输入区（`.work-input-section`）顶部新增 `.input-toolbar`（样式与 email_summary 同款，hover 用本页 `--neon-green`/`--green-a08` 变量）：「选择附件」（multiple 多选）+ 隐藏 fileInput（accept 同 email 页）+ 文件名标签（✕ `fileClearBtn` 清除）+「清空输入」（`clearInputBtn`：清编辑器 + `work_draft` 草稿 + 附件标签 + 草稿提示复位）；附件内容 `workEditor.setMarkdown` 进编辑器并入草稿（复用 300ms 防抖 saveDraft），页内补引 `pdf.min.js`；绑定加在 `bindEventsSync`（与既有按键同处）。
+- **验证**：新增 `tests/attachment.test.mjs` 74 项断言全绿（助手行为与 150MB 恰好通过边界 / 截断首尾保真 / PDF 依赖守卫 / 三页接线源码断言含 multiple 与循环处理 / 双副本段逐字一致——注：根目录与扩展 workreport.html 行尾历史不一致 CRLF vs LF，段比对前归一化）+ 既有套全绿（summary-template 106 / markdown-export 45 / pdf-parse / bridge-timeout / stream-and-url）；node --check 全过；浏览器实测三页多文件载入（workreport 双文本附件合并含分界行、email 多选、ai_parse PDF+文本混合）。
+
+### 3.25 Office 附件（docx/xlsx/pptx）+ 三页「解析要求」输入框（v0.52.0，工作报告 / 邮件总结 / AI 解析）
+
+按用户需求补齐附件格式矩阵（pdf / html / md / **docx / xlsx / pptx**）并在三页统一「AI 先通读全部内容 → 按解析要求 + 所选模板总结」。
+
+- **Office 文本提取（ai-service.js 双副本，Office 段逐字一致）**：OOXML = ZIP 容器——打包 **JSZip 3.10.1**（`jszip.min.js` 97KB，根目录 + `chrome_extension/`，`getJsZipLib` 懒加载 `<script src>`：扩展 getURL → 同目录 → jsdelivr/unpkg CDN 兜底，与 mermaid/pdf.min.js 同模式；非浏览器环境明确报错）。统一入口 `extractOfficeText(file)`：按扩展名分派（`detectOfficeKind`，旧二进制 .doc/.xls/.ppt 报错并提示另存为新格式）→ `readAttachmentBuffer` 读入 → JSZip 解包 → 纯函数 XML→文本（**可直接单测**：`docxXmlToText` 段落换行/表格单元格制表符/剔除 instrText+delText；`xlsxXmlToText` sharedStrings 共享字符串 + inlineStr + 「## 表名」+ 单元格「 | 」连接；`pptxXmlToText` 按 `</a:p>` 分段 + `<a:t>` run 拼接 + 「## 幻灯片 N」，slide 文件按编号排序不依赖 zip 内顺序）→ `truncateLargeText` 统一 12 万字符预算，返回 `{text, truncated, removed}`。**实现坑**：`<w:tab[^>]*>` 会误伤 `<w:tbl>`、`<w:br[^>]*>` 会误伤 `<w:body>`（前缀相同 + `[^>]*` 吃掉剩余元素名），须用 `<w:tab(?:\s[^>]*)?/?>` 限定；单元格末段 `</w:p>`+`</w:tc>` 相邻产生「换行+制表符」，后处理 `\n\t→\t` 合并。
+- **三页接入**：accept 列表加 `.docx,.xlsx,.xlsm,.pptx`；附件解析循环加 Office 分支（`AiService.extractOfficeText` / `Ai.extractOfficeText`，失败 toast 跳过不中断同批）。
+- **「解析要求」输入框**：工作报告 `.summary-header` 新增 `#summaryInstruction`（`.summary-instruction` 样式随主题）、邮件总结 input-toolbar 新增同 id（`.instruction-input`）；填写后随内容发给 AI——用户消息以「【解析要求】\n…\n\n———\n\n」开头（与 AI 解析页 analyzeContent 同一组装模式），system 仍为所选模板/默认规范，模板与自定义要求并行生效；空则按模板默认结构。持久化：workreport `work_config.summaryInstruction`（change 监听 + init 恢复 + applySyncedConfig 保留）、email `email_summary_config.instruction`（同 template 模式，translate_config 兜底与插件同步两处重建 config 均保留）。
+- **工作报告无记录兜底**：`doSummarize` 筛选/勾选记录为空且编辑器有内容（含载入的附件）→ 直接总结编辑器全文（`usingEditor` 标记，dateRange 取当天，用户消息来源标签「输入内容」/「input content」）；两者皆空才报错。
+- **邮件页内容形态自适应（用户实测反馈修复）**：邮件页默认系统提示 SKILL_PROMPT（邮件线程四段式，铁律 #1 要求拿不到邮件正文即拒绝）对 PPT/Word 等纯文档附件会输出「缺少邮件正文（PDF），无法生成邮件线程总结」的婉拒——现 `isEmailContent` 判定（`.eml` 附件名或 `looksLikeEmail` 文本特征）分派：邮件线程 → SKILL_PROMPT 原行为不变；纯文档 → 新增 `DOC_SUMMARY_PROMPT`（结论先行/按材料主题组织模块/只列有依据待办/冲突并列标注来源/解析要求优先），用户消息标注「文档内容（来源附件：…）」；显式模板仍最优先。浏览器拦截 `AiService.proxyFetch` 实测三种场景（纯文档/邮件文本/文档+M1 模板）system 与 user 组装全部正确。
+- **文件形式的邮件内容（用户实测反馈补强）**：邮件以各种导出文件形式作为附件导入时自动识别——`.eml` 原有归一化；**`.html/.htm` 邮件导出新增共享 `htmlToPlainText`**（readAttachmentText 载入时转换：去 script/style/head/注释、br/p/div/tr→换行、td/th→制表符、剥标签、实体解码、压空行，双副本逐字一致；头部 From/Subject 转换后可被 looksLikeEmail 识别 → 正确走邮件线程规范；普通 .html 文档同受益）；PDF/docx/txt 导出经 pdf.js/OOXML 提取后头部保留，既有 looksLikeEmail 已覆盖；**`.msg`（Outlook 二进制）明确报错指引另存为 .eml/.html**。实现坑：剩余标签须以空串剥除——剥成空格会让制表符相邻空格被压缩规则吃掉（表格分隔失效）。浏览器拦截实测：HTML 邮件导出→SKILL_PROMPT、普通 html→DOC_SUMMARY_PROMPT+来源标注、.msg→报错 toast。
+- **验证**：`tests/attachment.test.mjs` 扩至 **145 项全绿**（新增 Office XML 纯函数提取 / 实体解码 / 共享字符串 / 幻灯片乱序 / 旧格式报错 / JSZip 双副本一致 / 三页 accept·解析要求接线 / 内容形态自适应 / HTML 转文本与 .msg 拒绝）；手工构造最小 OOXML 样例（`tests/office_samples/`，python zipfile 生成，含乱序 slide、legacy.doc 与 email_export.html）+ 真实浏览器全链路实测；既有套全绿（summary-template 106 / markdown-export 45 / 其余）。
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.52.0 | **附件支持 Office 文档（docx/xlsx/pptx）+ 三页「解析要求」输入框**：打包 JSZip 3.10.1（jszip.min.js 双副本），ai-service.js 新增 extractOfficeText 统一入口 + docx/xlsx/pptx 纯函数 XML→文本提取（12 万字符预算截取，旧 .doc/.xls/.ppt 明确报错）；三页 accept 与解析循环接入 Office 分支；工作报告与邮件总结新增 `#summaryInstruction` 解析要求输入框（随内容以「【解析要求】」段发给 AI，与模板并行生效，持久化 work_config.summaryInstruction / email_summary_config.instruction）；工作报告无记录时兜底总结编辑器内容。详见 §3.25。验证：tests/attachment.test.mjs 145 项全绿 + 既有套全绿 + 手工 OOXML 样例浏览器实测 |
+| v0.51.1 | **附件统一处理 150MB 上限 + 三页多文件附件/清空输入补齐**：ai-service.js 新增共享助手（checkAttachment / extractPdfText 自 email 上移 / truncateLargeText / readAttachmentText / readAttachmentBuffer 带读取进度，双副本逐字一致）；统一规则 >150MB 拒绝、文本 >10MB 截首尾载入；**三页多文件**：workreport/email fileInput 加 multiple（ai_parse 原有），逐个校验/解析超限跳过不中断，多文件合并载入加「附件 N：文件名」分界行；email_summary 旧 PDF 200MB/文本 10MB 拒绝规则改为统一 150MB+截断；ai_parse 修复 .pdf 直读乱码（走 pdf.js 提取）+ 补 150MB 校验；**工作报告新增「选择附件/文件标签/清空输入」**（本版补齐第三页），三页 HTML 补引 pdf.min.js（workreport/ai_parse）。详见 §3.24。验证：tests/attachment.test.mjs 74 项全绿 + 既有套全绿（106/45/其余）+ 浏览器实测三页多文件 |
+| v0.51.0 | **总结模板切换为 scenario-templates 25 套（工作报告 / 邮件总结 / AI 解析三页共用）**：移除 v0.49.0 的 8 套 ai-template-kit 模板（旧选择自动回落默认），内嵌用户本机 scenario-templates 技能的 25 套可粘贴提示词（专属正文 + 共享【输出契约】G-SPEC 构建时拼接，与技能生成内容/格式一致），下拉按 会议纪要/日报周报/任务提取/邮件总结/邮件撰写 5 组 optgroup 分组；工作报告（default=要点总结不变）与 AI 解析（auto=原行为不变）沿用既有接入，**邮件总结页新增「总结模板」下拉**（default=邮件线程四段式规范不变，持久化 `email_summary_config.template`）；未知/旧 id 自动回落默认。详见 §3.23。验证：tests 重写 89 项全绿 + 既有套全绿 + 浏览器实测三页（分组渲染/持久化/旧 id 回退） |
 | v0.50.1 | **同步回滚三缺陷修复 + 页面闲置灰屏自愈**：① content.js 启动拉取改按 RECORD_SYNC_KEYS 做 CS→LS 键名映射（v0.25.3 起误用网页键名直读 chrome.storage，8 个映射键的「扩展权威源」启动同步从未生效——跨端不一致与恢复后旧值复活循环的根因）；② data-sync.js `applyState` 补 LS→CS 归一化（与 background applyRestoredState 同规则），恢复后扩展模块可读到数据；③ cloud-sync.js 恢复确认框明示备份时间 vs 本机最后备份、备份更旧显式 ⚠；④ 闲置自愈三层（wasDiscarded 丢弃页刷新 / GPU 合成失效强制重排 / 扩展上下文失效自动重载，弹层开着不刷防丢草稿），sidepanel.js 同款含全部 iframe。事故复盘与数据抢救（git 提交 `d2c28a47` → 恢复文件，不入库）见 §3.22。验证：node --check 全过 + 备份仓库 8000+ 提交时间线核对 + 两副本逐字一致 |
 | v0.50.0 | **重装扩展自动恢复页面记录**：Chrome 移除扩展清空 `chrome.storage.local`，本版补「重装后自动恢复」——`onInstalled`（install 且本地为空）拉本机服务 `GET /api/browser-data`（空则兜底 latest.json 快照）写回；页面兜底经 `linguaflow:autoRestore` 消息复用同一逻辑；**键名归一化**（备份最后推送者胜、可能为网页版键名，按 RECORD_SYNC_KEYS 逆映射 + translate_config→config 翻译回扩展本名，同名保留扩展侧）；恢复成功 `lf_restored_info` → 页面轻提示「已恢复 N 项」；`chrome.storage.onChanged→schedulePush` 消除 60s 心跳备份窗口；仅本地为空才恢复（重新加载不移除绝不覆盖），API Key 红线不变恢复后需重填。详见 §3.21。验证：语法检查 + 既有单测全绿 + 服务真实备份数据仿真归一化（work_records 5/summaries 4/history 5 等正确还原） |
 | v0.49.0 | **总结模板体系（工作报告 + AI 解析，双端同步）**：模板结构取自 `ai-template-kit` 技能（专业总结/会议纪要/图表总结/鱼骨图/思维导图），8 套模板（exec/weekly/kpt/star/minutes/chart/fishbone/mindmap）集中定义在 `ai-service.js` 的 `SUMMARY_TEMPLATES` + `summaryTemplatePrompt(id, langName)`，双副本逐字一致；工作报告页「AI 要点总结」区新增「总结模板」下拉（**默认要点总结保留且行为不变**，选择持久化 `work_config.summaryTemplate`，总结历史追加模板标签）；AI 解析分析模式新增同款下拉（**任务抽取模式隐藏**，`auto`=原行为含邮件 playbook，显式模板优先于 playbook，持久化 `ai_parse_state.template`）；非中文输出走「输出语言最高优先级」覆盖段（同 emailPrompt 模式）。详见 §3.20。验证：新增 `tests/summary-template.test.mjs` 27 项全绿 + 既有测试套全绿 + 浏览器实测（下拉/联动/记忆/真实请求携带模板 prompt/历史标签） |
@@ -458,6 +517,15 @@ node tests/stream-and-url.test.mjs
 # PDF 解析管线（用页面同一份 pdf.min.js 解析样例 PDF）
 node tests/pdf-parse.test.mjs
 
+# 总结模板单测（25 套清单/正文/契约/语言规则/优先级/双副本一致）
+node tests/summary-template.test.mjs
+
+# Markdown 导出渲染单测（SVG 放行/净化/表格/mdToHtml 壳/双副本一致）
+node tests/markdown-export.test.mjs
+
+# 附件处理单测（150MB 上限/PDF+Office 提取/三页接线/双副本一致）
+node tests/attachment.test.mjs
+
 # 用 git 旧版对照，确认该测试真能捕获回归（预期报红，exit=1）
 git show HEAD:ai-service.js > /tmp/ai-service-old.js && SVC_PATH=/tmp/ai-service-old.js node tests/bridge-timeout.test.mjs
 
@@ -516,7 +584,7 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 接手本项目时，按此顺序验证环境：
 
-1. `git pull` 拉最新 master，确认版本徽章为 v0.50.1（`chrome_extension/manifest.json` 的 `version`）
+1. `git pull` 拉最新 master，确认版本徽章为 v0.52.0（`chrome_extension/manifest.json` 的 `version`）
 2. 浏览器打开 `index.html`，配置 API（可用 DeepSeek `https://api.deepseek.com/v1` + `deepseek-chat` 测试）
 3. 依次点击 8 个 Tab，确认每个都能正常工作；在智能翻译生成一次译文、或在工作报告/邮件总结/AI 解析/AI 提示词生成一次结果后点「微信格式」，确认区域展开、内容无 `#`/`**` 残留且 emoji 正常；编辑译文/结果后区块应自动隐藏
 4. Chrome 加载 `chrome_extension/`（v0.25.11 起新增 `clipboardRead` 权限，加载/更新后需在扩展卡片点「重新加载」）：
@@ -530,5 +598,5 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 ---
 
-**最后更新**：2026-11-17 · v0.50.1（同步回滚三缺陷修复 + 闲置灰屏自愈；详见 §4 版本表与 §3.22）
+**最后更新**：2026-11-25 · v0.52.0（Office 附件 docx/xlsx/pptx + 三页解析要求输入框；详见 §4 版本表与 §3.25）
 **参考文档**：`README.md` · `README_EN.md`（changelog 停在 v0.25.11，正文随版本更新，仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

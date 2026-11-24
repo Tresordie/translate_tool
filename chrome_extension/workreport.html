@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Tool Box · 工作报告</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" media="print" id="gfAsync">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="theme.css">
   <style>
     /* 变量由 theme.css 统一提供，此处仅保留页面特有补充 */
@@ -227,6 +227,65 @@
     }
 
     /* ========== Work Input Area ========== */
+    /* ========== Input Toolbar（附件 / 清空输入，同 email_summary 版式） ========== */
+    .input-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 0 10px;
+      flex-wrap: wrap;
+    }
+    .btn-tool {
+      display: flex; align-items: center; gap: 7px;
+      padding: 9px 18px;
+      border-radius: 12px;
+      border: 1px solid var(--primary-a15);
+      background: var(--white-a06);
+      color: var(--text);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: inherit;
+    }
+    .btn-tool:hover {
+      border-color: var(--neon-green);
+      background: var(--green-a08);
+      transform: translateY(-1px);
+    }
+    .btn-tool svg { width: 15px; height: 15px; }
+    .file-list {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .file-list.visible { display: flex; }
+    .file-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--primary-a15);
+      background: var(--white-a06);
+    }
+    .file-item .fi-main { min-width: 0; flex: 1; }
+    .file-item .fi-name {
+      display: block; font-size: 0.85rem; font-weight: 500; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .file-item .fi-meta { display: block; margin-top: 2px; font-size: 0.72rem; color: var(--text-dim); }
+    .file-item .fi-meta.ok { color: var(--neon-green); }
+    .file-item .fi-meta.err { color: var(--red); }
+    .file-item .fi-ok { flex: none; color: var(--neon-green); font-weight: 700; }
+    .file-item .fi-remove {
+      flex: none; cursor: pointer;
+      border: 1px solid var(--primary-a15); border-radius: 8px;
+      background: transparent; color: var(--text-dim);
+      padding: 4px 9px; font-size: 0.78rem; line-height: 1;
+      font-family: inherit;
+    }
+    .file-item .fi-remove:hover { color: var(--red); border-color: var(--red); }
+
     .work-input-section {
       padding: 20px 28px;
       border-bottom: 1px solid var(--primary-a10);
@@ -552,6 +611,24 @@
       border-color: var(--neon-cyan);
       box-shadow: var(--focus-ring);
     }
+    .summary-instruction {
+      flex: 1 1 240px;
+      min-width: 200px;
+      padding: 9px 13px;
+      border: 2px solid var(--primary-a15);
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      background: var(--bg-dark);
+      color: var(--text);
+      outline: none;
+      transition: var(--transition);
+    }
+    .summary-instruction:focus {
+      border-color: var(--neon-cyan);
+      box-shadow: var(--focus-ring);
+    }
+    .summary-instruction::placeholder { color: var(--text-dim); }
     .btn-summarize {
       color: white; border: none;
       padding: 12px 32px;
@@ -1027,6 +1104,25 @@
 
         <!-- Work Input Area -->
         <div class="work-input-section">
+          <div class="input-toolbar">
+            <button class="btn-tool" id="selectFileBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              </svg>
+              选择附件
+            </button>
+            <input type="file" id="fileInput" accept=".txt,.md,.eml,.log,.csv,.json,.html,.htm,.pdf,.docx,.xlsx,.xlsm,.pptx" multiple style="display:none" />
+            <button class="btn-tool" id="clearInputBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+              </svg>
+              清空输入
+            </button>
+          </div>
+
+          <!-- 附件清单（纵向卡片，内容不占输入框，随请求发送） -->
+          <div class="file-list" id="fileList"></div>
+
           <div id="workInput" class="md-editor"></div>
 
           <!-- Markdown Preview Panel -->
@@ -1036,7 +1132,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 实时预览
               </div>
-              <button class="md-preview-close" title="关闭预览">
+              <button class="md-preview-close" onclick="toggleMdPreview()" title="关闭预览">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
@@ -1048,7 +1144,7 @@
               <span class="draft-dot" id="draftDot"></span>
               <span id="draftHint">输入内容自动保存草稿</span>
             </span>
-            <button class="preview-btn" id="previewToggleBtn" title="Markdown 预览">
+            <button class="preview-btn" id="previewToggleBtn" onclick="toggleMdPreview()" title="Markdown 预览">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
             <button class="btn-record" id="saveRecordBtn">
@@ -1120,6 +1216,7 @@
               <label for="summaryTemplate">总结模板</label>
               <select id="summaryTemplate" title="选择 AI 总结使用的模板结构，默认为要点总结"></select>
             </div>
+            <input type="text" id="summaryInstruction" class="summary-instruction" placeholder="解析要求（可选）：例 重点输出风险、阻塞与下一步行动" title="AI 先通读全部内容，再按此要求与所选模板总结；留空则按模板默认结构输出" />
             <button class="btn-summarize" id="summarizeBtn">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
@@ -1204,6 +1301,7 @@
   <div class="toast" id="toast"></div>
 
   <script src="ai-service.js"></script>
+  <script src="pdf.min.js"></script>
   <script src="markdown.js"></script>
   <script src="md-editor.js"></script>
   <script src="workreport.js"></script>

@@ -12,6 +12,17 @@
   const gfAsyncLink = document.getElementById('gfAsync');
   if (gfAsyncLink) gfAsyncLink.addEventListener('load', function () { gfAsyncLink.media = 'all'; });
 
+  /* ==================== 系统提示词 ==================== */
+  // 纯文档（PPT/Word/Excel/文本，非邮件线程）默认总结规范：结论先行 + 主题模块 + 待办表，
+  // 不强套邮件四段式——否则 AI 检测不到邮件线程会以「缺少邮件正文」拒绝总结（v0.52.0 实测反馈）。
+  const DOC_SUMMARY_PROMPT = `你是专业的文档总结助手。用户会提供一份或多份材料（多份时每份以「===== 附件 N：文件名 =====」分界），请先通读全部内容建立整体理解，再输出结构化 Markdown 总结：
+
+1. **结论先行**：开头给「📌 核心结论」不超过 3 条（含关键数字/日期/结论对比）。
+2. **按材料实际主题组织正文模块**（不要套用任何固定邮件结构），关键数据、版本号、日期、负责人、标识符原样保留。
+3. **末尾给「✅ 待办事项」表**（事项/负责人/截止/验收标准），只列材料中有明确依据的项；没有依据就不列。
+4. **绝不编造**：材料中不存在的信息直接省略；材料之间有冲突时并列陈述并标注来源附件。
+5. 用户给出的【解析要求】优先满足。`;
+
   /* ==================== SKILL.md 系统提示词（email-thread-summarizer 正文） ==================== */
   const SKILL_PROMPT = `你是一名面向硬件/项目工程师的项目秘书兼技术助理。用户经常粘贴客户或合作伙伴的邮件线程（通常中英混杂、按倒序引用、夹带签名档与保密声明），你的职责是：
 
@@ -126,7 +137,8 @@
     } catch (e) {}
   }
   let editingIndex = -1;
-  let loadedFileName = '';
+  let loadedFiles = [];      // [{ name, content }] 附件清单：内容不进输入框（v0.52.0 交互调整），仅列表展示，随总结请求发送
+  function loadedFileNames() { return loadedFiles.filter((f) => f.status === 'done').map((f) => f.name).join('，'); }
 
   /* ==================== Markdown Editor ==================== */
   const emailEditor = MdEditor.create($('emailInput'), {
@@ -149,7 +161,7 @@
   if (!config.baseUrl) {
     try {
       const tc = JSON.parse(localStorage.getItem('translate_config') || 'null');
-      if (tc && tc.baseUrl) config = { baseUrl: tc.baseUrl, apiKey: tc.apiKey, model: tc.model };
+      if (tc && tc.baseUrl) config = { baseUrl: tc.baseUrl, apiKey: tc.apiKey, model: tc.model, template: config.template, instruction: config.instruction };
     } catch (e) { /* ignore */ }
   }
   if (config.baseUrl) $('baseUrl').value = config.baseUrl;
@@ -160,7 +172,8 @@
   /* ==================== 插件配置同步（LinguaFlow 扩展广播） ==================== */
   function applySyncedConfig(cfg) {
     if (!cfg || !cfg.baseUrl) return;
-    config = { baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model };
+    // 只同步连接信息，保留用户在本页选定的总结模板与解析要求
+    config = { baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model, template: config.template, instruction: config.instruction };
     if (cfg.baseUrl) $('baseUrl').value = cfg.baseUrl;
     if (cfg.apiKey) $('apiKey').value = cfg.apiKey;
     if (cfg.model) $('modelName').value = cfg.model;
@@ -195,6 +208,43 @@
     showToast('配置已保存', 'success');
     $('settingsPanel').classList.remove('open');
   });
+
+  /* ==================== 总结模板选择（scenario-templates 25 套按场景分组；默认=邮件线程 SKILL 规范） ==================== */
+  function initTemplateSelect() {
+    const sel = $('emailTemplate');
+    if (!sel) return;
+    const tpls = (window.AiService && AiService.SUMMARY_TEMPLATES) || [];
+    const scenes = ['会议纪要', '日报周报', '任务提取', '邮件总结', '邮件撰写'];
+    let html = '<option value="default" title="四段式详细总结 + 按责任方分解的 To Do List（email-thread-summarizer 规范）">默认邮件线程总结</option>';
+    scenes.forEach((sc) => {
+      const group = tpls.filter((t) => t.scene === sc);
+      if (!group.length) return;
+      html += '<optgroup label="' + escapeHtml(sc) + '">';
+      group.forEach((t) => {
+        html += '<option value="' + escapeHtml(t.id) + '" title="' + escapeHtml(t.hint || '') + '">' + escapeHtml(t.label) + '</option>';
+      });
+      html += '</optgroup>';
+    });
+    sel.innerHTML = html;
+    // 旧选择（已下线的模板 id）找不到对应 option 时回落 default
+    sel.value = (config.template && sel.querySelector('option[value="' + config.template + '"]')) ? config.template : 'default';
+    sel.addEventListener('change', () => {
+      config.template = sel.value;
+      localStorage.setItem('email_summary_config', JSON.stringify(config));
+      relayRecord('email_summary_config', config);
+    });
+
+    // 解析要求输入框（v0.52.0）：随内容发给 AI，与模板结构并行生效；持久化到 email_summary_config.instruction
+    const instrInput = $('summaryInstruction');
+    if (instrInput) {
+      instrInput.value = config.instruction || '';
+      instrInput.addEventListener('change', () => {
+        config.instruction = instrInput.value.trim();
+        localStorage.setItem('email_summary_config', JSON.stringify(config));
+        relayRecord('email_summary_config', config);
+      });
+    }
+  }
 
   /* ==================== Draft ==================== */
   let draftTimer = null;
@@ -236,129 +286,136 @@
 
   $('selectFileBtn').addEventListener('click', () => $('fileInput').click());
 
-  $('fileInput').addEventListener('change', (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const isPdf = /\.pdf$/i.test(file.name);
-    const maxSize = isPdf ? 200 * 1024 * 1024 : 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      showToast('文件过大（' + (isPdf ? '>200MB' : '>10MB') + '），请拆分后重试', 'error');
-      e.target.value = '';
-      return;
-    }
-
-    if (isPdf) {
-      const reader = new FileReader();
-      // 大文件（如 150MB）读取耗时较长，显示进度避免误以为卡死
-      reader.onprogress = (ev) => {
-        if (ev.lengthComputable && file.size > 20 * 1024 * 1024) {
-          showToast('正在读取文件（' + Math.round(ev.loaded / ev.total * 100) + '%）…', 'info');
-        }
-      };
-      reader.onload = async () => {
-        try {
-          showToast('正在解析 PDF…', 'info');
-          const text = await extractPdfText(reader.result);
+  $('fileInput').addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    // 逐个处理：先入清单（解析中状态行实时更新），完成后置绿勾；失败的留在清单中标红、不参与总结
+    for (const file of files) {
+      const entry = { name: file.name, size: file.size, content: '', status: 'extracting', stage: '解析中…', error: '' };
+      loadedFiles.push(entry);
+      renderAttachmentList();
+      // 统一附件上限 150MB（三页共用 AiService.checkAttachment 校验）
+      const tooBig = AiService.checkAttachment ? AiService.checkAttachment(file) : null;
+      if (tooBig) {
+        entry.status = 'error';
+        entry.stage = '超过大小上限';
+        entry.error = tooBig;
+        renderAttachmentList();
+        continue;
+      }
+      try {
+        if (/\.pdf$/i.test(file.name)) {
+          // 大文件（如 150MB）读取/解析耗时较长，进度写入清单状态行（避免误以为卡死）
+          const buf = await AiService.readAttachmentBuffer(file, (ld, total) => {
+            if (file.size > 20 * 1024 * 1024) {
+              entry.stage = '读取中 ' + Math.round(ld / total * 100) + '%';
+              renderAttachmentList();
+            }
+          });
+          entry.stage = '解析 PDF 页面…';
+          renderAttachmentList();
+          const text = await AiService.extractPdfText(buf, (p, total) => {
+            entry.stage = '解析第 ' + p + '/' + total + ' 页';
+            renderAttachmentList();
+          });
           if (!text.trim()) {
-            showToast('未能从 PDF 提取到文本（可能是扫描件/图片型 PDF，需先 OCR）', 'error');
-            return;
+            entry.status = 'error';
+            entry.stage = '未能提取文本';
+            entry.error = '可能是扫描件/图片型 PDF，需先 OCR';
+          } else {
+            entry.content = text;
+            entry.status = 'done';
+            entry.stage = '文本已提取';
           }
-          applyLoadedFile(text, file.name);
-        } catch (err) {
-          showToast('PDF 解析失败：' + (err.message || err), 'error');
+        } else if (/\.(docx|xlsx|xlsm|pptx)$/i.test(file.name)) {
+          // Office 文档（docx/xlsx/pptx）：JSZip 解包 + XML 规则提取，预算内自动截取首尾
+          entry.stage = '解压解析中…';
+          renderAttachmentList();
+          const r = await AiService.extractOfficeText(file);
+          entry.content = r.text;
+          entry.status = 'done';
+          entry.stage = '文本已提取' + (r.truncated ? '（超长已截取首尾）' : '');
+        } else {
+          // 文本类附件：≤10MB 全文提取；>10MB（≤150MB）自动截取首尾至预算
+          const r = await AiService.readAttachmentText(file);
+          entry.content = r.text;
+          // .eml 简易处理：保留头部元信息与正文
+          if (/\.eml$/i.test(file.name)) entry.content = normalizeEml(entry.content);
+          entry.status = 'done';
+          entry.stage = '文本已提取' + (r.truncated ? '（超长已截取首尾）' : '');
         }
-      };
-      reader.onerror = () => showToast('文件读取失败', 'error');
-      reader.readAsArrayBuffer(file);
-      e.target.value = '';
-      return;
+      } catch (err) {
+        entry.status = 'error';
+        entry.stage = '提取失败';
+        entry.error = String((err && err.message) || err);
+      }
+      renderAttachmentList();
     }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      let content = String(reader.result || '');
-      // .eml 简易处理：保留头部元信息与正文
-      if (/\.eml$/i.test(file.name)) content = normalizeEml(content);
-      applyLoadedFile(content, file.name);
-    };
-    reader.onerror = () => showToast('文件读取失败', 'error');
-    reader.readAsText(file, 'utf-8');
     e.target.value = '';
+    const okCount = loadedFiles.filter((f) => f.status === 'done').length;
+    const failed = loadedFiles.filter((f) => f.status === 'error').length;
+    if (okCount > 0) showToast('已加载 ' + okCount + ' 个附件', 'success');
+    if (failed > 0) showToast(failed + ' 个附件提取失败，将不参与总结（详见清单）', 'error');
   });
 
-  function applyLoadedFile(content, fileName) {
-    emailEditor.setMarkdown(content);
-    saveDraft();
-    loadedFileName = fileName;
-    $('fileNameText').textContent = fileName;
-    $('fileNameTag').classList.add('visible');
-    showToast('已读取文件：' + fileName, 'success');
-    if (_mdPreviewOpen) $('mdPreviewContent').innerHTML = renderMarkdown(content);
+  // 附件清单渲染（对齐 voice transcription AI 总结页样式）：纵向卡片 = 文件名 + 大小·状态行
+  // + 完成勾 / 红色错误行 + 独立移除按钮；失败的附件留在清单中标红、不参与总结
+  function renderAttachmentList() {
+    const list = $('fileList');
+    if (!list) return;
+    if (!loadedFiles.length) {
+      list.classList.remove('visible');
+      list.innerHTML = '';
+      return;
+    }
+    list.classList.add('visible');
+    list.innerHTML = loadedFiles.map((f, i) => {
+      const metaCls = f.status === 'error' ? 'err' : (f.status === 'done' ? 'ok' : '');
+      return '<div class="file-item">'
+        + '<div class="fi-main">'
+        + '<span class="fi-name" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</span>'
+        + '<span class="fi-meta ' + metaCls + '">' + escapeHtml((AiService.formatBytes ? AiService.formatBytes(f.size) : '') + ' · ' + (f.stage || '')) + '</span>'
+        + (f.status === 'error' && f.error ? '<span class="fi-meta err">' + escapeHtml(f.error) + '</span>' : '')
+        + '</div>'
+        + (f.status === 'done' ? '<span class="fi-ok" title="文本已提取">✓</span>' : '')
+        + '<button type="button" class="fi-remove" data-idx="' + i + '" title="移除该附件">✕</button>'
+        + '</div>';
+    }).join('');
   }
 
-  // PDF 文本提取（pdf.js）：逐页取 textContent，按 Y 坐标变化分行。
-  // 超大文件（如 150MB / 数千页）自动提前终止：提取文本达到预算或页数达上限即停，
-  // 避免长时间等待与内存超限（邮件总结不需要全文，够 AI 理解即可）。
-  const PDF_MAX_PAGES = 500;       // 页数上限
-  const PDF_TEXT_BUDGET = 120000;  // 文本预算（发送前还会经 autoTruncate 再截取）
-  async function extractPdfText(buffer) {
-    if (typeof pdfjsLib === 'undefined') throw new Error('PDF 解析库未加载（pdf.min.js 未生效）——若刚更新过代码，请在 chrome://extensions 点击本扩展的「重新加载」后重试');
-    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
-    const totalPages = pdf.numPages;
-    const pageCount = Math.min(totalPages, PDF_MAX_PAGES);
-    const pages = [];
-    let collected = 0;
-    let stoppedAt = 0;
-    for (let p = 1; p <= pageCount; p++) {
-      if (p === 1 || p % 10 === 0 || p === pageCount) {
-        showToast('正在解析 PDF（第 ' + p + '/' + totalPages + ' 页）…', 'info');
-      }
-      const page = await pdf.getPage(p);
-      const content = await page.getTextContent();
-      const lines = [];
-      let line = '';
-      let lastY = null;
-      for (const item of content.items) {
-        if (typeof item.str !== 'string') continue;
-        const y = item.transform ? item.transform[5] : null;
-        if (lastY !== null && y !== null && Math.abs(y - lastY) > 3) {
-          if (line.trim()) lines.push(line.trim());
-          line = '';
-        }
-        line += item.str;
-        if (item.hasEOL) {
-          if (line.trim()) lines.push(line.trim());
-          line = '';
-          lastY = null;
-          continue;
-        }
-        if (y !== null) lastY = y;
-      }
-      if (line.trim()) lines.push(line.trim());
-      const pageText = lines.join('\n').trim();
-      if (pageText) { pages.push(pageText); collected += pageText.length; }
-      page.cleanup(); // 释放页面资源，降低大文件内存占用
-      if (collected >= PDF_TEXT_BUDGET) { stoppedAt = p; break; }
-    }
-    const NL = String.fromCharCode(10);
-    if (stoppedAt > 0) {
-      pages.push('[... PDF 内容量较大，已自动停止解析（提取至第 ' + stoppedAt + '/' + totalPages + ' 页），请基于现有内容总结 ...]');
-    } else if (totalPages > PDF_MAX_PAGES) {
-      pages.push('[... PDF 共 ' + totalPages + ' 页，仅解析前 ' + PDF_MAX_PAGES + ' 页，请基于现有内容总结 ...]');
-    }
-    return pages.join(NL + NL);
+  // 全文 = 已提取完成的附件内容（带「===== 附件 N：文件名 =====」分界，供 AI 区分来源）+ 输入框正文
+  function buildFullText() {
+    const parts = [];
+    loadedFiles.filter((f) => f.status === 'done').forEach((f, i) => {
+      parts.push('===== 附件 ' + (i + 1) + '：' + f.name + ' =====\n' + f.content);
+    });
+    const editorText = emailEditor.getMarkdown().trim();
+    if (editorText) parts.push(editorText);
+    return parts.join('\n\n———\n\n');
   }
 
-  $('fileClearBtn').addEventListener('click', () => {
-    loadedFileName = '';
-    $('fileNameTag').classList.remove('visible');
+  // PDF 文本提取走 AiService.extractPdfText（三页共用：逐页分行、500 页/12 万字符预算自动提前终止），
+  // 发送前还会经 autoTruncate 再截取。
+
+  // 附件清单：单文件移除（事件委托）
+  $('fileList').addEventListener('click', (e) => {
+    const t = e.target;
+    if (t && t.classList.contains('fi-remove')) {
+      const idx = parseInt(t.getAttribute('data-idx'), 10);
+      if (!isNaN(idx) && loadedFiles[idx]) {
+        const removedName = loadedFiles[idx].name;
+        loadedFiles.splice(idx, 1);
+        renderAttachmentList();
+        showToast('已移除附件：' + removedName, 'info');
+      }
+    }
   });
 
   $('clearInputBtn').addEventListener('click', () => {
     emailEditor.clear();
     localStorage.removeItem('email_summary_draft');
-    loadedFileName = '';
-    $('fileNameTag').classList.remove('visible');
+    loadedFiles = [];
+    renderAttachmentList();
     showToast('输入已清空', 'info');
   });
 
@@ -409,7 +466,7 @@
   });
 
   async function summarize() {
-    const fullText = emailEditor.getMarkdown().trim();
+    const fullText = buildFullText();
     if (!fullText) {
       showToast('请先粘贴邮件内容或选择本地文件', 'error');
       return;
@@ -427,6 +484,16 @@
     }
 
     const lang = $('outputLang').value;
+    // 总结模板：默认=邮件线程 SKILL 规范（四段式 + To Do List）；其余取 scenario-templates 共享模板
+    const tplId = ($('emailTemplate') && $('emailTemplate').value) || 'default';
+    const tplPrompt = (tplId !== 'default' && window.AiService && AiService.summaryTemplatePrompt)
+      ? AiService.summaryTemplatePrompt(tplId, LANG_NAMES[lang]) : '';
+    // 解析要求（可选）：随内容一起发给 AI，与模板结构并行生效（同 AI 解析页 analyzeContent 模式）
+    const instruction = (($('summaryInstruction') || {}).value || '').trim();
+    // 内容形态自适应（v0.52.0 反馈修复）：邮件线程（.eml 附件或邮件特征文本）→ 邮件规范；
+    // 纯文档（PPT/Word/Excel 等）→ 通用文档总结规范，避免邮件四段式强套非邮件内容。
+    const isEmailContent = loadedFiles.some((f) => f.status === 'done' && /\.eml$/i.test(f.name))
+      || (window.AiService && AiService.looksLikeEmail ? AiService.looksLikeEmail(trunc.text) : true);
     setLoading(true);
     const startedAt = Date.now();
 
@@ -441,10 +508,18 @@
     function buildBody(includeTemp) {
       const body = { model: config.model, messages: [] };
       if (!reasoning && includeTemp) body.temperature = 0.3;
-      body.messages.push({ role: 'system', content: SKILL_PROMPT });
+      // 系统提示：显式模板 > （邮件线程 ? 邮件规范 : 文档总结规范）
+      body.messages.push({ role: 'system', content: tplPrompt || (isEmailContent ? SKILL_PROMPT : DOC_SUMMARY_PROMPT) });
+      const srcName = loadedFileNames() || '未命名附件';
+      const contentKind = isEmailContent ? '邮件内容' : '文档内容（来源附件：' + srcName + '）';
       body.messages.push({
         role: 'user',
-        content: '请使用' + LANG_NAMES[lang] + '输出。以下是邮件内容，请按规范输出四段式详细总结与 To Do List：\n\n' + trunc.text,
+        content: (instruction ? '【解析要求】\n' + instruction + '\n\n———\n\n' : '')
+          + (tplPrompt
+            ? '请使用' + LANG_NAMES[lang] + '输出。以下是' + contentKind + '，请严格按系统提示中的模板结构总结：\n\n' + trunc.text
+            : (isEmailContent
+              ? '请使用' + LANG_NAMES[lang] + '输出。以下是邮件内容，请按规范输出四段式详细总结与 To Do List：\n\n' + trunc.text
+              : '请使用' + LANG_NAMES[lang] + '输出。以下是' + contentKind + '，请按系统提示规范输出结构化总结：\n\n' + trunc.text)),
       });
       return body;
     }
@@ -502,7 +577,7 @@
       // 自动保存到历史（可后续查阅/编辑）
       addHistory(fullText, result, lang);
       const secs = ((Date.now() - startedAt) / 1000).toFixed(1);
-      $('summaryMeta').textContent = '生成于 ' + formatTime(Date.now()) + ' · 耗时 ' + secs + 's' + (loadedFileName ? ' · 来源 ' + loadedFileName : '') + (trunc.truncated ? ' · 超长已自动截取' : '');
+      $('summaryMeta').textContent = '生成于 ' + formatTime(Date.now()) + ' · 耗时 ' + secs + 's' + (loadedFiles.length ? ' · 来源 ' + loadedFileNames() : '') + (trunc.truncated ? ' · 超长已自动截取' : '');
       showToast('总结生成完成，已保存到历史', 'success');
     } catch (err) {
       clearInterval(metaTimer);
@@ -566,6 +641,8 @@
     el.innerHTML = renderMarkdown(md);
     el.dataset.rawText = md;
     el.classList.add('md-fade-in');
+    // mermaid 源码块渲染成图（思维导图/流程图等；库不可用时保持源码块）
+    if (window.AiService && AiService.enhanceMermaid) AiService.enhanceMermaid(el);
     $('summaryFooter').classList.add('visible');
     resetWechatSection();
   }
@@ -613,7 +690,7 @@
   $('wechatFormatBtn').addEventListener('click', convertToWechat);
   $('copyWechatBtn').addEventListener('click', copyWechat);
 
-  function downloadSummary(format) {
+  async function downloadSummary(format) {
     // 必须使用原始 Markdown（dataset.rawText）：textContent 已被 renderMarkdown 剥离语法
     const raw = $('summaryResult').dataset.rawText;
     if (!raw) { showToast('暂无总结内容可下载', 'error'); return; }
@@ -624,25 +701,13 @@
       mime = 'text/markdown;charset=utf-8';
       content = raw;
     } else {
+      // 单文件 HTML 导出统一走 AiService（scenario-templates R2 交互式版式；
+      // mdToHtmlAsync 额外把 mermaid 块（思维导图/流程图）内嵌打包库渲染成图）
       filename = 'email-summary-' + stamp + '.html';
       mime = 'text/html;charset=utf-8';
-      content = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8"/>\n'
-        + '<title>Email Summary</title>\n<style>\n'
-        + '  body{font-family:Inter,"Noto Sans SC",sans-serif;background:#0d1420;color:#e6eaf2;'
-        + 'padding:40px 48px;max-width:960px;margin:0 auto;line-height:1.85;font-size:15px;}\n'
-        + '  h2{color:#7cc3ea;font-size:1.5rem;border-bottom:1px solid rgba(91,163,214,0.3);padding-bottom:10px;margin:32px 0 16px;}\n'
-        + '  h3{color:#62c3ac;font-size:1.15rem;margin:24px 0 10px;}\n'
-        + '  h4{color:#9ab8e0;font-size:1rem;margin:18px 0 8px;}\n'
-        + '  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.9em;}\n'
-        + '  th,td{border:1px solid rgba(140,175,215,0.25);padding:8px 12px;text-align:left;vertical-align:top;}\n'
-        + '  th{background:rgba(91,163,214,0.12);}\n'
-        + '  blockquote{border-left:3px solid #d8a05e;background:rgba(216,160,94,0.08);margin:12px 0;padding:10px 16px;border-radius:0 8px 8px 0;}\n'
-        + '  ul,ol{margin:8px 0 16px 20px;} li{margin:6px 0;line-height:1.7;}\n'
-        + '  strong{color:#8ec4ea;} hr{border:none;border-top:1px solid rgba(91,163,214,0.15);margin:24px 0;}\n'
-        + '  p{margin:8px 0;} code{background:rgba(91,163,214,0.14);padding:2px 6px;border-radius:4px;font-size:0.9em;}\n'
-        + '</style>\n</head>\n<body>\n'
-        + markdownToHtml(raw)
-        + '\n</body>\n</html>';
+      content = (window.AiService && AiService.mdToHtmlAsync)
+        ? await AiService.mdToHtmlAsync(raw, 'Email Summary')
+        : (window.AiService && AiService.mdToHtml ? AiService.mdToHtml(raw, 'Email Summary') : raw);
     }
     const blob = new Blob([content], { type: mime });
     const a = document.createElement('a');
@@ -653,89 +718,6 @@
     showToast('已下载 ' + filename, 'success');
   }
 
-  // Markdown → 独立 HTML（支持标题/表格/引用/列表/任务列表，用于导出文件）
-  function markdownToHtml(md) {
-    const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const inline = (s) => esc(s)
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>');
-    const lines = md.split('\n');
-    const out = [];
-    let list = null; // 'ul' | 'ol'
-    let inTable = false, tableHeaderDone = false;
-    let inQuote = false;
-
-    const closeList = () => { if (list) { out.push('</' + list + '>'); list = null; } };
-    const closeTable = () => { if (inTable) { out.push('</table>'); inTable = false; tableHeaderDone = false; } };
-    const closeQuote = () => { if (inQuote) { out.push('</blockquote>'); inQuote = false; } };
-
-    for (let i = 0; i < lines.length; i++) {
-      const rawLine = lines[i];
-      const line = rawLine.trim();
-
-      // 表格行
-      if (/^\|.*\|\s*$/.test(line)) {
-        closeList(); closeQuote();
-        if (/^\|[\s:|-]+\|\s*$/.test(line)) { tableHeaderDone = true; continue; } // 分隔行
-        if (!inTable) { out.push('<table>'); inTable = true; }
-        const cells = line.replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
-        const tag = (!tableHeaderDone) ? 'th' : 'td';
-        out.push('<tr>' + cells.map((c) => '<' + tag + '>' + inline(c) + '</' + tag + '>').join('') + '</tr>');
-        continue;
-      }
-      closeTable();
-
-      if (line === '') { closeList(); closeQuote(); continue; }
-
-      if (/^---+\s*$/.test(line)) { closeList(); closeQuote(); out.push('<hr>'); continue; }
-
-      const hm = line.match(/^(#{1,4})\s+(.+)/);
-      if (hm) {
-        closeList(); closeQuote();
-        const lv = Math.min(hm[1].length, 4); // # → h1，## → h2，### → h3
-        out.push('<h' + lv + '>' + inline(hm[2]) + '</h' + lv + '>');
-        continue;
-      }
-
-      // 引用（含 > [!warning] callout）
-      if (/^>\s?/.test(line)) {
-        closeList();
-        if (!inQuote) { out.push('<blockquote>'); inQuote = true; }
-        const content = line.replace(/^>\s?/, '').replace(/^\[!\w+\]\s*/, '');
-        if (content) out.push('<p>' + inline(content) + '</p>');
-        continue;
-      }
-      closeQuote();
-
-      // 任务列表
-      const tm = line.match(/^[-*]\s+\[( |x|X)\]\s+(.+)/);
-      if (tm) {
-        if (list !== 'ul') { closeList(); out.push('<ul>'); list = 'ul'; }
-        out.push('<li>' + (tm[1] === ' ' ? '☐ ' : '☑ ') + inline(tm[2]) + '</li>');
-        continue;
-      }
-
-      const um = line.match(/^[-*]\s+(.+)/);
-      if (um) {
-        if (list !== 'ul') { closeList(); out.push('<ul>'); list = 'ul'; }
-        out.push('<li>' + inline(um[1]) + '</li>');
-        continue;
-      }
-
-      const om = line.match(/^\d+\.\s+(.+)/);
-      if (om) {
-        if (list !== 'ol') { closeList(); out.push('<ol>'); list = 'ol'; }
-        out.push('<li>' + inline(om[1]) + '</li>');
-        continue;
-      }
-
-      closeList();
-      out.push('<p>' + inline(line) + '</p>');
-    }
-    closeList(); closeTable(); closeQuote();
-    return out.join('\n');
-  }
-
   /* ==================== 历史管理（保存 / 查阅 / 编辑 / 删除） ==================== */
   function addHistory(sourceText, result, lang) {
     history.unshift({
@@ -743,7 +725,7 @@
       source: sourceText.slice(0, 300),
       result: result,
       lang: lang,
-      file: loadedFileName || '',
+      file: loadedFileNames(),
       time: Date.now(),
     });
     if (history.length > 30) history = history.slice(0, 30);
@@ -872,14 +854,15 @@
     return '## ' + head + '\n\n' + (h.result || '');
   }
 
-  function exportSelectedHistory(format) {
+  async function exportSelectedHistory(format) {
     const items = selectedHistorySummaries();
     if (!items.length) { showToast('请先勾选要导出的总结', 'error'); return; }
     if (!window.AiService || !AiService.downloadText) { showToast('导出功能不可用', 'error'); return; }
     const md = items.map(historyItemMarkdown).join('\n\n---\n\n');
     const stamp = new Date().toISOString().slice(0, 10);
     if (format === 'html') {
-      AiService.downloadText('ai-toolbox-email-summaries-' + stamp + '.html', AiService.mdToHtml(md, '邮件总结历史'), 'text/html;charset=utf-8');
+      const html = AiService.mdToHtmlAsync ? await AiService.mdToHtmlAsync(md, '邮件总结历史') : AiService.mdToHtml(md, '邮件总结历史');
+      AiService.downloadText('ai-toolbox-email-summaries-' + stamp + '.html', html, 'text/html;charset=utf-8');
     } else {
       AiService.downloadText('ai-toolbox-email-summaries-' + stamp + '.md', md, 'text/markdown;charset=utf-8');
     }
@@ -920,5 +903,6 @@
   }
 
   /* ==================== Init ==================== */
+  initTemplateSelect();
   renderHistory();
 })();

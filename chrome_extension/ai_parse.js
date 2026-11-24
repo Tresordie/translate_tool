@@ -14,6 +14,11 @@
   const $ = (id) => document.getElementById(id);
   const Ai = window.AiService;
 
+  // pdf.js worker 本地加载（扩展 MV3 CSP 不允许远程脚本，须打包在目录内）
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
+  }
+
   let config = Ai.getConfig();
   let loadedFiles = [];          // [{ name, content, isEmail }]
   let currentTasks = [];         // parse 模式当前任务列表
@@ -86,7 +91,7 @@
   /* ==================== 模式判断 ==================== */
 
   function isAnalyzeMode() {
-    return !!(String($('instructionsInput').value || '').trim() || loadedFiles.length);
+    return !!(String($('instructionsInput').value || '').trim() || loadedFiles.some((f) => f.status === 'done'));
   }
 
   function updateMode() {
@@ -175,16 +180,29 @@
 
   /* ==================== 附件 ==================== */
 
-  function updateFileNameTag() {
-    const tag = $('fileNameTag');
-    const text = $('fileNameText');
+  // 附件清单渲染（对齐 voice transcription AI 总结页样式）：纵向卡片 = 文件名 + 大小·状态行
+  // + 完成勾 / 红色错误行 + 独立移除按钮；失败的附件留在清单中标红、不参与总结
+  function renderAttachmentList() {
+    const list = $('fileList');
+    if (!list) return;
     if (!loadedFiles.length) {
-      tag.classList.remove('visible');
-      text.textContent = '';
+      list.classList.remove('visible');
+      list.innerHTML = '';
       return;
     }
-    tag.classList.add('visible');
-    text.textContent = loadedFiles.map((f) => f.name).join('，');
+    list.classList.add('visible');
+    list.innerHTML = loadedFiles.map((f, i) => {
+      const metaCls = f.status === 'error' ? 'err' : (f.status === 'done' ? 'ok' : '');
+      return '<div class="file-item">'
+        + '<div class="fi-main">'
+        + '<span class="fi-name" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</span>'
+        + '<span class="fi-meta ' + metaCls + '">' + escapeHtml((Ai.formatBytes ? Ai.formatBytes(f.size) : '') + ' · ' + (f.stage || '')) + '</span>'
+        + (f.status === 'error' && f.error ? '<span class="fi-meta err">' + escapeHtml(f.error) + '</span>' : '')
+        + '</div>'
+        + (f.status === 'done' ? '<span class="fi-ok" title="文本已提取">✓</span>' : '')
+        + '<button type="button" class="fi-remove" data-idx="' + i + '" title="移除该附件">✕</button>'
+        + '</div>';
+    }).join('');
   }
 
   function initFiles(notesEditor) {
@@ -193,18 +211,73 @@
       const files = Array.from(e.target.files || []);
       if (!files.length) return;
       setLoading(true);
+      // 逐个处理：先入清单（解析中状态行实时更新），完成后置绿勾；失败的留在清单中标红、不参与总结
       try {
         for (const f of files) {
-          const content = await Ai.readTextFile(f);
-          loadedFiles.push({
-            name: f.name,
-            content: content,
-            isEmail: String(f.name).toLowerCase().endsWith('.eml'),
-          });
+          const entry = { name: f.name, size: f.size, content: '', isEmail: String(f.name).toLowerCase().endsWith('.eml'), status: 'extracting', stage: '解析中…', error: '' };
+          loadedFiles.push(entry);
+          renderAttachmentList();
+          // 统一附件上限 150MB（三页共用 AiService.checkAttachment 校验）
+          const tooBig = Ai.checkAttachment ? Ai.checkAttachment(f) : null;
+          if (tooBig) {
+            entry.status = 'error';
+            entry.stage = '超过大小上限';
+            entry.error = tooBig;
+            renderAttachmentList();
+            continue;
+          }
+          try {
+            if (/\.pdf$/i.test(f.name)) {
+              // PDF 经 pdf.js 提取文本（readAsText 会得到二进制乱码），预算内自动提前终止；
+              // 大文件读取/解析进度写入清单状态行
+              const buffer = await Ai.readAttachmentBuffer(f, (ld, total) => {
+                if (f.size > 20 * 1024 * 1024) {
+                  entry.stage = '读取中 ' + Math.round(ld / total * 100) + '%';
+                  renderAttachmentList();
+                }
+              });
+              entry.stage = '解析 PDF 页面…';
+              renderAttachmentList();
+              const content = await Ai.extractPdfText(buffer, (p, total) => {
+                entry.stage = '解析第 ' + p + '/' + total + ' 页';
+                renderAttachmentList();
+              });
+              if (!content.trim()) {
+                entry.status = 'error';
+                entry.stage = '未能提取文本';
+                entry.error = '可能是扫描件/图片型 PDF，需先 OCR';
+              } else {
+                entry.content = content;
+                entry.status = 'done';
+                entry.stage = '文本已提取';
+              }
+            } else if (/\.(docx|xlsx|xlsm|pptx)$/i.test(f.name)) {
+              // Office 文档（docx/xlsx/pptx）：JSZip 解包 + XML 规则提取，预算内自动截取首尾
+              entry.stage = '解压解析中…';
+              renderAttachmentList();
+              const r = await Ai.extractOfficeText(f);
+              entry.content = r.text;
+              entry.status = 'done';
+              entry.stage = '文本已提取' + (r.truncated ? '（超长已截取首尾）' : '');
+            } else {
+              // 文本类附件：≤10MB 全文提取；>10MB（≤150MB）自动截取首尾至预算
+              const r = await Ai.readAttachmentText(f);
+              entry.content = r.text;
+              entry.status = 'done';
+              entry.stage = '文本已提取' + (r.truncated ? '（超长已截取首尾）' : '');
+            }
+          } catch (err) {
+            entry.status = 'error';
+            entry.stage = '提取失败';
+            entry.error = String((err && err.message) || err);
+          }
+          renderAttachmentList();
         }
-        updateFileNameTag();
         updateMode();
-        showToast('已加载 ' + files.length + ' 个附件', 'success');
+        const okCount = loadedFiles.filter((f) => f.status === 'done').length;
+        const failed = loadedFiles.filter((f) => f.status === 'error').length;
+        if (okCount > 0) showToast('已加载 ' + okCount + ' 个附件', 'success');
+        if (failed > 0) showToast(failed + ' 个附件提取失败，将不参与总结（详见清单）', 'error');
       } catch (err) {
         showToast(Ai.describeApiError(err), 'error');
       } finally {
@@ -212,11 +285,19 @@
         e.target.value = '';
       }
     });
-    $('fileClearBtn').addEventListener('click', () => {
-      loadedFiles = [];
-      $('fileInput').value = '';
-      updateFileNameTag();
-      updateMode();
+    // 附件清单：单文件移除（事件委托）
+    $('fileList').addEventListener('click', (e) => {
+      const t = e.target;
+      if (t && t.classList.contains('fi-remove')) {
+        const idx = parseInt(t.getAttribute('data-idx'), 10);
+        if (!isNaN(idx) && loadedFiles[idx]) {
+          const removedName = loadedFiles[idx].name;
+          loadedFiles.splice(idx, 1);
+          renderAttachmentList();
+          updateMode();
+          showToast('已移除附件：' + removedName, 'info');
+        }
+      }
     });
     $('clearInputBtn').addEventListener('click', () => {
       notesEditor.clear();
@@ -225,7 +306,7 @@
       state.instructions = '';
       loadedFiles = [];
       $('fileInput').value = '';
-      updateFileNameTag();
+      renderAttachmentList();
       updateMode();
       hideResults();
       saveNow();
@@ -294,6 +375,8 @@
     void el.offsetWidth; // 重启动画
     el.classList.add('md-fade-in');
     el.innerHTML = renderMarkdown(md);
+    // mermaid 源码块渲染成图（思维导图/流程图等；库不可用时保持源码块）
+    if (window.AiService && AiService.enhanceMermaid) AiService.enhanceMermaid(el);
     resetWechatSection();
   }
 
@@ -361,9 +444,9 @@
   async function runAnalyze(instructions, notes) {
     const parts = [];
     if (notes.trim()) parts.push('【笔记】\n' + notes);
-    loadedFiles.forEach((f) => { parts.push('【附件：' + f.name + '】\n' + f.content); });
+    loadedFiles.filter((f) => f.status === 'done').forEach((f) => { parts.push('【附件：' + f.name + '】\n' + f.content); });
     const content = parts.join('\n\n———\n\n');
-    const email = loadedFiles.some((f) => f.isEmail) || Ai.looksLikeEmail(instructions + '\n' + notes);
+    const email = loadedFiles.some((f) => f.status === 'done' && f.isEmail) || Ai.looksLikeEmail(instructions + '\n' + notes);
 
     _busy = true;
     setLoading(true);
@@ -396,7 +479,7 @@
     if (isAnalyzeMode()) {
       const instructions = String($('instructionsInput').value || '').trim();
       const notes = notesEditor.getMarkdown();
-      if (!instructions && !notes.trim() && !loadedFiles.length) {
+      if (!instructions && !notes.trim() && !loadedFiles.some((f) => f.status === 'done')) {
         showToast('请先粘贴内容或填写解析要求', 'error');
         return;
       }
@@ -541,7 +624,7 @@
     return md.trim();
   }
 
-  function exportSelectedHistory(format) {
+  async function exportSelectedHistory(format) {
     const indexes = Array.prototype.slice.call(document.querySelectorAll('#historyList .history-check:checked'))
       .map((c) => parseInt(c.getAttribute('data-index'), 10));
     const items = indexes.map((i) => state.history[i]).filter(Boolean);
@@ -549,7 +632,8 @@
     const md = items.map(historyItemMarkdown).join('\n\n---\n\n');
     const stamp = new Date().toISOString().slice(0, 10);
     if (format === 'html') {
-      Ai.downloadText('ai-toolbox-ai-parse-history-' + stamp + '.html', Ai.mdToHtml(md, 'AI 解析历史'), 'text/html;charset=utf-8');
+      const html = Ai.mdToHtmlAsync ? await Ai.mdToHtmlAsync(md, 'AI 解析历史') : Ai.mdToHtml(md, 'AI 解析历史');
+      Ai.downloadText('ai-toolbox-ai-parse-history-' + stamp + '.html', html, 'text/html;charset=utf-8');
     } else {
       Ai.downloadText('ai-toolbox-ai-parse-history-' + stamp + '.md', md, 'text/markdown;charset=utf-8');
     }
@@ -569,15 +653,23 @@
     });
   }
 
-  /* ==================== 总结模板选择（ai-template-kit，仅分析模式生效） ==================== */
+  /* ==================== 总结模板选择（scenario-templates 25 套按场景分组，仅分析模式生效） ==================== */
 
   function initTemplateSelect() {
     const sel = $('templateSelect');
     if (!sel) return;
     const tpls = Ai.SUMMARY_TEMPLATES || [];
-    sel.innerHTML = '<option value="auto" title="默认结构（邮件附件自动走邮件线程 playbook）">默认（自动）</option>'
-      + tpls.map((t) =>
-        '<option value="' + escapeHtml(t.id) + '" title="' + escapeHtml(t.hint || '') + '">' + escapeHtml(t.label) + '</option>').join('');
+    const scenes = ['会议纪要', '日报周报', '任务提取', '邮件总结', '邮件撰写'];
+    let html = '<option value="auto" title="默认结构（邮件附件自动走邮件线程 playbook）">默认（自动）</option>';
+    scenes.forEach((sc) => {
+      const group = tpls.filter((t) => t.scene === sc);
+      if (!group.length) return;
+      html += '<optgroup label="' + escapeHtml(sc) + '">'
+        + group.map((t) =>
+          '<option value="' + escapeHtml(t.id) + '" title="' + escapeHtml(t.hint || '') + '">' + escapeHtml(t.label) + '</option>').join('')
+        + '</optgroup>';
+    });
+    sel.innerHTML = html;
     sel.value = state.template;
     sel.addEventListener('change', () => {
       state.template = sel.value;
@@ -680,9 +772,11 @@
       if (!currentSummaryMd) return;
       Ai.downloadText('ai-parse-' + stamp() + '.md', currentSummaryMd, 'text/markdown;charset=utf-8');
     });
-    $('downloadHtmlBtn').addEventListener('click', () => {
+    $('downloadHtmlBtn').addEventListener('click', async () => {
       if (!currentSummaryMd) return;
-      Ai.downloadText('ai-parse-' + stamp() + '.html', Ai.mdToHtml(currentSummaryMd, 'AI 解析总结'), 'text/html;charset=utf-8');
+      // mdToHtmlAsync 额外把 mermaid 块（思维导图/流程图）内嵌打包库渲染成图
+      const html = Ai.mdToHtmlAsync ? await Ai.mdToHtmlAsync(currentSummaryMd, 'AI 解析总结') : Ai.mdToHtml(currentSummaryMd, 'AI 解析总结');
+      Ai.downloadText('ai-parse-' + stamp() + '.html', html, 'text/html;charset=utf-8');
     });
     $('wechatFormatBtn').addEventListener('click', convertToWechat);
     $('copyWechatBtn').addEventListener('click', copyWechat);
