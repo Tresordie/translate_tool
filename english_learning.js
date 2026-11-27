@@ -1158,6 +1158,8 @@
         function downloadFile(filename, content, type) {
             console.log('下载文件:', filename);
             try {
+// v0.52.3: md 导出统一升级时间轴（与 AiService.downloadText 闸门同款）
+                if (/^text\/markdown\b/i.test(String(type || '')) && window.upgradeMarkdownTimeline) content = window.upgradeMarkdownTimeline(content);
                 const blob = new Blob([content], { type: type + ';charset=utf-8' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');

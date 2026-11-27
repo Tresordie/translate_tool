@@ -1,6 +1,6 @@
 /**
- * theme.js — AI Tool Box 主题切换系统（极简高级感 · 10 款）
- * 功能: 主题切换UI（浅色/深色两组，默认 lf-verdant）、localStorage持久化、
+ * theme.js — AI Tool Box 主题切换系统（极简高级感 · 3 款）
+ * 功能: 主题切换UI（浅色/深色两组，默认 lf-iris）、localStorage持久化、
  *      data-mode 明暗标记、iframe跨页面同步、旧版 Catppuccin 主题自动迁移
  * 用法: 在页面底部引入 <script src="theme.js"></script> 即可自动注入切换器
  */
@@ -8,28 +8,21 @@
   'use strict';
 
   var STORAGE_KEY = 'linguaflow_theme';
-  var DEFAULT_THEME = 'lf-verdant';
+  var DEFAULT_THEME = 'lf-iris';
 
-  /* 主题分组：浅色 × 深色（极简高级感 · 低饱和苹果风），默认 lf-verdant */
+  /* 主题分组：浅色 × 深色（极简高级感），默认 lf-iris；v0.55.0 精简为 3 款（删除 9 款旧主题，残留选择走迁移表） */
   var THEME_GROUPS = [
     {
       label: '浅色',
       themes: [
-        { id: 'lf-verdant', name: '青屿 · Verdant', desc: '浅色 · 晨雾青白×松林绿·珊瑚' },
-        { id: 'lf-paper', name: '纸感白 · Paper', desc: '浅色 · 苹果纯白×官网蓝' },
-        { id: 'lf-mist', name: '雾霭 · Mist', desc: '浅色 · 冷调浅灰×苹果靛蓝' },
-        { id: 'lf-cream', name: '奶油 · Cream', desc: '浅色 · 暖调米白×焦糖棕' },
-        { id: 'lf-sky', name: '晴空 · Sky', desc: '浅色 · 纯白底×专业蓝' }
+        { id: 'lf-iris', name: '靛蓝 · Iris', desc: '浅色 · 净白×靛蓝·克制高级（默认）' },
+        { id: 'lf-cream', name: '奶油 · Cream', desc: '浅色 · 暖调米白×焦糖棕' }
       ]
     },
     {
       label: '深色',
       themes: [
-        { id: 'lf-graphite', name: '石墨 · Graphite', desc: '深色 · 苹果深空×经典蓝' },
-        { id: 'lf-slate', name: '板岩 · Slate', desc: '深色 · 深蓝灰×靛紫' },
-        { id: 'lf-midnight', name: '午夜 · Midnight', desc: '深色 · 暖调近黑×紫罗兰' },
-        { id: 'lf-orbit', name: '轨道 · Orbit', desc: '深色 · 深空蓝黑×电光青' },
-        { id: 'lf-nocturne', name: '夜曲 · Nocturne', desc: '深色 · 深空蓝黑×柔蓝青绿' }
+        { id: 'lf-obsidian', name: '曜石 · Obsidian', desc: '深色 · 深石墨×靛紫·琥珀' }
       ]
     }
   ];
@@ -40,7 +33,7 @@
     THEMES = THEMES.concat(THEME_GROUPS[g].themes);
   }
 
-  var DARK_THEMES = { 'lf-graphite': 1, 'lf-slate': 1, 'lf-midnight': 1, 'lf-orbit': 1, 'lf-nocturne': 1 };
+  var DARK_THEMES = { 'lf-obsidian': 1 };
 
   function getSavedTheme() {
     var saved;
@@ -48,19 +41,29 @@
     /* 旧版 Catppuccin 主题迁移：老用户已保存的主题自动落到同明暗的新主题 */
     if (saved && saved !== 'null') {
       var map = {
-        'cat-mocha': 'lf-graphite', 'cat-mocha-mauve': 'lf-midnight', 'cat-mocha-green': 'lf-graphite',
-        'cat-macchiato': 'lf-slate', 'cat-macchiato-mauve': 'lf-midnight', 'cat-macchiato-teal': 'lf-slate',
-        'cat-frappe': 'lf-slate', 'cat-frappe-mauve': 'lf-midnight', 'cat-frappe-green': 'lf-graphite',
-        'cat-latte': 'lf-paper', 'cat-latte-mauve': 'lf-mist', 'cat-latte-pink': 'lf-mist',
-        /* v0.47.2 试制后又删除的 6 款主题 id 兜底迁移：本地若残留选择，落到同明暗的现存近似主题 */
-        'lf-dawn': 'lf-paper', 'lf-polar': 'lf-mist', 'lf-washi': 'lf-cream',
-        'lf-tokyo': 'lf-slate', 'lf-forest': 'lf-nocturne', 'lf-rose': 'lf-midnight'
+        /* v0.55.0 删除的 9 款主题兜底迁移：浅色落 iris/cream，深色统一落 obsidian（目标必须是现存 id） */
+        'lf-verdant': 'lf-iris', 'lf-paper': 'lf-cream', 'lf-mist': 'lf-cream', 'lf-sky': 'lf-iris',
+        'lf-graphite': 'lf-obsidian', 'lf-slate': 'lf-obsidian', 'lf-midnight': 'lf-obsidian',
+        'lf-orbit': 'lf-obsidian', 'lf-nocturne': 'lf-obsidian',
+        /* 旧版 Catppuccin 主题迁移（目标随 v0.55.0 精简重定向到现存主题） */
+        'cat-mocha': 'lf-obsidian', 'cat-mocha-mauve': 'lf-obsidian', 'cat-mocha-green': 'lf-obsidian',
+        'cat-macchiato': 'lf-obsidian', 'cat-macchiato-mauve': 'lf-obsidian', 'cat-macchiato-teal': 'lf-obsidian',
+        'cat-frappe': 'lf-obsidian', 'cat-frappe-mauve': 'lf-obsidian', 'cat-frappe-green': 'lf-obsidian',
+        'cat-latte': 'lf-cream', 'cat-latte-mauve': 'lf-cream', 'cat-latte-pink': 'lf-cream',
+        /* v0.47.2 试制后又删除的 6 款主题 id 兜底迁移 */
+        'lf-dawn': 'lf-cream', 'lf-polar': 'lf-cream', 'lf-washi': 'lf-cream',
+        'lf-tokyo': 'lf-obsidian', 'lf-forest': 'lf-obsidian', 'lf-rose': 'lf-obsidian'
       };
       if (map.hasOwnProperty(saved)) {
         try { localStorage.setItem(STORAGE_KEY, map[saved]); } catch (e) {}
         return map[saved];
       }
-      return saved;
+      /* 未知 id 兜底：不在现存注册表内一律回默认，避免变量塌回 :root 且 data-mode 误判 */
+      for (var k = 0; k < THEMES.length; k++) {
+        if (THEMES[k].id === saved) return saved;
+      }
+      try { localStorage.setItem(STORAGE_KEY, DEFAULT_THEME); } catch (e) {}
+      return DEFAULT_THEME;
     }
     return DEFAULT_THEME;
   }

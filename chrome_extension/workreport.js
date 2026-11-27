@@ -20,24 +20,15 @@
   }
   }
 
-  // ===== Language Name Map =====
+  // ===== Language Name Map（v0.53.0：仅历史记录展示用；下拉选项与提示词语言名统一走 AiService.OUTPUT_LANGS） =====
   const LANG_NAMES = {
+    auto: '跟随原文',
     zh: '中文', en: 'English', ja: '日本語', ko: '한국어', fr: 'Français',
     de: 'Deutsch', es: 'Español', pt: 'Português', ru: 'Русский', ar: 'العربية',
     it: 'Italiano', nl: 'Nederlands', th: 'ไทย', vi: 'Tiếng Việt', id: 'Indonesia',
     ms: 'Melayu', tr: 'Türkçe', pl: 'Polski', sv: 'Svenska', da: 'Dansk',
     fi: 'Suomi', el: 'Ελληνικά', cs: 'Čeština', ro: 'Română', hu: 'Magyar',
     uk: 'Українська', hi: 'हिन्दी', bn: 'বাংলা', he: 'עברית', fa: 'فارسی',
-  };
-
-  // English names for use in non-Chinese prompts (avoids mixing Chinese chars)
-  const LANG_NAMES_EN = {
-    zh: 'Chinese', en: 'English', ja: 'Japanese', ko: 'Korean', fr: 'French',
-    de: 'German', es: 'Spanish', pt: 'Portuguese', ru: 'Russian', ar: 'Arabic',
-    it: 'Italian', nl: 'Dutch', th: 'Thai', vi: 'Vietnamese', id: 'Indonesian',
-    ms: 'Malay', tr: 'Turkish', pl: 'Polish', sv: 'Swedish', da: 'Danish',
-    fi: 'Finnish', el: 'Greek', cs: 'Czech', ro: 'Romanian', hu: 'Hungarian',
-    uk: 'Ukrainian', hi: 'Hindi', bn: 'Bengali', he: 'Hebrew', fa: 'Persian',
   };
 
   // ===== Storage abstraction (extension uses chrome.storage.local, web uses localStorage) =====
@@ -590,23 +581,19 @@
       return;
     }
 
-    // 语言以界面选择为准：applySyncedConfig 会重写 config，仅读 config 会导致
-    // 下拉框显示 English 而实际按 zh 组 prompt
+    // 语言以界面选择为准；v0.53.0：选项由 AiService.OUTPUT_LANGS 渲染（auto = 跟随原文），
+    // 旧版保存的表外语种码回退 auto
     const inputLang = ($('inputLang') && $('inputLang').value) || config.inputLang || 'zh';
-    const outputLang = ($('outputLang') && $('outputLang').value) || config.outputLang || 'zh';
-    // Use English language names in prompts when output is non-Chinese
-    // to avoid mixing Chinese chars that trigger LLM code-switching
-    const nameMap = (outputLang === 'zh') ? LANG_NAMES : LANG_NAMES_EN;
-    const inputLangName = (nameMap[inputLang] || LANG_NAMES_EN[inputLang] || inputLang);
-    const outputLangName = (nameMap[outputLang] || LANG_NAMES_EN[outputLang] || outputLang);
+    var outputLang = normOutputLang(($('outputLang') && $('outputLang').value) || config.outputLang || 'auto');
 
     const btn = $('summarizeBtn');
     const resultEl = $('summaryResult');
     const footer = $('summaryFooter');
     const loadingBar = $('loadingBar');
+    var spinSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83"/></svg>';
 
     btn.disabled = true;
-    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83"/></svg> 正在生成总结...';
+    btn.innerHTML = spinSvg + ' 正在生成总结...';
     resultEl.classList.add('visible');
     resultEl.innerHTML = '';
     resultEl.classList.remove('typing-cursor');
@@ -619,98 +606,33 @@
       return `[${i + 1}] ${r.date} ${r.time}\n${r.content}`;
     }).join('\n\n---\n\n');
 
-    // Build language-aware prompt components
-    const isOutputChinese = outputLang === 'zh';
-    const rangeSep = isOutputChinese ? ' 至 ' : ' to ';
-
     const dateRange = usingEditor
       ? formatDate(Date.now())
       : (filtered.length > 1
-        ? filtered[filtered.length - 1].date + rangeSep + filtered[0].date
+        ? filtered[filtered.length - 1].date + ' 至 ' + filtered[0].date
         : filtered[0].date);
-    const sectionTitle = isOutputChinese ? '工作总结' : 'Work Summary';
-    const keyPointsTitle = isOutputChinese ? '要点总结' : 'Key Points';
-    const detailTitle = isOutputChinese ? '要点详述' : 'Detailed Breakdown';
 
-    // System prompt — 选中总结模板时走共享模板提示词（scenario-templates 25 套）；否则保持默认要点总结
+    // v0.53.0 对齐 voice_transcription：默认自由总结 + G-SPEC 契约，选中模板走共享模板提示词；
+    // 超长输入自动 map-reduce，通读优先/语言指令由 AiService 统一注入
     var tplId = ($('summaryTemplate') && $('summaryTemplate').value) || 'default';
-    var systemPrompt;
-    if (tplId !== 'default' && window.AiService && window.AiService.summaryTemplatePrompt) {
-      systemPrompt = window.AiService.summaryTemplatePrompt(tplId, outputLangName);
-    } else if (isOutputChinese) {
-      systemPrompt = '你是工作汇报总结助手。请阅读以下工作记录，提取关键要点并生成结构化的中文总结。\n\n输出格式：\n## 📋 ' + sectionTitle + ' (' + dateRange + ')\n### 🔑 ' + keyPointsTitle + '\n- [要点]\n### 📝 ' + detailTitle + '\n**1. [标题]** 详细阐述';
-    } else {
-      // For non-Chinese output: split system+user into a translation workflow
-      // that DeepSeek reliably follows
-      systemPrompt = 'Role: English-only work summarizer.\nRule: You read ' + inputLangName + ' input but write ONLY in ' + outputLangName + '.\nFormat:\n## 📋 ' + sectionTitle + '\n### 🔑 ' + keyPointsTitle + '\n- point\n### 📝 ' + detailTitle + '\n**1. title** elaboration.';
-    }
-
-    // 解析要求（可选）：随内容一起发给 AI，与模板结构并行生效（同 AI 解析页 analyzeContent 模式）
+    // 解析要求（可选）：注入 system【用户额外要求】，与模板结构并行生效
     const instruction = (($('summaryInstruction') || {}).value || '').trim();
 
-    // Build user message — 解析要求在前，来源为工作记录或编辑器输入内容；非中文时隔离输入语言块
-    var srcLabel = usingEditor ? (isOutputChinese ? '输入内容' : 'input content') : (isOutputChinese ? '工作记录' : 'work records');
-    var userMsgContent;
-    if (isOutputChinese) {
-      userMsgContent = (instruction ? '【解析要求】\n' + instruction + '\n\n———\n\n' : '')
-        + '请用' + outputLangName + '总结以下' + srcLabel + '（' + dateRange + '）：\n\n' + recordsText;
-    } else {
-      userMsgContent = (instruction ? '[Instructions]\n' + instruction + '\n\n———\n\n' : '')
-        + 'Produce a ' + outputLangName + ' summary of this ' + srcLabel + ' (' + dateRange + ').\n'
-        + 'Respond ENTIRELY in ' + outputLangName + '. Do NOT write any ' + inputLangName + '.\n\n'
-        + '=== BEGIN INPUT (read in ' + inputLangName + ', respond in ' + outputLangName + ') ===\n'
-        + recordsText
-        + '\n=== END INPUT ===\n\n'
-        + 'Now write the ' + outputLangName + ' summary:';
-    }
-
     try {
-      // URL 归一化 + 推理模型参数自适应：与 AiService.chat()/email_summary 同一模式
       const _as = window.AiService || {};
-      const url = _as.buildUrl ? _as.buildUrl(config.baseUrl) : config.baseUrl.replace(/\/+$/, '') + '/chat/completions';
-      const reasoning = _as.isReasoningModel ? _as.isReasoningModel(config.model) : false;
-      // 经 AiService.proxyFetch：网页直连失败时自动走扩展代理桥（Token Plan 等无 CORS 端点也可用）
-      const _pf = _as.proxyFetch || fetch;
-
-      async function summaryReq(includeTemp) {
-        const body = {
-          model: config.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMsgContent }
-          ],
-        };
-        if (!reasoning && includeTemp) body.temperature = 0.1;
-        const response = await _pf(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + config.apiKey,
-          },
-          body: JSON.stringify(body),
-        });
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          const e = new Error(errData.error?.message || 'HTTP ' + response.status);
-          e.status = response.status;
-          throw e;
-        }
-        return response;
-      }
-
-      let response;
-      try {
-        response = await summaryReq(!reasoning);
-      } catch (err) {
-        // 部分推理模型收到 temperature 仍报 400 → 去 temperature 无参重试一次
-        if (!reasoning && /temperature/i.test(String(err && err.message || ''))) {
-          response = await summaryReq(false);
-        } else { throw err; }
-      }
-
-      const data = await response.json();
-      let result = data.choices?.[0]?.message?.content?.trim() || '';
-
+      if (!_as.summarizeContent) throw new Error('AI 服务未加载，请刷新页面后重试');
+      // 页面级配置显式传入（work_config）；temperature 自适应与去参重试由 AiService.chat 统一处理
+      let result = await _as.summarizeContent({
+        content: recordsText,
+        template: tplId !== 'default' ? tplId : '',
+        userPrompt: instruction,
+        lang: outputLang,
+        config: { baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model },
+        onProgress: function (stage, done, total) {
+          btn.innerHTML = spinSvg + ' ' + (total > 0 ? '理解全文 ' + done + '/' + total : '生成总结...');
+        },
+      });
+      result = String(result || '').trim();
       if (!result) throw new Error('总结结果为空，请检查模型配置');
 
       result = autoFormatResult(result);
@@ -810,20 +732,27 @@
     // 必须使用原始 Markdown（dataset.rawText）：textContent 已被 renderMarkdown 渲染剥离了
     // Markdown 语法（##、**、1. 等），直接转换会丢失全部格式，导致导出与界面显示不一致
     var raw = $('summaryResult').dataset.rawText || text;
+    // v0.53.0: 文件名 = 总结名称（首个一级标题）+ 时间戳，对齐参考项目 timestampName
+    var nameBase = (window.AiService && AiService.summaryFileTitle) ? AiService.summaryFileTitle(raw) : 'work-summary';
+    var nameFor = function (ext) {
+      return (window.AiService && AiService.timestampName) ? AiService.timestampName(nameBase, ext) : 'work-summary-' + formatDate(Date.now()) + '.' + ext;
+    };
     var filename, mime, content;
     if (format === 'md') {
-      filename = 'work-summary-' + formatDate(Date.now()) + '.md';
+      filename = nameFor('md');
       mime = 'text/markdown;charset=utf-8';
       content = raw;
     } else {
       // 单文件 HTML 导出统一走 AiService（scenario-templates R2 交互式版式；
       // mdToHtmlAsync 额外把 mermaid 块（思维导图/流程图）内嵌打包库渲染成图）
-      filename = 'work-summary-' + formatDate(Date.now()) + '.html';
+      filename = nameFor('html');
       mime = 'text/html;charset=utf-8';
       content = (window.AiService && AiService.mdToHtmlAsync)
-        ? await AiService.mdToHtmlAsync(raw, 'Work Summary')
-        : (window.AiService && AiService.mdToHtml ? AiService.mdToHtml(raw, 'Work Summary') : raw);
+        ? await AiService.mdToHtmlAsync(raw, nameBase)
+        : (window.AiService && AiService.mdToHtml ? AiService.mdToHtml(raw, nameBase) : raw);
     }
+// v0.52.3: md 导出统一升级时间轴（与 AiService.downloadText 闸门同款）
+    if (/^text\/markdown\b/i.test(String(mime || '')) && window.upgradeMarkdownTimeline) content = window.upgradeMarkdownTimeline(content);
     var blob = new Blob([content], { type: mime });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -981,12 +910,27 @@
   }
 
   // ===== Summary Template Select（scenario-templates 共享模板 25 套，按场景分组，默认要点总结保留） =====
+  // ===== 输出语言下拉（v0.53.0：AiService.OUTPUT_LANGS 统一渲染，跟随原文 + 16 种常用语言） =====
+  function initLangSelect() {
+    var sel = $('outputLang');
+    if (!sel || !window.AiService || !AiService.OUTPUT_LANGS) return;
+    sel.innerHTML = AiService.OUTPUT_LANGS.map(function (l) {
+      return '<option value="' + l.code + '">' + escapeHtml(l.label) + '</option>';
+    }).join('');
+  }
+
+  // 旧版保存的表外语种码（nl/tr 等）回退 auto（跟随原文）
+  function normOutputLang(v) {
+    var langs = (window.AiService && AiService.OUTPUT_LANGS) || [];
+    return langs.some(function (l) { return l.code === v; }) ? v : 'auto';
+  }
+
   function initTemplateSelect() {
     var sel = $('summaryTemplate');
     if (!sel) return;
     var tpls = (window.AiService && AiService.SUMMARY_TEMPLATES) || [];
     var scenes = ['会议纪要', '日报周报', '任务提取', '邮件总结', '邮件撰写'];
-    var html = '<option value="default">默认要点总结</option>';
+    var html = '<option value="default" title="自由总结 + G-SPEC 输出契约（对齐 voice_transcription）">默认（自由总结）</option>';
     scenes.forEach(function (sc) {
       var group = tpls.filter(function (t) { return t.scene === sc; });
       if (!group.length) return;
@@ -1143,6 +1087,8 @@
         storage.set({ work_config: config });
       });
     }
+    // 解析要求字段升级（v0.52.1）：自动增高 + ⤢ 大编辑器弹窗
+    initInstructionModal();
 
     // Keyboard shortcut — bound on workEditor.container after init
     // (see init function below)
@@ -1150,6 +1096,55 @@
     // Preview toggle: 由 HTML inline onclick 调用 window.toggleMdPreview，
     // 此处不再重复绑定，避免一次点击触发两次切换
   })();
+
+  // ===== 解析要求字段升级（v0.52.1）：单行 input → 自动增高 textarea + ⤢ 大编辑器弹窗 =====
+  // 长要求可整体查看/修改：输入时按内容自动增高（上限 220px 后内部滚动）；点 ⤢ 打开大编辑器弹窗，
+  // 保存写回原字段并派发 change 复用既有持久化；Esc / 取消 / 点遮罩关闭不保存；Ctrl+Enter 快捷保存。
+  function autoGrowInstruction() {
+    var el = document.getElementById('summaryInstruction');
+    if (!el) return;
+    var cs = window.getComputedStyle(el);
+    var border = (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight + border, 220) + 'px';
+  }
+  function initInstructionModal() {
+    var el = document.getElementById('summaryInstruction');
+    var overlay = document.getElementById('instrModalOverlay');
+    var modalText = document.getElementById('instrModalText');
+    var expandBtn = document.getElementById('instrExpandBtn');
+    var cancelBtn = document.getElementById('instrModalCancel');
+    var saveBtn = document.getElementById('instrModalSave');
+    if (!el || !overlay || !modalText || !expandBtn || !cancelBtn || !saveBtn) return;
+    el.addEventListener('input', autoGrowInstruction);
+    autoGrowInstruction();
+    function openModal() {
+      modalText.value = el.value;
+      overlay.classList.add('open');
+      modalText.focus();
+      modalText.setSelectionRange(modalText.value.length, modalText.value.length);
+    }
+    function closeModal() { overlay.classList.remove('open'); }
+    function saveModal() {
+      el.value = modalText.value;
+      closeModal();
+      autoGrowInstruction();
+      el.dispatchEvent(new Event('change')); // 复用既有 change 持久化（work_config.summaryInstruction / email_summary_config.instruction）
+    }
+    // 输入框邻侧按钮防抢焦点（项目约定：mousedown preventDefault，保住输入法未上屏内容）
+    expandBtn.addEventListener('mousedown', function(e) { e.preventDefault(); });
+    expandBtn.addEventListener('click', openModal);
+    cancelBtn.addEventListener('click', closeModal);
+    saveBtn.addEventListener('click', saveModal);
+    overlay.addEventListener('mousedown', function(e) { if (e.target === overlay) closeModal(); });
+    modalText.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); saveModal(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+    });
+  }
+  // ===== 解析要求字段升级（结束） =====
 
   // ===== Preview Functions =====
   var _mdPreviewOpen = false;
@@ -1191,7 +1186,7 @@
       apiKey: cfg.apiKey,
       model: cfg.model,
       inputLang: config.inputLang || 'zh',
-      outputLang: config.outputLang || 'zh',
+      outputLang: normOutputLang(config.outputLang),
       summaryTemplate: config.summaryTemplate || 'default',
       summaryInstruction: config.summaryInstruction || '',
     };
@@ -1199,7 +1194,7 @@
     if (cfg.apiKey) $('apiKey').value = cfg.apiKey;
     if (cfg.model) $('modelName').value = cfg.model;
     if ($('inputLang')) $('inputLang').value = config.inputLang;
-    if ($('outputLang')) $('outputLang').value = config.outputLang;
+    if ($('outputLang')) $('outputLang').value = normOutputLang(config.outputLang);
     const panel = $('settingsPanel');
     if (panel) panel.classList.remove('open');
     showToast('已同步插件配置（Base URL / API Key / Model）', 'success');
@@ -1233,7 +1228,7 @@
           apiKey: xlateData.config.apiKey,
           model: xlateData.config.model,
           inputLang: 'zh',
-          outputLang: 'zh',
+          outputLang: 'auto',
         };
       }
       // 网页环境：插件 content script 会把配置同步到 localStorage('translate_config')
@@ -1241,19 +1236,23 @@
         try {
           const tc = JSON.parse(localStorage.getItem('translate_config') || 'null');
           if (tc && tc.baseUrl) {
-            savedConfig = { baseUrl: tc.baseUrl, apiKey: tc.apiKey, model: tc.model, inputLang: 'zh', outputLang: 'zh' };
+            savedConfig = { baseUrl: tc.baseUrl, apiKey: tc.apiKey, model: tc.model, inputLang: 'zh', outputLang: 'auto' };
           }
         } catch (e) { /* ignore */ }
       }
     }
 
+    // 输出语言下拉：先渲染选项再恢复保存值（v0.53.0）
+    initLangSelect();
+
     if (savedConfig) {
       config = savedConfig;
+      config.outputLang = normOutputLang(config.outputLang);
       if (config.baseUrl) $('baseUrl').value = config.baseUrl;
       if (config.apiKey) $('apiKey').value = config.apiKey;
       if (config.model) $('modelName').value = config.model;
       if (config.inputLang) $('inputLang').value = config.inputLang;
-      if (config.outputLang) $('outputLang').value = config.outputLang;
+      if (config.outputLang) $('outputLang').value = normOutputLang(config.outputLang);
     }
 
     // 总结模板下拉（scenario-templates）：填充选项并恢复上次选择（无保存配置时回落 default）
@@ -1261,6 +1260,7 @@
 
     // 解析要求输入框：恢复上次输入
     if ($('summaryInstruction')) $('summaryInstruction').value = config.summaryInstruction || '';
+    autoGrowInstruction();
 
     if (!config.apiKey) {
       const panel = $('settingsPanel');

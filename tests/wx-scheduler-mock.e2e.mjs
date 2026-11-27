@@ -213,7 +213,7 @@ assert(setBad.status === 400 && !setBad.data.ok, '无效 Drive 路径被拒绝')
 // 浏览器数据推送：apiKey/token 服务端强制剥离
 await api('POST', '/api/browser-data', { state: {
   translate_config: JSON.stringify({ baseUrl: 'https://api.demo', apiKey: 'sk-SUPER-SECRET', model: 'm1' }),
-  ws_api_token: 'tok-secret', translate_history: '[{"q":"a"}]', linguaflow_theme: '"lf-graphite"',
+  ws_api_token: 'tok-secret', translate_history: '[{"q":"a"}]', linguaflow_theme: '"lf-obsidian"',
 } });
 const bd = await api('GET', '/api/browser-data');
 assert(bd.data.state.translate_config.includes('"apiKey": ""') || bd.data.state.translate_config.includes('"apiKey":""'), 'translate_config.apiKey 已剥离');

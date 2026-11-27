@@ -1,6 +1,7 @@
 /**
  * LinguaFlow · 邮件总结
- * 按 email-thread-summarizer/SKILL.md 规范：四段式总结 + 按责任方分解的 To Do List
+ * v0.53.0 对齐 voice_transcription：默认自由总结 + G-SPEC 输出契约（AiService.summarizeContent），
+ * 选中模板走 scenario-templates 共享模板；超长输入自动 map-reduce 分块通读，不再首尾截断。
  * 功能：粘贴邮件 / 选择本地文件 → AI 总结 → 显示 + HTML/MD 下载 + 历史保存（可查阅/编辑）
  */
 (function () {
@@ -13,99 +14,13 @@
   if (gfAsyncLink) gfAsyncLink.addEventListener('load', function () { gfAsyncLink.media = 'all'; });
 
   /* ==================== 系统提示词 ==================== */
-  // 纯文档（PPT/Word/Excel/文本，非邮件线程）默认总结规范：结论先行 + 主题模块 + 待办表，
-  // 不强套邮件四段式——否则 AI 检测不到邮件线程会以「缺少邮件正文」拒绝总结（v0.52.0 实测反馈）。
-  const DOC_SUMMARY_PROMPT = `你是专业的文档总结助手。用户会提供一份或多份材料（多份时每份以「===== 附件 N：文件名 =====」分界），请先通读全部内容建立整体理解，再输出结构化 Markdown 总结：
+  // v0.53.0 对齐 voice_transcription：旧邮件 SKILL 四段式 / DOC 文档规范已移除——
+  // 默认与模板路径统一走 AiService.summarizeContent（freeSummaryPrompt / summaryTemplatePrompt
+  // + G-SPEC 输出契约 + 通读优先 + 语言指令置末尾），超长输入自动 map-reduce 分块通读。
 
-1. **结论先行**：开头给「📌 核心结论」不超过 3 条（含关键数字/日期/结论对比）。
-2. **按材料实际主题组织正文模块**（不要套用任何固定邮件结构），关键数据、版本号、日期、负责人、标识符原样保留。
-3. **末尾给「✅ 待办事项」表**（事项/负责人/截止/验收标准），只列材料中有明确依据的项；没有依据就不列。
-4. **绝不编造**：材料中不存在的信息直接省略；材料之间有冲突时并列陈述并标注来源附件。
-5. 用户给出的【解析要求】优先满足。`;
-
-  /* ==================== SKILL.md 系统提示词（email-thread-summarizer 正文） ==================== */
-  const SKILL_PROMPT = `你是一名面向硬件/项目工程师的项目秘书兼技术助理。用户经常粘贴客户或合作伙伴的邮件线程（通常中英混杂、按倒序引用、夹带签名档与保密声明），你的职责是：
-
-1. **把线程按时间正序理清**，输出结构化详细总结
-2. **分解出可执行的 To Do List**（按责任方、带优先级、验收标准、依赖关系）
-
-## 铁律（违反即为失败）
-
-1. **绝不编造**：拿不到邮件正文时，明确告知用户缺少正文并请其提供，绝不凭空生成总结。
-2. **数字保真**：所有数值、型号、寄存器名、命令名、日期与原文逐字一致，禁止四舍五入或泛化（如 \`4.19 V\`、\`50.6 mV\`、\`0xF091\`、\`CAL_COV\` 必须原样保留）。
-3. **数值漂移必须标注**：同一参数在多封邮件中变化时（如 4.185 V → 4.19 V），以**最新一封**为准，并在风险区明确标出变更过程。
-4. **区分已拍板与未拍板**：只把最新邮件明确决定的事项写成"已决定"；讨论过但未定案的写成"未拍板/待澄清"。
-5. **标题≠范围**：邮件标题涵盖的范围与最终实际决定范围不一致时，必须指出差异。
-6. **去噪不丢信息**：剥离签名档、保密声明、引用标记（\`>\`、\`On ... wrote:\`），但被引用段落里的实质内容必须纳入时间线。
-
-## 工作流程
-
-### 第一步：解析邮件内容
-解析每封邮件的：日期时间、发件人、收件人、主题、正文要点。**按时间正序（从早到晚）重排**——粘贴的线程通常是倒序的。
-
-### 第二步：交叉核对
-本环境为网页端，无法访问本地仓库文档：涉及技术论断（参数范围、步进、精度、命令/流程）时，若无法从邮件内容本身确认，一律标注"未验证"，不要冒充已核对。
-
-### 第三步：输出四段式总结
-
-严格按以下模板输出（章节顺序固定，小节标题可随内容微调，骨架不变）：
-
-\`\`\`markdown
-## 邮件线程详细总结
-
-### 一、主题与背景
-- **邮件主题**：\`<Subject>\`
-- **双方**：<甲方（姓名，职位，公司）> ↔ <乙方（姓名，职位，公司）>
-- **对象**：<讨论对象：项目/产品/芯片型号等>
-- **核心诉求演变**：<最初诉求> → <最终结论>（一句话讲清演变链条）
-
-### 二、时间线（按时间正序，共 N 封）
-| 日期 | 发件人 | 关键内容 |
-|---|---|---|
-| MM-DD | XXX | 1~3 句：诉求/结论/关键数字 |
-（纯礼节、催办邮件也要列出并标注；每封一行，倒序线程必须重排为正序）
-
-### 三、技术要点（交叉核对）
-1. **<要点一>**：<结论 + 依据>
-2. **<要点二>**：…
-（每个要点尽量给出核对来源；未核对的注明"未验证"）
-
-### 四、风险与注意点
-> [!warning] 风险与待澄清项
-> - **数值已变更**：<旧值> → <新值>，以新值为准
-> - **范围差异**：<标题/早期讨论范围> vs <实际决定范围>
-> - **依赖关系**：<谁等谁，先后顺序>
-> - **未明确的点**：<容差/参数/决策缺口，逐条列出>
-\`\`\`
-
-### 第四步：To Do List 分解
-
-按责任方分三块输出：
-
-\`\`\`markdown
-## To Do List
-
-### A. 我方（<公司/团队名>）
-| # | 优先级 | 事项 | 验收标准 | 依赖 |
-|---|---|---|---|---|
-| A1 | 🔴 P0 | <可执行动作，动词开头> | <怎样算完成> | <前置项或"无"> |
-
-### B. 对方（<对方公司>，需跟踪）
-| # | 责任人 | 事项 |
-（只收录对方在邮件中明确承诺/认领的事项，注明出处邮件）
-
-### C. 联合验证（后续节点）
-- [ ] <双方共同完成的验证项>
-\`\`\`
-
-分解规则：
-- 优先级定义：P0 = 阻塞 build/交付或有明确期限；P1 = 有依赖关系需排期；P2 = 记录归档类。
-- 每个"事项"必须可执行（"回复邮件确认 X""准备脚本，目标值 Y"），禁止模糊描述（"跟进此事"❌）。
-- 对方未承诺的事项不要塞进 B 区；我方需要主动确认的问题（容差、范围）放进 A 区作为"回复并澄清"任务。
-
-**默认同时输出四段式总结与 To Do List 两部分**，使用 Markdown 格式。`;
-
+  // v0.53.0：仅历史记录展示用；下拉选项与提示词语言名统一走 AiService.OUTPUT_LANGS
   const LANG_NAMES = {
+    auto: '跟随原文',
     zh: '中文', en: 'English', ja: '日本語', ko: '한국어',
     fr: 'Français', de: 'Deutsch', es: 'Español', pt: 'Português',
     ru: 'Русский', ar: 'العربية', it: 'Italiano', nl: 'Nederlands',
@@ -161,7 +76,7 @@
   if (!config.baseUrl) {
     try {
       const tc = JSON.parse(localStorage.getItem('translate_config') || 'null');
-      if (tc && tc.baseUrl) config = { baseUrl: tc.baseUrl, apiKey: tc.apiKey, model: tc.model, template: config.template, instruction: config.instruction };
+      if (tc && tc.baseUrl) config = { baseUrl: tc.baseUrl, apiKey: tc.apiKey, model: tc.model, template: config.template, instruction: config.instruction, lang: config.lang };
     } catch (e) { /* ignore */ }
   }
   if (config.baseUrl) $('baseUrl').value = config.baseUrl;
@@ -173,7 +88,7 @@
   function applySyncedConfig(cfg) {
     if (!cfg || !cfg.baseUrl) return;
     // 只同步连接信息，保留用户在本页选定的总结模板与解析要求
-    config = { baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model, template: config.template, instruction: config.instruction };
+    config = { baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model, template: config.template, instruction: config.instruction, lang: config.lang };
     if (cfg.baseUrl) $('baseUrl').value = cfg.baseUrl;
     if (cfg.apiKey) $('apiKey').value = cfg.apiKey;
     if (cfg.model) $('modelName').value = cfg.model;
@@ -209,13 +124,62 @@
     $('settingsPanel').classList.remove('open');
   });
 
-  /* ==================== 总结模板选择（scenario-templates 25 套按场景分组；默认=邮件线程 SKILL 规范） ==================== */
+  // ===== 解析要求字段升级（v0.52.1）：单行 input → 自动增高 textarea + ⤢ 大编辑器弹窗 =====
+  // 长要求可整体查看/修改：输入时按内容自动增高（上限 220px 后内部滚动）；点 ⤢ 打开大编辑器弹窗，
+  // 保存写回原字段并派发 change 复用既有持久化；Esc / 取消 / 点遮罩关闭不保存；Ctrl+Enter 快捷保存。
+  function autoGrowInstruction() {
+    var el = document.getElementById('summaryInstruction');
+    if (!el) return;
+    var cs = window.getComputedStyle(el);
+    var border = (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight + border, 220) + 'px';
+  }
+  function initInstructionModal() {
+    var el = document.getElementById('summaryInstruction');
+    var overlay = document.getElementById('instrModalOverlay');
+    var modalText = document.getElementById('instrModalText');
+    var expandBtn = document.getElementById('instrExpandBtn');
+    var cancelBtn = document.getElementById('instrModalCancel');
+    var saveBtn = document.getElementById('instrModalSave');
+    if (!el || !overlay || !modalText || !expandBtn || !cancelBtn || !saveBtn) return;
+    el.addEventListener('input', autoGrowInstruction);
+    autoGrowInstruction();
+    function openModal() {
+      modalText.value = el.value;
+      overlay.classList.add('open');
+      modalText.focus();
+      modalText.setSelectionRange(modalText.value.length, modalText.value.length);
+    }
+    function closeModal() { overlay.classList.remove('open'); }
+    function saveModal() {
+      el.value = modalText.value;
+      closeModal();
+      autoGrowInstruction();
+      el.dispatchEvent(new Event('change')); // 复用既有 change 持久化（work_config.summaryInstruction / email_summary_config.instruction）
+    }
+    // 输入框邻侧按钮防抢焦点（项目约定：mousedown preventDefault，保住输入法未上屏内容）
+    expandBtn.addEventListener('mousedown', function(e) { e.preventDefault(); });
+    expandBtn.addEventListener('click', openModal);
+    cancelBtn.addEventListener('click', closeModal);
+    saveBtn.addEventListener('click', saveModal);
+    overlay.addEventListener('mousedown', function(e) { if (e.target === overlay) closeModal(); });
+    modalText.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); saveModal(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+    });
+  }
+  // ===== 解析要求字段升级（结束） =====
+
+  /* ==================== 总结模板选择（scenario-templates 25 套按场景分组；默认=自由总结 + G-SPEC 契约） ==================== */
   function initTemplateSelect() {
     const sel = $('emailTemplate');
     if (!sel) return;
     const tpls = (window.AiService && AiService.SUMMARY_TEMPLATES) || [];
     const scenes = ['会议纪要', '日报周报', '任务提取', '邮件总结', '邮件撰写'];
-    let html = '<option value="default" title="四段式详细总结 + 按责任方分解的 To Do List（email-thread-summarizer 规范）">默认邮件线程总结</option>';
+    let html = '<option value="default" title="自由总结 + G-SPEC 输出契约（对齐 voice_transcription）">默认（自由总结）</option>';
     scenes.forEach((sc) => {
       const group = tpls.filter((t) => t.scene === sc);
       if (!group.length) return;
@@ -243,7 +207,29 @@
         localStorage.setItem('email_summary_config', JSON.stringify(config));
         relayRecord('email_summary_config', config);
       });
+      // 解析要求字段升级（v0.52.1）：自动增高 + ⤢ 大编辑器弹窗
+      initInstructionModal();
     }
+  }
+
+  /* ==================== 输出语言下拉（v0.53.0：AiService.OUTPUT_LANGS 统一渲染 + 持久化） ==================== */
+  // 旧版保存的表外语种码（nl/tr 等）回退 auto（跟随原文）
+  function normOutputLang(v) {
+    var langs = (window.AiService && AiService.OUTPUT_LANGS) || [];
+    return langs.some(function (l) { return l.code === v; }) ? v : 'auto';
+  }
+  function initLangSelect() {
+    var sel = $('outputLang');
+    if (!sel || !window.AiService || !AiService.OUTPUT_LANGS) return;
+    sel.innerHTML = AiService.OUTPUT_LANGS.map(function (l) {
+      return '<option value="' + l.code + '">' + escapeHtml(l.label) + '</option>';
+    }).join('');
+    sel.value = normOutputLang(config.lang);
+    sel.addEventListener('change', function () {
+      config.lang = sel.value;
+      localStorage.setItem('email_summary_config', JSON.stringify(config));
+      relayRecord('email_summary_config', config);
+    });
   }
 
   /* ==================== Draft ==================== */
@@ -394,8 +380,8 @@
     return parts.join('\n\n———\n\n');
   }
 
-  // PDF 文本提取走 AiService.extractPdfText（三页共用：逐页分行、500 页/12 万字符预算自动提前终止），
-  // 发送前还会经 autoTruncate 再截取。
+  // PDF 文本提取走 AiService.extractPdfText（三页共用：逐页分行、500 页/12 万字符预算自动提前终止）；
+  // 超长输入由 AiService.summarizeContent 自动 map-reduce 分块通读（v0.53.0，不再首尾截断）。
 
   // 附件清单：单文件移除（事件委托）
   $('fileList').addEventListener('click', (e) => {
@@ -438,20 +424,10 @@
     return (keepHeaders.length ? keepHeaders.join('\n') + '\n\n' : '') + body.trim();
   }
 
-  /* ==================== 超长内容自动处理 ==================== */
-  // LLM 可接受的近似上限（约 6 万字符 ≈ 3~4 万 token）；
-  // 超出时自动保留首尾（邮件头/最新往来通常在两端），省略中间并明确标注。
-  // 编辑器仍保留全文，仅在发送给 AI 时截断。
-  const MAX_INPUT_CHARS = 60000;
-  function autoTruncate(text) {
-    if (text.length <= MAX_INPUT_CHARS) return { text: text, truncated: false, removed: 0 };
-    const headLen = Math.floor(MAX_INPUT_CHARS * 0.6);
-    const tailLen = MAX_INPUT_CHARS - headLen;
-    const removed = text.length - headLen - tailLen;
-    const NL2 = String.fromCharCode(10) + String.fromCharCode(10);
-    const marker = NL2 + '[... 中间约 ' + removed + ' 字符因长度限制自动省略，请基于现有内容总结并在风险区注明信息不完整 ...]' + NL2;
-    return { text: text.slice(0, headLen) + marker + text.slice(text.length - tailLen), truncated: true, removed: removed };
-  }
+  /* ==================== 超长内容处理 ==================== */
+  // v0.53.0 对齐 voice_transcription：不再首尾截断（旧 60000 字符 autoTruncate 已移除）——
+  // AiService.summarizeContent 对 >12000 字符自动 map-reduce（8000/块、并发 2、上限 120 块），
+  // 逐块提取要点后整体总结，全文通读不丢中间内容。
 
   /* ==================== AI 总结 ==================== */
   $('summarizeBtn').addEventListener('click', summarize);
@@ -477,111 +453,59 @@
       return;
     }
 
-    // 超长内容自动截断（保留首尾，省略中间）
-    const trunc = autoTruncate(fullText);
-    if (trunc.truncated) {
-      showToast('内容较长，已自动截取首尾共 ' + MAX_INPUT_CHARS + ' 字符（省略中间 ' + trunc.removed + ' 字符）', 'info');
-    }
-
-    const lang = $('outputLang').value;
-    // 总结模板：默认=邮件线程 SKILL 规范（四段式 + To Do List）；其余取 scenario-templates 共享模板
+    const lang = normOutputLang($('outputLang').value);
+    // 总结模板：默认=自由总结 + G-SPEC 契约；其余取 scenario-templates 共享模板
     const tplId = ($('emailTemplate') && $('emailTemplate').value) || 'default';
-    const tplPrompt = (tplId !== 'default' && window.AiService && AiService.summaryTemplatePrompt)
-      ? AiService.summaryTemplatePrompt(tplId, LANG_NAMES[lang]) : '';
-    // 解析要求（可选）：随内容一起发给 AI，与模板结构并行生效（同 AI 解析页 analyzeContent 模式）
+    // 解析要求（可选）：注入 system【用户额外要求】，与模板结构并行生效
     const instruction = (($('summaryInstruction') || {}).value || '').trim();
-    // 内容形态自适应（v0.52.0 反馈修复）：邮件线程（.eml 附件或邮件特征文本）→ 邮件规范；
-    // 纯文档（PPT/Word/Excel 等）→ 通用文档总结规范，避免邮件四段式强套非邮件内容。
-    const isEmailContent = loadedFiles.some((f) => f.status === 'done' && /\.eml$/i.test(f.name))
-      || (window.AiService && AiService.looksLikeEmail ? AiService.looksLikeEmail(trunc.text) : true);
+
+    const _as = window.AiService || {};
+    if (!_as.summarizeContent) {
+      showToast('AI 服务未加载，请刷新页面后重试', 'error');
+      return;
+    }
     setLoading(true);
     const startedAt = Date.now();
 
-    const _as = window.AiService || {};
-    const _pf = _as.proxyFetch || fetch;
-    // URL 归一化：与 AiService.chat() 一致地清理全角「：／」、尾斜杠、误填的重复 /chat/completions，
-    // 否则同一份配置在 AI 解析能用、在邮件总结却 404/网络错误（尤其智谱多级路径、Token Plan）。
-    const buildingUrl = _as.buildUrl ? _as.buildUrl(config.baseUrl) : config.baseUrl + '/chat/completions';
-    // 推理模型（qwq / reasoning 等）拒绝 temperature / max_tokens → 自动去参重试一次。
-    const reasoning = _as.isReasoningModel && _as.isReasoningModel(config.model);
-
-    function buildBody(includeTemp) {
-      const body = { model: config.model, messages: [] };
-      if (!reasoning && includeTemp) body.temperature = 0.3;
-      // 系统提示：显式模板 > （邮件线程 ? 邮件规范 : 文档总结规范）
-      body.messages.push({ role: 'system', content: tplPrompt || (isEmailContent ? SKILL_PROMPT : DOC_SUMMARY_PROMPT) });
-      const srcName = loadedFileNames() || '未命名附件';
-      const contentKind = isEmailContent ? '邮件内容' : '文档内容（来源附件：' + srcName + '）';
-      body.messages.push({
-        role: 'user',
-        content: (instruction ? '【解析要求】\n' + instruction + '\n\n———\n\n' : '')
-          + (tplPrompt
-            ? '请使用' + LANG_NAMES[lang] + '输出。以下是' + contentKind + '，请严格按系统提示中的模板结构总结：\n\n' + trunc.text
-            : (isEmailContent
-              ? '请使用' + LANG_NAMES[lang] + '输出。以下是邮件内容，请按规范输出四段式详细总结与 To Do List：\n\n' + trunc.text
-              : '请使用' + LANG_NAMES[lang] + '输出。以下是' + contentKind + '，请按系统提示规范输出结构化总结：\n\n' + trunc.text)),
-      });
-      return body;
-    }
-
-    function httpErrFrom(res) {
-      return res.text().then((errText) => {
-        const e = new Error(errText.slice(0, 200) || ('HTTP ' + res.status));
-        e.status = res.status;
-        throw e;
-      });
-    }
-
-    // 一次性输出（v0.25.6）：非流式请求，等待完整结果后整体上屏；等待期间仅显示耗时，不逐行渲染。
+    // 一次性输出（v0.25.6）：非流式请求，等待完整结果后整体上屏；等待期间显示阶段进度与耗时。
     let metaTimer = setInterval(function () {
       $('summaryMeta').textContent = '生成中… 已用时 ' + Math.round((Date.now() - startedAt) / 1000) + 's';
     }, 1000);
 
-    async function runSummary(includeTemp) {
-      const ctrl = new AbortController();
-      currentAbortCtrl = ctrl;
-      const res = await _pf(buildingUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + config.apiKey,
-        },
-        body: JSON.stringify(buildBody(includeTemp)),
-        signal: ctrl.signal,   // 直连通道（DeepSeek/智谱/千问标准等开放 CORS 端点）可取消；桥接通道不响应 signal
-      });
-      if (!res.ok) await httpErrFrom(res);
-      const data = await res.json();
-      const content = data.choices && data.choices[0] && data.choices[0].message
-        ? data.choices[0].message.content : null;
-      if (!content) throw new Error('AI 返回内容为空');
-      return content;
-    }
-
-    // 「400 报错含 temperature → 去参重试一次」
-    async function attempt(includeTemp) {
-      try {
-        return await runSummary(includeTemp);
-      } catch (err) {
-        if (!reasoning && /temperature/i.test(String((err && err.message) || ''))) {
-          return await runSummary(false);
-        }
-        throw err;
-      }
-    }
+    // 取消：AbortController 透传 summarizeContent → chat/proxyFetch（直连通道可取消；桥接通道不响应 signal）
+    const ctrl = new AbortController();
+    currentAbortCtrl = ctrl;
 
     try {
-      const result = await attempt(!reasoning);
+      // v0.53.0 对齐 voice_transcription：默认 freeSummaryPrompt（G-SPEC），模板路径 summaryTemplatePrompt；
+      // 超长输入自动 map-reduce；通读优先/语言指令/temperature 自适应与去参重试由 AiService 统一处理
+      const result = await _as.summarizeContent({
+        content: fullText,
+        template: tplId !== 'default' ? tplId : '',
+        userPrompt: instruction,
+        lang: lang,
+        config: { baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model },
+        signal: ctrl.signal,
+        onProgress: function (stage, done, total) {
+          var elapsed = Math.round((Date.now() - startedAt) / 1000);
+          $('summaryMeta').textContent = total > 0
+            ? '理解全文 ' + done + '/' + total + ' … 已用时 ' + elapsed + 's'
+            : '生成总结中… 已用时 ' + elapsed + 's';
+        },
+      });
       clearInterval(metaTimer);
+      const content = String(result || '').trim();
+      if (!content) throw new Error('AI 返回内容为空');
 
-      showResult(result);
+      showResult(content);
       // 自动保存到历史（可后续查阅/编辑）
-      addHistory(fullText, result, lang);
+      addHistory(fullText, content, lang);
       const secs = ((Date.now() - startedAt) / 1000).toFixed(1);
-      $('summaryMeta').textContent = '生成于 ' + formatTime(Date.now()) + ' · 耗时 ' + secs + 's' + (loadedFiles.length ? ' · 来源 ' + loadedFileNames() : '') + (trunc.truncated ? ' · 超长已自动截取' : '');
+      $('summaryMeta').textContent = '生成于 ' + formatTime(Date.now()) + ' · 耗时 ' + secs + 's' + (loadedFiles.length ? ' · 来源 ' + loadedFileNames() : '');
       showToast('总结生成完成，已保存到历史', 'success');
     } catch (err) {
       clearInterval(metaTimer);
-      if (currentAbortCtrl && currentAbortCtrl.signal.aborted) {
+      if (ctrl.signal.aborted) {
         $('summaryMeta').textContent = '';
         showToast('已取消生成', 'info');
         return;
@@ -694,21 +618,25 @@
     // 必须使用原始 Markdown（dataset.rawText）：textContent 已被 renderMarkdown 剥离语法
     const raw = $('summaryResult').dataset.rawText;
     if (!raw) { showToast('暂无总结内容可下载', 'error'); return; }
-    const stamp = formatDate(Date.now());
+    // v0.53.0: 文件名 = 总结名称（首个一级标题）+ 时间戳，对齐参考项目 timestampName
+    const nameBase = (window.AiService && AiService.summaryFileTitle) ? AiService.summaryFileTitle(raw) : 'email-summary';
+    const nameFor = (ext) => (window.AiService && AiService.timestampName) ? AiService.timestampName(nameBase, ext) : 'email-summary-' + formatDate(Date.now()) + '.' + ext;
     let filename, mime, content;
     if (format === 'md') {
-      filename = 'email-summary-' + stamp + '.md';
+      filename = nameFor('md');
       mime = 'text/markdown;charset=utf-8';
       content = raw;
     } else {
       // 单文件 HTML 导出统一走 AiService（scenario-templates R2 交互式版式；
       // mdToHtmlAsync 额外把 mermaid 块（思维导图/流程图）内嵌打包库渲染成图）
-      filename = 'email-summary-' + stamp + '.html';
+      filename = nameFor('html');
       mime = 'text/html;charset=utf-8';
       content = (window.AiService && AiService.mdToHtmlAsync)
-        ? await AiService.mdToHtmlAsync(raw, 'Email Summary')
-        : (window.AiService && AiService.mdToHtml ? AiService.mdToHtml(raw, 'Email Summary') : raw);
+        ? await AiService.mdToHtmlAsync(raw, nameBase)
+        : (window.AiService && AiService.mdToHtml ? AiService.mdToHtml(raw, nameBase) : raw);
     }
+// v0.52.3: md 导出统一升级时间轴（与 AiService.downloadText 闸门同款）
+    if (/^text\/markdown\b/i.test(String(mime || '')) && window.upgradeMarkdownTimeline) content = window.upgradeMarkdownTimeline(content);
     const blob = new Blob([content], { type: mime });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -904,5 +832,6 @@
 
   /* ==================== Init ==================== */
   initTemplateSelect();
+  initLangSelect();
   renderHistory();
 })();

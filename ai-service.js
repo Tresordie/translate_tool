@@ -487,6 +487,7 @@
       var t = await r.text();
       return pfRes(t, r.ok, r.status);
     } catch (e) {
+      if (options.signal && options.signal.aborted) throw new DOMException('已取消', 'AbortError');
       if (_bridge.available === null) _bridge.available = await bridgePing();
       if (!_bridge.available) throw new Error('网络请求失败，请检查 Base URL 与网络连接');
       return await bridgeFetch(url, options);
@@ -495,15 +496,18 @@
 
   /**
    * 发送一次 chat-completions 请求，返回 assistant 正文。
-   * 参数: { messages, temperature, maxTokens, extraBody }
+   * 参数: { messages, temperature, maxTokens, extraBody, config, signal }
+   * config 缺省读 translate_config；页面级配置（work_config / email_summary_config）可显式传入（v0.53.0）。
    * reasoning 模型省略 temperature / max_tokens（与 TaskFlow AiService 一致）；
    * 若某模型拒绝 temperature（400），自动无参重试一次。
    */
   async function chat(opts) {
-    var config = getConfig();
+    var config = opts.config || getConfig();
     if (!config.baseUrl || !config.apiKey || !config.model) {
       throw new Error('请先配置 API（Base URL / API Key / Model）');
     }
+    // 已取消立即抛出（不发起请求、不走桥接探测），与参考项目 abort 语义一致
+    if (opts.signal && opts.signal.aborted) throw new DOMException('已取消', 'AbortError');
     var reasoning = isReasoningModel(config.model);
     var url = buildUrl(config.baseUrl);
 
@@ -524,8 +528,10 @@
             'Authorization': 'Bearer ' + config.apiKey,
           },
           body: JSON.stringify(body),
+          signal: opts.signal,
         });
       } catch (e) {
+        if (opts.signal && opts.signal.aborted) throw new DOMException('已取消', 'AbortError');
         throw new Error(/网络请求失败|桥接/.test(e.message) ? e.message : '网络请求失败，请检查 Base URL 与网络连接');
       }
       if (!pr.ok) {
@@ -553,23 +559,31 @@
     }
   }
 
-  /* ================= 输出语种配置（AI Parse） ================= */
+  /* ================= 输出语种配置（v0.53.0 对齐 voice_transcription：跟随原文 + 16 种常用语言） ================= */
 
-  // label 供下拉框展示，name 为注入 Prompt 的语种表述；新增语种只需在此追加
+  // code 'auto' = 跟随原文：不注入语言指令，由模型按输入材料语言输出（参考项目默认项）。
+  // label 供下拉框展示；name 为注入提示词的语言名，与参考项目 OUTPUT_LANGUAGES 的 value 逐字一致。
   var OUTPUT_LANGS = [
-    { code: 'zh', label: '中文', name: 'Simplified Chinese (中文)' },
-    { code: 'en', label: '英语', name: 'English' },
-    { code: 'ja', label: '日语', name: 'Japanese (日本語)' },
-    { code: 'ko', label: '韩语', name: 'Korean (한국어)' },
-    { code: 'fr', label: '法语', name: 'French (Français)' },
-    { code: 'de', label: '德语', name: 'German (Deutsch)' },
-    { code: 'es', label: '西班牙语', name: 'Spanish (Español)' },
-    { code: 'ru', label: '俄语', name: 'Russian (Русский)' },
-    { code: 'ar', label: '阿拉伯语', name: 'Arabic (العربية)' },
-    { code: 'pt', label: '葡萄牙语', name: 'Portuguese (Português)' },
+    { code: 'auto', label: '跟随原文', name: '' },
+    { code: 'zh', label: '简体中文', name: '简体中文' },
+    { code: 'zh-TW', label: '繁體中文', name: '繁體中文' },
+    { code: 'en', label: 'English（英语）', name: 'English（英语）' },
+    { code: 'ja', label: '日本語（日语）', name: '日本語（日语）' },
+    { code: 'ko', label: '한국어（韩语）', name: '한국어（韩语）' },
+    { code: 'fr', label: 'Français（法语）', name: 'Français（法语）' },
+    { code: 'de', label: 'Deutsch（德语）', name: 'Deutsch（德语）' },
+    { code: 'es', label: 'Español（西班牙语）', name: 'Español（西班牙语）' },
+    { code: 'pt', label: 'Português（葡萄牙语）', name: 'Português（葡萄牙语）' },
+    { code: 'it', label: 'Italiano（意大利语）', name: 'Italiano（意大利语）' },
+    { code: 'ru', label: 'Русский（俄语）', name: 'Русский（俄语）' },
+    { code: 'ar', label: 'العربية（阿拉伯语）', name: 'العربية（阿拉伯语）' },
+    { code: 'hi', label: 'हिन्दी（印地语）', name: 'हिन्दी（印地语）' },
+    { code: 'th', label: 'ไทย（泰语）', name: 'ไทย（泰语）' },
+    { code: 'vi', label: 'Tiếng Việt（越南语）', name: 'Tiếng Việt（越南语）' },
+    { code: 'id', label: 'Bahasa Indonesia（印尼语）', name: 'Bahasa Indonesia（印尼语）' },
   ];
 
-  /** 按 code 查语种配置；未知/缺省回退中文 */
+  /** 按 code 查语种配置；未知/缺省回退 auto（跟随原文） */
   function getOutputLang(code) {
     for (var i = 0; i < OUTPUT_LANGS.length; i++) {
       if (OUTPUT_LANGS[i].code === code) return OUTPUT_LANGS[i];
@@ -598,74 +612,9 @@
     '9. If there is no actionable task, return {"tasks":[]}.',
   ].join('\n');
 
-  var CONTENT_ANALYZE_PROMPT = [
-    '# 角色',
-    '你是资深技术分析助理，面向硬件/项目工程师（NPI 电动自行车项目）。',
-    '',
-    '# 任务',
-    '按用户给出的【解析要求】对【内容】进行解析与总结；未给出要求时，输出一份结构化要点总结。',
-    '',
-    '# 铁律',
-    '1. 绝不编造：内容中没有的信息禁止生成；信息不足时明确指出缺什么。',
-    '2. 数字保真：数值、型号、料号、寄存器名、命令名、日期与原文逐字一致，禁止四舍五入或泛化。',
-    '3. 一条一个事实：每个要点只讲一个事实/事件/决策，禁止合并。',
-    '4. 结构化：markdown 标题 + 编号/列表分区，禁止平铺长段落。',
-    '5. 语言：{{LANG_RULE}}。',
-    '',
-    '# 输出',
-    '仅输出 markdown 结果本身，无额外解释、无代码围栏。',
-  ].join('\n');
-
-  var EMAIL_THREAD_PROMPT = [
-    '# 角色',
-    '你是面向硬件/项目工程师的项目秘书。用户给你客户或合作伙伴的邮件线程（常中英混杂、倒序引用、夹带签名档与保密声明），你负责理清并总结。',
-    '',
-    '# 铁律（违反即为失败）',
-    '1. 绝不编造：没有邮件正文就明确说明缺少内容，绝不凭空生成。',
-    '2. 数字保真：所有数值、型号、寄存器名、命令名、日期与原文逐字一致（如 4.19 V、0xF091、CAL_COV 原样保留）。',
-    '3. 数值漂移必须标注：同一参数多封邮件中变化时，以最新一封为准，并在风险区标出变更过程。',
-    '4. 区分已拍板与未拍板：只有最新邮件明确决定的写"已决定"；讨论未定案的写"未拍板/待澄清"。',
-    '5. 标题≠范围：邮件标题涵盖范围与最终实际决定范围不一致时，必须指出差异。',
-    '6. 去噪不丢信息：剥离签名档、保密声明、引用标记（>、On ... wrote:），但被引用段落里的实质内容必须纳入时间线。',
-    '7. 时间正序：把线程按时间从早到晚重排后再总结。',
-    '',
-    '# 输出格式（markdown，章节顺序固定）',
-    '## 邮件线程详细总结',
-    '### 一、主题与背景',
-    '- **邮件主题**：`<Subject>`',
-    '- **双方**：<甲方（姓名，职位，公司）> ↔ <乙方（姓名，职位，公司）>',
-    '- **对象**：<项目/产品/芯片型号等>',
-    '- **核心诉求演变**：<最初诉求> → <最终结论>',
-    '',
-    '### 二、时间线（按时间正序，共 N 封）',
-    '| 日期 | 发件人 | 关键内容 |',
-    '|---|---|---|',
-    '| MM-DD | XXX | 1~3 句：诉求/结论/关键数字 |',
-    '（每封一行，纯礼节/催办邮件也要列出）',
-    '',
-    '### 三、技术要点',
-    '1. **<要点一>**：<结论>（无法核对的注明"未验证"）',
-    '',
-    '### 四、风险与注意点',
-    '- **数值已变更**：<旧值> → <新值>，以新值为准',
-    '- **范围差异**：<标题/早期讨论范围> vs <实际决定范围>',
-    '- **依赖关系**：<谁等谁，先后顺序>',
-    '- **未明确的点**：<容差/参数/决策缺口，逐条列出>',
-    '',
-    '## To Do List',
-    '### A. 我方',
-    '| # | 优先级 | 事项 | 验收标准 | 依赖 |',
-    '|---|---|---|---|---|',
-    '| A1 | 🔴 P0 | <动词开头的可执行动作> | <怎样算完成> | <前置项或"无"> |',
-    '### B. 对方',
-    '| # | 责任人 | 事项 |',
-    '（只收录对方明确承诺/认领的事项）',
-    '### C. 联合验证（后续节点）',
-    '- [ ] <双方共同完成的验证项>',
-    '',
-    '优先级：P0 = 阻塞交付或有明确期限；P1 = 有依赖需排期；P2 = 记录归档。',
-    '仅输出 markdown 结果本身，无额外解释、无代码围栏。',
-  ].join('\n');
+  // v0.53.0：原 CONTENT_ANALYZE_PROMPT（铁律结构化总结）与 EMAIL_THREAD_PROMPT（四段式+To Do List）
+  // 已移除——默认总结统一改用 freeSummaryPrompt（参考 voice_transcription 自由总结 + G-SPEC 契约），
+  // 邮件线程结构由 G-SPEC ④时间轴条款与 E1-E5 模板覆盖。
 
   /* ================= 总结模板（源自 scenario-templates 技能 25 套 × 5 场景，工作报告 / AI 解析 / 邮件总结共用） ================= */
 
@@ -708,6 +657,13 @@
   // 共享【输出契约】G-SPEC：skill 每套提示词末尾内嵌的压缩版（与 references/scenario-skills.md 逐字一致），
   // 构建提示词时由 summaryTemplatePrompt 统一拼接到各模板正文之后
   var SUMMARY_TEMPLATE_GSPEC = "【输出契约】①结构：结论式标题(含数字/对比)→30秒TL;DR(≤3条)→正文模块→全局待办表(事项/唯一负责人/截止日/验收标准/出处)；每个模块末尾固定三行：【重点】…【结论】…【待办】…。②多格式：默认Markdown(表格用于待办/对比/参数)；按需输出单文件HTML(内联CSS、无CDN、浅底深字、模块可折叠/可复制、含打印样式→可打印PDF)或DOCX(pandoc，保留标题层级与表格)。③视觉：封面块(SVG封面：标题/日期/参与人/一句话结论/状态徽章；照片级封面另附文生图提示词)；按内容自动配图——占比→饼图(≤5类)/堆叠条形(>5类)、排名→横向条形、趋势→折线(标异常点+事件)、流程/依赖→mermaid flowchart、结构/聚类→mermaid mindmap、对比/参数→表格、时间/里程碑→时间轴/甘特、风险→概率×影响矩阵、状态→徽章/看板/进度条；每模块配1个图标，关键概念配SVG示意图。④时间轴：会议/线程/项目/问题排查输出「时间戳|发言人/来源|事件」与纪要要点双栏并列，关键摘录保留原话±2句+时间戳；视觉用竖线+彩色节点——事件时间轴：阶段彩点(蓝=推进/棕=停滞/红=升级)+同色日期胶囊+加粗标题+灰描述，时间正序；任务时间轴：时间戳列+状态分段彩线+圆环节点(🚧/✅/📦)+卡片(优先级徽章/项目标签/Due/log计数)，时间倒序，逾期标红仅限「未完成且已过due」，完成/归档标题划线+灰淡；可复制骨架见 references/timeline.md。⑤保真：保持原意不变，只重新组织/解读/可视化，不新增事实、不统一分歧；数字/人名/日期/标识符(版本号/SN/字段名/错误码)原文保留，缺失写【待补】/【待确认】，推断必须标注。⑥交互：HTML中每模块可折叠/展开、带「复制本模块」按钮、留「重新生成」入口(Hermes内用data-hermes-send)、支持全部展开/折叠；Markdown以层级标题+表格保证逐段可复制。";
+
+  // ===== 通读优先规则（v0.52.2） =====
+  // 所有总结/解析路径必须先完整阅读并理解全部输入与附件内容，再按用户要求输出。
+  // 由 summaryTemplatePrompt / freeSummaryPrompt 统一追加（v0.53.0 起默认路径亦走此二者）。
+  var READ_FIRST_RULE = '# 通读优先（最高优先级）\n在输出任何总结/解析之前，必须先完整阅读并理解全部输入内容与所有附件内容（多份附件以「===== 附件 N：文件名 =====」分界，逐份读全，禁止跳过）：\n1. 禁止只凭标题、开头或局部片段下结论；每个要点必须建立在对完整内容的理解之上。\n2. 完全理解全部内容后，再按系统提示中的【用户额外要求】与上述结构规范进行总结。\n3. 若内容标注了截断/省略（如「省略中间 N 字符」），必须在输出中明确说明截断情况，禁止臆造被省略部分。';
+  var READ_FIRST_RULE_EN = 'Read-first rule (highest priority): Before writing any output, you MUST fully read and understand ALL input and attachment content (multiple attachments are delimited by 「===== 附件 N：文件名 =====」; read every one completely, never skip). Never draw conclusions from titles, openings or partial fragments. Only after understanding the complete content, summarize according to the user\'s instructions and the structure above. If the input is marked as truncated, state this explicitly and never invent the omitted part.';
+  // ===== 通读优先规则（结束） =====
 
   // 各模板专属正文（逐字取自 skill 可粘贴提示词，输出契约/语言规则/占位符说明由 summaryTemplatePrompt 统一追加）
   var SUMMARY_TEMPLATE_PROMPTS = {
@@ -842,44 +798,66 @@
   ].join('\n');
 
   /**
-   * 总结模板 system prompt（工作报告 / AI 解析 / 邮件总结共用）。
-   * langName 为输出语言的展示名：含「中文」走中文规则，否则追加「输出语言最高优先级」覆盖段
-   * （与 emailPrompt 非 中文 输出的处理同一模式）。
+   * 输出语言指令（v0.53.0，逐字移植 voice_transcription buildSystemPrompt 的 langNote）。
+   * 置于 system 提示词最末：泛泛的「格式不得省略」约束不住语言切换时的契约衰减，
+   * 这里把 G-SPEC 结构要求逐条重述成 ①-⑦ 清单，让模型在输出位置可逐项对照。
+   * langName 为空（跟随原文）→ 返回空串，不注入任何语言指令。
    */
-  function summaryTemplatePrompt(id, langName) {
+  function outputLangNote(langName) {
+    var lang = String(langName || '').trim();
+    if (!lang) return '';
+    return '\n\n【输出语言】请将总结的全部内容一律用「' + lang + '」书写；这只是语言切换，结构与格式必须和中文输出完全一致，逐项对照以下清单（与上文 G-SPEC 契约对应，一项不得省略）：\n' +
+      '① 结论式标题（含数字/对比）＋ 30秒 TL;DR（≤3条）；\n' +
+      '② 模块化正文（小标题＋表格），每个模块末尾固定三行小结——用「' + lang + '」等义标记（英文如 Key points / Conclusion / Next actions）；\n' +
+      '③ 全局待办表：事项/唯一负责人/截止日/验收标准/出处 五列齐全；\n' +
+      '④ 按内容自动配图：占比→饼图（≤5类）/堆叠条形（>5类）、排名→横向条形、趋势→折线（标异常点）、流程/依赖→mermaid flowchart、结构/聚类→mermaid mindmap、对比/参数→表格、时间/里程碑→时间轴/甘特、风险→概率×影响矩阵、状态→徽章/看板/进度条；每模块配 1 个图标，关键概念配 SVG 示意图；\n' +
+      '⑤ 会议/线程/项目输出「时间戳|发言人/来源|事件」时间轴，关键摘录保留原话±2句＋时间戳（原话保留原语言）；\n' +
+      '⑥ 封面块（SVG 封面：标题/日期/参与人/一句话结论/状态徽章）；\n' +
+      '⑦ 保真：数字/人名/日期/标识符（版本号/SN/字段名/错误码）原文保留，缺失信息用「' + lang + '」等义占位标记（英文如 [TBC]），推断必须标注，不新增事实。\n' +
+      '若使用模板，模板定义的全部模块（如决策日志、证据附录、风险矩阵）一个不少，仅将文字换成「' + lang + '」；上文契约中的中文固定措辞（【重点】【结论】【待办】【待确认】【待补】等）一律改为「' + lang + '」等义标记；除原文直接引用与专有名词外不得出现中文；若上文契约与语言要求冲突，以本要求为准。';
+  }
+
+  /**
+   * 总结模板 system prompt（工作报告 / AI 解析 / 邮件总结共用；
+   * v0.53.0 对齐 voice_transcription buildSystemPrompt 模板分支）。
+   * 结构：模板正文 → G-SPEC → 【本任务说明】（主输入位置+占位符）→ 时间轴骨架（可选）
+   *       → 通读优先 → 【用户额外要求】（可选）→ 【输出语言】（最末，防契约衰减）。
+   * langName 取 OUTPUT_LANGS.name；空串 = 跟随原文（不注入语言指令）。
+   */
+  function summaryTemplatePrompt(id, langName, userPrompt) {
     var body = SUMMARY_TEMPLATE_PROMPTS[id];
     if (!body) return '';
-    var lang = String(langName || '中文').trim();
-    var isZh = lang.indexOf('中文') !== -1;
-    var rule = isZh
-      ? '# 输出语言\n全文使用' + lang + '输出。'
-      : '# 输出语言（最高优先级）\n上文中的中文小节名称与提示字样仅为结构模板：实际输出必须全部使用' + lang +
-        '，包括所有章节标题、表头与正文；章节结构与顺序保持不变。';
-    var material = '# 材料与占位符\n提示词中的 {{...}} 占位符以用户消息提供的材料为准：材料未提及的信息写【待确认】，禁止把 {{占位符}} 原样写进输出。';
+    var lang = String(langName || '').trim();
+    var material = '【本任务说明】上文「输入：{{...}}」所指的主输入材料在用户消息中以「===== 全文内容 =====」分隔完整给出；' +
+      '其余占位符上下文若用户消息未提供，请按全文内容合理推断，无法推断的' +
+      // 指定了输出语言时不用中文占位标记，避免与文末语言指令冲突
+      (lang ? '用输出语言的等义占位标记标注' : '写【待确认】') + '。';
+    var extra = String(userPrompt || '').trim() ? '\n\n【用户额外要求】' + String(userPrompt).trim() : '';
     // 输出模块含时间轴的模板：追加技能 timeline.md 的时间轴视觉规范与两套骨架（技能调用方式第 3 步）
     var tl = TIMELINE_TEMPLATE_IDS.indexOf(String(id).toUpperCase()) !== -1 ? '\n\n' + TIMELINE_SPEC : '';
-    return body + '\n\n' + SUMMARY_TEMPLATE_GSPEC + '\n\n' + material + '\n\n' + rule + tl;
+    return body + '\n\n' + SUMMARY_TEMPLATE_GSPEC + '\n\n' + material + tl + '\n\n' + READ_FIRST_RULE + extra + outputLangNote(lang);
   }
 
-  /** 任务抽取 system prompt（按语种注入） */
+  /**
+   * 自由总结 system prompt（v0.53.0，逐字移植 voice_transcription buildSystemPrompt 自由总结分支）。
+   * 三页默认模式统一走此提示词：结论先行 + G-SPEC 契约；用户要求进【用户额外要求】；语言指令置最末。
+   */
+  function freeSummaryPrompt(langName, userPrompt) {
+    var lang = String(langName || '').trim();
+    var base = '你是专业的内容总结助手。请理解用户消息中「===== 全文内容 =====」之后的完整材料，' +
+      '输出一份结构清晰的 Markdown 总结（结论先行、要点条目化、善用小标题与表格），保留数字与专有名词原样，' +
+      '不新增事实；' +
+      (lang ? '缺失信息用输出语言的等义占位标记标注（如英文写 [TBC]）。' : '缺失信息写【待确认】。');
+    var extra = String(userPrompt || '').trim()
+      ? '\n\n【用户额外要求】' + String(userPrompt).trim()
+      : '\n【用户额外要求】请给出全面而精炼的总结：核心结论、关键要点、重要数据与待办事项。';
+    return base + extra + '\n\n' + SUMMARY_TEMPLATE_GSPEC + '\n\n' + READ_FIRST_RULE + outputLangNote(lang);
+  }
+
+  /** 任务抽取 system prompt（按语种注入；auto = 跟随输入笔记语言） */
   function tasksPrompt(langCode) {
-    return SYSTEM_PROMPT_TASKS.split('{{LANG}}').join(getOutputLang(langCode).name);
-  }
-
-  /** 自由分析 system prompt（按语种注入） */
-  function analyzePrompt(langCode) {
-    var rule = '全文严格使用' + getOutputLang(langCode).name + '输出';
-    return CONTENT_ANALYZE_PROMPT.split('{{LANG_RULE}}').join(rule);
-  }
-
-  /** 邮件线程 system prompt；非中文输出时追加语言覆盖段（章节结构保持不变） */
-  function emailPrompt(langCode) {
-    var lang = getOutputLang(langCode);
-    if (lang.code === 'zh') return EMAIL_THREAD_PROMPT;
-    return EMAIL_THREAD_PROMPT +
-      '\n\n# 输出语言（最高优先级）\n' +
-      '上文中的中文章节名称仅为结构模板：实际输出必须全部使用' + lang.name +
-      '，包括所有章节标题、表头与正文；章节结构与顺序保持不变。';
+    var name = getOutputLang(langCode).name;
+    return SYSTEM_PROMPT_TASKS.split('{{LANG}}').join(name || 'the same language as the input notes');
   }
 
   function stripFences(s) {
@@ -942,26 +920,132 @@
     return parseTaskJson(content);
   }
 
-  /* ================= AI Parse — 自由分析 / 邮件线程 ================= */
+  /* ================= 总结编排（v0.53.0 对齐 voice_transcription summarizeContent） ================= */
+
+  /** map 阶段每块目标字符数 */
+  var MAP_CHUNK_CHARS = 8000;
+  /** 超过此字符数启用 map-reduce */
+  var MAP_THRESHOLD = 12000;
+  /** map 阶段最大块数（超出则截断并注明，约 100 万字符上限） */
+  var MAP_MAX_CHUNKS = 120;
+
+  var MAP_SYSTEM =
+    '你是资料整理专家。以下是大文档的一个片段，请提取关键信息要点：' +
+    '事实、数字、结论、决策、待办、人名/日期/专有名词等，条目化输出（Markdown 列表），' +
+    '保留数字与专有名词原样，不臆造、不评价，≤400 字。';
+
+  /** 按行/段落边界分块（避免切断语句），单行超长硬切兜底 */
+  function splitByParagraphs(text, maxChars) {
+    if (maxChars == null) maxChars = MAP_CHUNK_CHARS;
+    var chunks = [];
+    var buf = '';
+    var lines = String(text).split('\n');
+    for (var li = 0; li < lines.length; li++) {
+      var line = lines[li];
+      if (buf && buf.length + line.length + 1 > maxChars) {
+        chunks.push(buf);
+        buf = '';
+      }
+      buf += (buf ? '\n' : '') + line;
+      while (buf.length >= maxChars) {
+        chunks.push(buf.slice(0, maxChars));
+        buf = buf.slice(maxChars);
+      }
+    }
+    if (buf.trim()) chunks.push(buf);
+    return chunks;
+  }
+
+  /** 有并发上限的 map 执行器（保序输出） */
+  async function mapWithConcurrency(items, limit, worker, signal) {
+    var results = new Array(items.length);
+    var next = 0;
+    var runners = [];
+    var n = Math.min(limit, items.length);
+    for (var r = 0; r < n; r++) {
+      runners.push((async function () {
+        for (;;) {
+          if (signal && signal.aborted) throw new DOMException('已取消', 'AbortError');
+          var i = next++;
+          if (i >= items.length) return;
+          results[i] = await worker(items[i], i);
+        }
+      })());
+    }
+    await Promise.all(runners);
+    return results;
+  }
 
   /**
-   * 自由分析：instructions 与/或附件 → 结构化 markdown 总结；lang 为输出语种 code。
-   * prompt 优先级：显式 template（总结模板，见 SUMMARY_TEMPLATES）> email 邮件线程 playbook > 默认结构化总结
+   * 总结主入口（三页共用）：理解全文（超长 map-reduce）→ 按模板/自由总结生成，返回完整 Markdown。
+   * opts: { content, template(模板id，空=自由总结), userPrompt(用户额外要求), lang(输出语种code，auto=跟随原文),
+   *         config(页面级 API 配置，缺省读 translate_config), onProgress(stage,done,total), signal }
+   * 与参考项目一致：map 阶段并发 2、每块 maxTokens 800；最终阶段 temperature 0.3、不限输出长度。
+   */
+  async function summarizeContent(opts) {
+    opts = opts || {};
+    var content = String(opts.content || '');
+    var langName = getOutputLang(opts.lang).name; // auto → ''（跟随原文）
+    var material = content;
+    var truncatedNote = '';
+
+    if (content.length > MAP_THRESHOLD) {
+      var chunks = splitByParagraphs(content, MAP_CHUNK_CHARS);
+      if (chunks.length > MAP_MAX_CHUNKS) {
+        chunks = chunks.slice(0, MAP_MAX_CHUNKS);
+        truncatedNote = '\n\n> ⚠️ 原文约 ' + Math.ceil(content.length / 10000) + ' 万字符，超出单次分析上限，本次仅分析前 ' +
+          MAP_MAX_CHUNKS + ' 个片段（约 ' + Math.ceil((MAP_MAX_CHUNKS * MAP_CHUNK_CHARS) / 10000) + ' 万字符）。';
+      }
+      if (opts.onProgress) opts.onProgress('理解全文（分块提取要点）', 0, chunks.length);
+      var bullets = await mapWithConcurrency(chunks, 2, async function (chunk, i) {
+        var out = await chat({
+          config: opts.config,
+          signal: opts.signal,
+          maxTokens: 800,
+          messages: [
+            { role: 'system', content: MAP_SYSTEM },
+            { role: 'user', content: '【片段 ' + (i + 1) + '/' + chunks.length + '】\n' + chunk },
+          ],
+        });
+        if (opts.onProgress) opts.onProgress('理解全文（分块提取要点）', i + 1, chunks.length);
+        return out;
+      }, opts.signal);
+      material =
+        '以下是对全文各片段依次提取的要点合集（已按原文顺序拼接），请在此基础上结合整体脉络进行总结：\n\n' +
+        bullets.map(function (b, i) { return '【片段 ' + (i + 1) + ' 要点】\n' + b; }).join('\n\n') +
+        truncatedNote;
+    }
+
+    var system = opts.template
+      ? summaryTemplatePrompt(opts.template, langName, opts.userPrompt)
+      : freeSummaryPrompt(langName, opts.userPrompt);
+    if (opts.onProgress) opts.onProgress('生成总结', 0, 0);
+    return chat({
+      config: opts.config,
+      signal: opts.signal,
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: '===== 全文内容 =====\n' + material },
+      ],
+    });
+  }
+
+  /**
+   * AI 解析页入口（兼容旧签名）：instructions 与/或附件 → markdown 总结。
+   * v0.53.0 起统一委托 summarizeContent：显式 template > 自由总结（G-SPEC）；
+   * 旧 email 标记不再切换 playbook（邮件线程结构由 G-SPEC ④时间轴与 E1-E5 模板覆盖）。
    */
   async function analyzeContent(opts) {
-    var instructions = String(opts.instructions || '').trim();
-    var content = String(opts.content || '').trim();
-    var user = instructions
-      ? '【解析要求】\n' + instructions + '\n\n———\n\n【内容】\n' + content
-      : content;
-    var tplPrompt = opts.template ? summaryTemplatePrompt(opts.template, getOutputLang(opts.lang).name) : '';
-    return chat({
-      temperature: 0.3,
-      maxTokens: 3000,
-      messages: [
-        { role: 'system', content: tplPrompt || (opts.email ? emailPrompt(opts.lang) : analyzePrompt(opts.lang)) },
-        { role: 'user', content: user },
-      ],
+    opts = opts || {};
+    return summarizeContent({
+      content: String(opts.content || '').trim(),
+      template: opts.template || '',
+      userPrompt: String(opts.instructions || '').trim(),
+      lang: opts.lang || 'auto',
+      config: opts.config,
+      onProgress: opts.onProgress,
+      signal: opts.signal,
     });
   }
 
@@ -1055,6 +1139,10 @@
   }
 
   function downloadText(filename, content, mime) {
+    // v0.52.3：md 导出统一升级时间轴（表格/彩点日期列表 → 行内样式卡片，参考 voice_transcription exporters）
+    if (/^text\/markdown\b/i.test(String(mime || '')) && typeof global.upgradeMarkdownTimeline === 'function') {
+      content = global.upgradeMarkdownTimeline(content);
+    }
     var blob = new Blob([content], { type: mime || 'text/plain;charset=utf-8' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1372,8 +1460,9 @@
     return truncateLargeText(text, PDF_TEXT_BUDGET);
   }
 
-  // 单文件 HTML 导出（对齐 scenario-templates 技能生成的交互式纪要版式）：
-  // 浅底深字 + teal 主色白卡片；正文按顶级标题（#/##）切成 <details> 可折叠模块卡，
+  // 单文件 HTML 导出（模块卡片版式为本项目特色；视觉对齐参考项目 voice_transcription exporters.ts）：
+  // 1280px 内容宽度 / 行高 1.75 / 靛蓝 #6366f1 主色 / 浅靛表头 / 深色代码块 / 打印收回 760px；
+  // 正文按顶级标题（#/##）切成 <details> 可折叠模块卡，
   // 每模块带「复制本模块」（内嵌 markdown 源），工具栏全部展开/折叠 + 打印/导出 PDF
   // （打印前自动全展开）；无 CDN；表格横滚/斑马纹、内联 SVG 入 .fig 图框。
   // ```mermaid 块（思维导图/流程图/甘特等）经 mdToHtmlAsync 内嵌打包的 mermaid.min.js
@@ -1383,70 +1472,75 @@
   var MD_TO_HTML_CSS = [
     ':root{color-scheme:light}',
     '*{box-sizing:border-box}',
-    'body{margin:0;background:#eef1f5;color:#1a2332;font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;line-height:1.65}',
-    '.page{max-width:1180px;margin:0 auto;padding:20px 16px 60px}',
-    'header.top{position:relative;overflow:hidden;background:#fff;border:1px solid #d7dde5;border-radius:14px;padding:22px 26px 18px;margin-bottom:14px}',
-    'header.top::before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:linear-gradient(90deg,#0f766e,#2dd4bf 45%,#0f766e)}',
-    'header.top h1{font-size:22px;line-height:1.4;margin:0 0 10px;color:#1a2332}',
+    'body{margin:0;background:#fff;color:#1f2937;font-family:"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;line-height:1.75}',
+    '.page{max-width:1280px;margin:0 auto;padding:32px 24px 60px}',
+    'header.top{position:relative;overflow:hidden;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:22px 26px 18px;margin-bottom:14px}',
+    'header.top::before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:linear-gradient(90deg,#6366f1,#818cf8 45%,#6366f1)}',
+    'header.top h1{font-size:1.7em;line-height:1.4;margin:0 0 10px;color:#1f2937;border-bottom:3px solid #6366f1;padding-bottom:10px}',
     'header.top .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}',
-    'header.top .pill{border:1px solid #d7dde5;background:#f6f8fa;border-radius:999px;padding:2px 11px;font-size:12px;color:#5b6b7c}',
-    '.toolbar{position:sticky;top:0;z-index:9;background:#ffffffee;backdrop-filter:blur(4px);border:1px solid #d7dde5;border-radius:10px;padding:8px 12px;margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}',
-    '.toolbar button{border:1px solid #0f766e;background:#fff;color:#0f766e;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;font-weight:600}',
-    '.toolbar button:hover{background:#ecfdf5}',
-    '.toolbar .hint{font-size:12px;color:#5b6b7c;margin-left:auto}',
-    'details.mod{background:#fff;border:1px solid #d7dde5;border-radius:12px;margin-bottom:12px;overflow:hidden;transition:border-color .15s}',
-    'details.mod:hover{border-color:#c9d3de}',
-    'details.mod[open]{border-color:#bcd9d3}',
-    'details.mod>summary{list-style:none;display:flex;align-items:center;gap:10px;padding:13px 18px;cursor:pointer;background:#f6f8fa;border-bottom:1px solid transparent;font-weight:700;font-size:16px}',
-    'details.mod[open]>summary{border-bottom-color:#d7dde5}',
+    'header.top .pill{border:1px solid #e5e7eb;background:#f9fafb;border-radius:999px;padding:2px 11px;font-size:12px;color:#4b5563}',
+    '.toolbar{position:sticky;top:0;z-index:9;background:#ffffffee;backdrop-filter:blur(4px);border:1px solid #e5e7eb;border-radius:10px;padding:8px 12px;margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}',
+    '.toolbar button{border:1px solid #6366f1;background:#fff;color:#6366f1;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;font-weight:600}',
+    '.toolbar button:hover{background:#eef2ff}',
+    '.toolbar .hint{font-size:12px;color:#6b7280;margin-left:auto}',
+    'details.mod{background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:12px;overflow:hidden;transition:border-color .15s}',
+    'details.mod:hover{border-color:#d1d5db}',
+    'details.mod[open]{border-color:#c7d2fe}',
+    'details.mod>summary{list-style:none;display:flex;align-items:center;gap:10px;padding:13px 18px 13px 14px;cursor:pointer;background:#f9fafb;border-left:4px solid #6366f1;border-bottom:1px solid transparent;font-weight:700;font-size:16px}',
+    'details.mod[open]>summary{border-bottom-color:#e5e7eb}',
     'details.mod>summary::-webkit-details-marker{display:none}',
-    'details.mod>summary::before{content:"▸";color:#0f766e;transition:transform .15s}',
-    'details.mod[open]>summary::before{transform:rotate(90deg)}',
-    'summary .ico{flex:none;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;background:#ecfdf5;border-radius:9px;font-size:16px}',
+    'details.mod>summary::before{content:"▸";color:#6366f1;transition:transform .15s}',
+    'summary .ico{flex:none;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;background:#eef2ff;border-radius:9px;font-size:16px}',
     'summary .mt{flex:1}',
     'summary .btns{display:flex;gap:6px}',
-    'summary .btns button{border:1px solid #d7dde5;background:#fff;color:#5b6b7c;border-radius:7px;padding:3px 10px;font-size:12px;cursor:pointer}',
-    'summary .btns button:hover{border-color:#0f766e;color:#0f766e}',
+    'summary .btns button{border:1px solid #e5e7eb;background:#fff;color:#4b5563;border-radius:7px;padding:3px 10px;font-size:12px;cursor:pointer}',
+    'summary .btns button:hover{border-color:#6366f1;color:#6366f1}',
     '.body{padding:6px 22px 18px}',
-    '.body h2{font-size:18px;color:#0f766e}',
-    '.body h3{font-size:16.5px;margin:22px 0 8px;color:#0f766e;border-left:4px solid #0f766e;padding-left:9px}',
-    '.body h4,.body h5,.body h6{font-size:15px;margin:14px 0 6px;color:#1a2332}',
+    '.body h2{font-size:1.3em;color:#1f2937;border-left:4px solid #6366f1;padding-left:10px;margin:1.4em 0 0.6em}',
+    '.body h3{font-size:1.1em;margin:1.1em 0 0.5em;color:#4338ca}',
+    '.body h4,.body h5,.body h6{font-size:15px;margin:14px 0 6px;color:#1f2937}',
     '.body p{margin:8px 0}',
-    '.body ul,.body ol{margin:6px 0;padding-left:24px}',
+    '.body ul,.body ol{margin:6px 0;padding-left:1.6em}',
     '.body li{margin:4px 0}',
-    '.body blockquote{margin:10px 0;padding:8px 14px;border-left:4px solid #b45309;background:#fffbeb;border-radius:0 8px 8px 0;color:#1a2332}',
-    '.body code{background:#f0f3f6;border:1px solid #e2e8f0;border-radius:5px;padding:1px 6px;font-size:12.5px;font-family:Consolas,monospace}',
-    '.body pre{background:#f6f8fa;border:1px solid #d7dde5;border-radius:9px;padding:12px 14px;overflow:auto}',
-    '.body pre code{background:none;border:none;padding:0;font-size:12.5px;line-height:1.5}',
-    '.body pre:has(code.mermaid-src){border-left:4px solid #0f766e}',
-    '.tablewrap{overflow-x:auto;overflow-y:hidden;margin:10px 0;border:1px solid #d7dde5;border-radius:9px}',
-    '.body table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:640px}',
-    '.body th{background:#0f766e;color:#fff;padding:8px 10px;text-align:left;font-weight:600;white-space:nowrap}',
-    '.body td{border-top:1px solid #e2e8f0;padding:7px 10px;vertical-align:top}',
-    '.body tr:nth-child(even) td{background:#f8fafc}',
-    '.fig{margin:14px 0;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;scroll-margin-top:70px}',
+    '.body blockquote{margin:0.8em 0;padding:8px 14px;border-left:4px solid #a5b4fc;background:#f5f6ff;color:#4b5563}',
+    '.body code{background:#f3f4f6;border-radius:4px;padding:1px 5px;font-size:0.9em;font-family:Consolas,monospace}',
+    '.body pre{background:#111827;color:#e5e7eb;border-radius:8px;padding:12px 14px;overflow:auto}',
+    '.body pre code{background:none;color:inherit;padding:0;font-size:12.5px;line-height:1.5}',
+    '.body pre:has(code.mermaid-src){border-left:4px solid #6366f1}',
+    '.tablewrap{overflow-x:auto;overflow-y:hidden;margin:0.8em 0;border:1px solid #d1d5db;border-radius:8px}',
+    '.body table{border-collapse:collapse;width:100%;font-size:0.92em;min-width:640px}',
+    '.body th{background:#eef2ff;color:#3730a3;padding:6px 10px;text-align:left;font-weight:600;white-space:nowrap}',
+    '.body th,.body td{border:1px solid #d1d5db}',
+    '.body td{padding:6px 10px;vertical-align:top;text-align:left}',
+    '.body tr:nth-child(even) td{background:#f9fafb}',
+    '.fig{margin:1.2em 0;padding:10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;scroll-margin-top:70px}',
     'details.mod{scroll-margin-top:70px}',
     '.fig svg{display:block;max-width:100%;height:auto}',
-    '.mmd{margin:14px 0;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;overflow-x:auto}',
+    '.mmd{margin:14px 0;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;overflow-x:auto}',
     // width:max-content 让 pre 随 SVG 自然宽度伸展（溢出时父级横滚、不缩放）；
     // 窄图时 margin auto 居中。不能用 flex center（溢出时左侧被裁无法滚动到）
     '.mmd pre.mermaid{width:max-content;max-width:none;margin:0 auto;background:none;border:none;padding:4px}',
     '.mmd pre.mermaid svg{max-width:none;height:auto}',
     '.mmd-src{margin-top:8px;border:none}',
-    '.mmd-src summary{cursor:pointer;font-size:12.5px;color:#5b6b7c}',
-    '.mmd-src summary:hover{color:#0f766e}',
+    '.mmd-src summary{cursor:pointer;font-size:12.5px;color:#6b7280}',
+    '.mmd-src summary:hover{color:#6366f1}',
+    // mindmap 节点下划线/分支连线颜色由 mermaid 内部从默认色板推导（cScalePeer 覆盖不全），
+    // 用 !important 压过 SVG 内 #id 选择器，统一靛蓝
+    '.mmd svg [class*="section-"] line{stroke:#818cf8!important}',
+    '.mmd svg [class*="section-edge-"]{stroke:#a5b4fc!important}',
     'img{max-width:100%}',
-    'input[type=checkbox]{margin-right:6px}',
+    'li.task-item{list-style:none;margin-left:-1.2em}',
+    'input[type=checkbox]{margin-right:6px;accent-color:#6366f1}',
     'strong{color:#111827}',
-    'hr{border:none;border-top:1px solid #d7dde5;margin:16px 0}',
-    'a{color:#0f766e}',
-    'footer{font-size:12px;color:#5b6b7c;text-align:center;margin-top:18px}',
+    'hr{border:none;border-top:1px solid #e5e7eb;margin:1.4em 0}',
+    'a{color:#6366f1}',
+    'footer{font-size:12px;color:#6b7280;text-align:center;margin-top:18px}',
     '@media print{',
     ' body{background:#fff}',
     ' .toolbar,summary .btns{display:none!important}',
-    ' .page{max-width:none;padding:0}',
+    ' .page{max-width:760px;padding:0}',
     ' details.mod{border:none;border-radius:0;margin:0;page-break-inside:auto}',
-    ' details.mod>summary{background:#fff;padding:10px 0;font-size:15px;border-bottom:2px solid #0f766e}',
+    ' details.mod>summary{background:#fff;padding:10px 0;font-size:15px;border-left:none;border-bottom:2px solid #6366f1}',
     ' details.mod>summary::before{content:""}',
     ' .body{padding:4px 0 12px}',
     ' .fig{border:none;padding:0}',
@@ -1454,7 +1548,7 @@
     ' .mmd-src{display:none!important}',
     ' .tablewrap{overflow:visible;border:none}',
     ' .body table{min-width:0;font-size:11px}',
-    ' .body th{background:#0f766e!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+    ' .body th{background:#eef2ff!important;color:#3730a3!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
     ' header.top{border:none;padding:0 0 10px}',
     ' header.top .meta{display:none}',
     ' a{color:inherit;text-decoration:none}',
@@ -1596,8 +1690,25 @@
     // useMaxWidth:false = 按自然尺寸输出 SVG（容器横向滚动查看），避免宽图（timeline/甘特等）
     // 被 max-width:100% 等比缩小后文字全部重叠挤在一起
     themeVariables: {
-      primaryColor: '#ecfdf5', primaryBorderColor: '#0f766e', primaryTextColor: '#1a2332',
-      lineColor: '#5b6b7c', fontFamily: 'Segoe UI, Microsoft YaHei, sans-serif', fontSize: '14px',
+      primaryColor: '#eef2ff', primaryBorderColor: '#6366f1', primaryTextColor: '#1f2937',
+      lineColor: '#6b7280', fontFamily: 'Segoe UI, Microsoft YaHei, sans-serif', fontSize: '14px',
+      // mindmap/pie 走独立 cScale/pie 色板（不吃 primaryColor），同样收敛为 indigo 系，
+      // 否则 base 主题默认黄/多彩色板与整页靛蓝视觉冲突
+      cScale0: '#eef2ff', cScaleLabel0: '#3730a3', cScalePeer0: '#6366f1',
+      cScale1: '#e0e7ff', cScaleLabel1: '#3730a3', cScalePeer1: '#818cf8',
+      cScale2: '#c7d2fe', cScaleLabel2: '#312e81', cScalePeer2: '#6366f1',
+      cScale3: '#ddd6fe', cScaleLabel3: '#4c1d95', cScalePeer3: '#8b5cf6',
+      cScale4: '#ede9fe', cScaleLabel4: '#4c1d95', cScalePeer4: '#a78bfa',
+      cScale5: '#e0e7ff', cScaleLabel5: '#3730a3', cScalePeer5: '#818cf8',
+      cScale6: '#c7d2fe', cScaleLabel6: '#312e81', cScalePeer6: '#6366f1',
+      cScale7: '#ddd6fe', cScaleLabel7: '#4c1d95', cScalePeer7: '#8b5cf6',
+      cScale8: '#ede9fe', cScaleLabel8: '#4c1d95', cScalePeer8: '#a78bfa',
+      cScale9: '#eef2ff', cScaleLabel9: '#3730a3', cScalePeer9: '#6366f1',
+      cScale10: '#e0e7ff', cScaleLabel10: '#3730a3', cScalePeer10: '#818cf8',
+      cScale11: '#c7d2fe', cScaleLabel11: '#312e81', cScalePeer11: '#6366f1',
+      pie1: '#6366f1', pie2: '#818cf8', pie3: '#4f46e5', pie4: '#4338ca', pie5: '#3730a3', pie6: '#312e81',
+      pieTitleTextColor: '#1f2937', pieSectionTextColor: '#ffffff', pieLegendTextColor: '#1f2937',
+      pieStrokeColor: '#ffffff', pieOuterStrokeColor: '#e5e7eb',
     },
     flowchart: { useMaxWidth: false },
     timeline: { useMaxWidth: false },
@@ -1659,6 +1770,22 @@
       // 必须用函数替换：库内容含 $'/$& 等序列，字符串替换会被 replace 模式展开破坏文档
       return doc.replace('</body>', function () { return mermaidInitScript(lib) + '\n</body>'; });
     } catch (e) { return doc; }
+  }
+
+  /* ===== 导出文件命名（对齐参考项目 exporters.ts timestampName / AiPage resultTitle） =====
+   * 总结名称 = 结果首个一级标题（去除文件名非法字符 \ / : * ? " < > |，≤30 字符），缺失回退「AI总结」；
+   * 文件名 = 总结名称-YYYYMMDD-HHMMSS.ext（与参考同格式）。 */
+  function summaryFileTitle(md) {
+    var m = String(md || '').match(/^#\s+(.+)$/m);
+    var t = ((m && m[1]) ? m[1].trim() : '') || 'AI总结';
+    t = t.replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 30);
+    return t || 'AI总结';
+  }
+  function timestampName(prefix, ext) {
+    var d = new Date();
+    var p2 = function (n) { return String(n).padStart(2, '0'); };
+    return String(prefix || 'AI总结') + '-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate())
+      + '-' + p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds()) + '.' + ext;
   }
 
   /** 应用内预览增强：把容器里的 mermaid 源码块渲染成图（CSP 安全：以 <script src> 加载打包库）。
@@ -1813,6 +1940,16 @@
     SUMMARY_TEMPLATES: SUMMARY_TEMPLATES,
     getSummaryTemplate: getSummaryTemplate,
     summaryTemplatePrompt: summaryTemplatePrompt,
+    freeSummaryPrompt: freeSummaryPrompt,
+    outputLangNote: outputLangNote,
+    summarizeContent: summarizeContent,
+    splitByParagraphs: splitByParagraphs,
+    MAP_CHUNK_CHARS: MAP_CHUNK_CHARS,
+    MAP_THRESHOLD: MAP_THRESHOLD,
+    MAP_MAX_CHUNKS: MAP_MAX_CHUNKS,
+    MAP_SYSTEM: MAP_SYSTEM,
+    READ_FIRST_RULE: READ_FIRST_RULE,
+    READ_FIRST_RULE_EN: READ_FIRST_RULE_EN,
     parseNotes: parseNotes,
     analyzeContent: analyzeContent,
     generatePrompt: generatePrompt,
@@ -1835,13 +1972,14 @@
     downloadText: downloadText,
     mdToHtml: mdToHtml,
     mdToHtmlAsync: mdToHtmlAsync,
+    summaryFileTitle: summaryFileTitle,
+    timestampName: timestampName,
     enhanceMermaid: enhanceMermaid,
     describeApiError: describeApiError,
     createTodos: createTodos,
     PROMPTS: {
       tasks: tasksPrompt('zh'),
-      analyze: analyzePrompt('zh'),
-      emailThread: EMAIL_THREAD_PROMPT,
+      analyze: freeSummaryPrompt(''),
       promptEngineer: PROMPT_ENGINEER_PROMPT,
     },
   };

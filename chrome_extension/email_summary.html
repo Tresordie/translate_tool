@@ -112,9 +112,19 @@
       outline: none;
     }
     .lang-label { font-size: 0.78rem; color: var(--text-dim); }
+    /* 总结要求字段（v0.52.1）：自动增高 textarea + ⤢ 大编辑器弹窗，长要求可整体查看/修改 */
+    .instruction-wrap {
+      flex: 1 1 240px;
+      min-width: 200px;
+      display: flex;
+      align-items: stretch;
+      gap: 6px;
+    }
     .instruction-input {
-      flex: 1 1 220px;
-      min-width: 180px;
+      flex: 1;
+      min-width: 0;
+      min-height: 38px;
+      max-height: 220px;
       padding: 8px 12px;
       border-radius: 10px;
       border: 1px solid var(--primary-a15);
@@ -122,11 +132,88 @@
       color: var(--text);
       font-size: 0.82rem;
       font-family: inherit;
+      line-height: 1.5;
       outline: none;
-      transition: var(--transition);
+      transition: border-color 0.2s;
+      resize: vertical;
+      overflow-y: auto;
     }
     .instruction-input:focus { border-color: var(--neon-cyan); }
     .instruction-input::placeholder { color: var(--text-dim); }
+    .instr-expand-btn {
+      flex: 0 0 auto;
+      width: 32px;
+      border: 1px solid var(--primary-a15);
+      border-radius: 10px;
+      background: var(--bg-dark);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+    }
+    .instr-expand-btn:hover { border-color: var(--neon-cyan); color: var(--neon-cyan); }
+
+    /* ========== 解析要求大编辑器弹窗（v0.52.1，邮件总结/工作报告同款） ========== */
+    .instr-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(10, 12, 16, 0.45);
+      backdrop-filter: blur(6px) saturate(1.2);
+      -webkit-backdrop-filter: blur(6px) saturate(1.2);
+    }
+    .instr-modal-overlay.open { display: flex; }
+    .instr-modal {
+      width: min(860px, 100%);
+      max-height: calc(100vh - 48px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 20px 22px;
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-4);
+    }
+    .instr-modal-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+    .instr-modal-hint { font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
+    .instr-modal-overlay .instr-modal textarea {
+      width: 100%;
+      height: 62vh;
+      min-height: min(280px, 40vh);
+      max-height: calc(100vh - 230px);
+      padding: 12px 14px;
+      border: 2px solid var(--primary-a15);
+      border-radius: 10px;
+      background: var(--bg-dark);
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: inherit;
+      line-height: 1.6;
+      outline: none;
+      resize: vertical;
+      overflow-y: auto;
+    }
+    .instr-modal-overlay .instr-modal textarea:focus { border-color: var(--neon-cyan); box-shadow: var(--focus-ring); }
+    .instr-modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    .instr-modal-actions button {
+      padding: 9px 22px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .instr-modal-cancel { background: transparent; border: 1px solid var(--glass-border); color: var(--text-secondary); }
+    .instr-modal-cancel:hover { color: var(--text); border-color: var(--text-dim); }
+    .instr-modal-save { background: var(--btn-gradient); border: none; color: #fff; font-weight: 600; }
+    .instr-modal-save:hover { filter: brightness(1.08); }
 
     /* ========== Summarize Section ========== */
     .summary-section {
@@ -440,44 +527,18 @@
           <div style="flex:1;"></div>
           <span class="lang-label">总结模板</span>
           <div class="lang-select-wrap">
-            <select id="emailTemplate" title="选择 AI 总结使用的模板结构，默认为邮件线程四段式总结"></select>
+            <select id="emailTemplate" title="选择 AI 总结使用的模板结构，默认为自由总结 + G-SPEC 输出契约"></select>
           </div>
           <span class="lang-label">总结要求</span>
-          <input type="text" id="summaryInstruction" class="instruction-input" placeholder="例：重点提取风险与截止时间 / 按项目分组总结…" title="AI 先通读全部内容，再按此要求与所选模板总结；留空则按默认规范输出" />
+          <div class="instruction-wrap">
+        <textarea id="summaryInstruction" class="instruction-input" rows="1" placeholder="例：重点提取风险与截止时间 / 按项目分组总结…" title="AI 先通读全部内容，再按此要求与所选模板总结；留空则按默认规范输出。长文本点右侧 ⤢ 展开完整编辑"></textarea>
+        <button class="instr-expand-btn" id="instrExpandBtn" title="展开大编辑器，整体查看/修改长要求" aria-label="展开总结要求大编辑器">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        </button>
+      </div>
           <span class="lang-label">总结语言</span>
           <div class="lang-select-wrap">
-            <select id="outputLang">
-              <option value="zh" selected>中文</option>
-              <option value="en">English</option>
-              <option value="ja">日本語</option>
-              <option value="ko">한국어</option>
-              <option value="fr">Français</option>
-              <option value="de">Deutsch</option>
-              <option value="es">Español</option>
-              <option value="pt">Português</option>
-              <option value="ru">Русский</option>
-              <option value="ar">العربية</option>
-              <option value="it">Italiano</option>
-              <option value="nl">Nederlands</option>
-              <option value="th">ไทย</option>
-              <option value="vi">Tiếng Việt</option>
-              <option value="id">Indonesia</option>
-              <option value="ms">Melayu</option>
-              <option value="tr">Türkçe</option>
-              <option value="pl">Polski</option>
-              <option value="sv">Svenska</option>
-              <option value="da">Dansk</option>
-              <option value="fi">Suomi</option>
-              <option value="el">Ελληνικά</option>
-              <option value="cs">Čeština</option>
-              <option value="ro">Română</option>
-              <option value="hu">Magyar</option>
-              <option value="uk">Українська</option>
-              <option value="hi">हिन्दी</option>
-              <option value="bn">বাংলা</option>
-              <option value="he">עברית</option>
-              <option value="fa">فارسی</option>
-            </select>
+            <select id="outputLang"><!-- v0.53.0：选项由 JS 按 AiService.OUTPUT_LANGS 渲染（跟随原文 + 16 种常用语言） --></select>
           </div>
         </div>
 
@@ -621,6 +682,19 @@
 
     <div class="footer">
       AI Tool Box · 邮件总结 — AI-Powered Email Thread Summarizer &amp; To Do List
+    </div>
+  </div>
+
+  <!-- 解析要求大编辑器弹窗（v0.52.1）：长要求整体查看/修改 -->
+  <div class="instr-modal-overlay" id="instrModalOverlay">
+    <div class="instr-modal" role="dialog" aria-modal="true" aria-labelledby="instrModalTitle">
+      <div class="instr-modal-title" id="instrModalTitle">📝 总结要求 · 完整编辑</div>
+      <div class="instr-modal-hint">AI 先通读全部内容，再按此要求与所选模板总结；留空则按默认规范输出。支持多行长文本，Ctrl+Enter 保存，Esc 取消。</div>
+      <textarea id="instrModalText" placeholder="在此输入要求，支持多行长文本…"></textarea>
+      <div class="instr-modal-actions">
+        <button class="instr-modal-cancel" id="instrModalCancel">取消</button>
+        <button class="instr-modal-save" id="instrModalSave">保存</button>
+      </div>
     </div>
   </div>
 

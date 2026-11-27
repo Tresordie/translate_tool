@@ -786,8 +786,7 @@ body::after {
 }
 
 /* ========== Toast ========== */
-/* 用 #toast（ID 特异性）而非 .toast：theme.css 的主题断点规则（如
-   lf-verdant @768px 的 .toast{top/right/left:16px}）在 400px 弹窗里同样命中，
+/* 用 #toast（ID 特异性）而非 .toast：theme.css 的主题断点规则（如已删除的旧青屿主题 @768px 的 .toast{top/right/left:16px}）在 400px 弹窗里同样命中，
    会把提示条撑成占满侧栏的大块；ID 特异性可隔绝一切页面级主题覆盖 */
 #toast {
   position: fixed;

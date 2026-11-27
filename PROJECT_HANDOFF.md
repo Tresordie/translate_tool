@@ -2,7 +2,7 @@
 
 > 本文档面向接手本项目的 AI 模型 / 开发者，记录项目当前状态、架构、关键决策与待办事项，避免重复踩坑。
 >
-> **当前版本**：v0.52.0 · 2026-11-23
+> **当前版本**：v0.54.0 · 2026-11-27
 > **仓库**：GitHub `Tresordie/translate_tool` · Gitee `simonyuan2019/translate_tool`（双远端推送，`origin` 同时配置 fetch GitHub + push 两个）
 
 ---
@@ -63,23 +63,21 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 - **旧主题自动迁移**：`getSavedTheme()` 内置 12 个 `cat-*` → 新主题映射，老用户保存的主题自动落到同明暗的新主题
 - ⚠️ **改动主题时注意**：`theme.css` / `theme.js` 根目录与 `chrome_extension/` 下各有一份副本（`theme.css` 完全相同、`theme.js` 仅 side panel 注释差异），必须同步修改
 
-#### 3.4.1 主题全集与新增主题的注册点（v0.47.2 更新）
+#### 3.4.1 主题全集与新增主题的注册点（v0.55.0 更新）
 
-**10 款 = 浅 5 + 深 5**（`lf-*` 前缀，`theme.css` 第 1 节按块定义，每块约 96 行 / 85 项变量）：
+**3 款 = 浅 2 + 深 1**（`lf-*` 前缀，`theme.css` 第 1 节按块定义；v0.55.0 删除 9 款旧主题——verdant/paper/mist/sky/graphite/slate/midnight/orbit/nocturne 的变量块/色板/注册项全删，第 12 节青屿专属组件层整层删除；保留的 cream 为旧 85 项块，iris/obsidian 按 **106 项超集协议**写全，`tests/theme.test.mjs` 71 项锁定）：
 
 | 明暗 | 主题 id | 名称 | 配色来源 |
 |---|---|---|---|
-| 浅 | `lf-verdant` | 青屿 Verdant（**默认**，同时锚定 `:root` 回退） | 自研（晨雾青白×松林绿×珊瑚） |
-| 浅 | `lf-paper` / `lf-mist` / `lf-cream` | 纸感白 / 雾霭 / 奶油 | 苹果风自研 |
-| 浅 | `lf-sky` | 晴空 Sky | 灵感库（Clear Sky 提亮版） |
-| 深 | `lf-graphite` / `lf-slate` / `lf-midnight` | 石墨 / 板岩 / 午夜 | 苹果风自研 |
-| 深 | `lf-orbit` / `lf-nocturne` | 轨道 / 夜曲 | 灵感库 / ML 监控面板风 |
+| 浅 | `lf-iris` | 靛蓝 Iris（**默认**，同时锚定 `:root` 回退，v0.55.0 起由 verdant 移交） | 自研（净白×靛蓝，与导出壳同源） |
+| 浅 | `lf-cream` | 奶油 Cream | 苹果风自研（唯一保留的旧款） |
+| 深 | `lf-obsidian` | 曜石 Obsidian | 自研（曜石黑×靛紫×琥珀） |
 
 > **v0.47.2 试制后又全部删除的 6 款**（勿重复踩坑，色值留档便于复用）：晨曦 Dawn（Rosé Pine Dawn `#faf4ed`/`#286983`/`#907aa9`）、极地 Polar（Nord Snow Storm `#eceff4`/`#5e81ac`/`#88c0d0`）、和纸 Washi（Kanagawa Lotus `#f6f1d2`/`#4d699b`/`#c84053`）、东京夜 Tokyo（Tokyo Night `#1a1b26`/`#7aa2f7`/`#bb9af7`）、深林 Forest（Everforest Dark `#2d353b`/`#a7c080`/`#dbbc7f`）、玫瑰松 Rosé（Rosé Pine `#191724`/`#c4a7e7`/`#eb6f92`）。六款的变量块/色板/`THEME_GROUPS`/`DARK_THEMES` 均已清理，`theme.css` 回到 2080 行、`theme.js` 247 行；grep `lf-dawn|lf-polar|lf-washi|lf-tokyo|lf-forest|lf-rose` 只剩 `getSavedTheme()` 的迁移键。
-> **删除主题的兜底迁移（重要规则）**：主题 id 一旦发布过又被删，本地 `localStorage('linguaflow_theme')` 的残留值会指向不存在的 `html[data-theme]` 块——CSS 变量全部回落到 `:root`（= verdant 浅色），且 `DARK_THEMES[id]` 为 undefined 会把 `data-mode` 判成 `light`，选过深色的用户被静默变浅色。故 `getSavedTheme()` 迁移 map 里同步登记了 `lf-dawn→lf-paper`、`lf-polar→lf-mist`、`lf-washi→lf-cream`、`lf-tokyo→lf-slate`、`lf-forest→lf-nocturne`、`lf-rose→lf-midnight`（与既有 `cat-*` 迁移同一机制）。**以后删主题必须在这里补映射，且目标必须是仍存在的 id。**
+> **删除主题的兜底迁移（重要规则）**：主题 id 一旦发布过又被删，本地 `localStorage('linguaflow_theme')` 的残留值会指向不存在的 `html[data-theme]` 块——CSS 变量全部回落到 `:root`（= iris 浅色），且 `DARK_THEMES[id]` 为 undefined 会把 `data-mode` 判成 `light`，选过深色的用户被静默变浅色。故 `getSavedTheme()` 迁移 map 登记了三层：**v0.55.0 删除的 9 款**（`lf-verdant/lf-sky→lf-iris`、`lf-paper/lf-mist→lf-cream`、`lf-graphite/lf-slate/lf-midnight/lf-orbit/lf-nocturne→lf-obsidian`）；**v0.47.2 删除的 6 款**（`lf-dawn/lf-polar/lf-washi→lf-cream`、`lf-tokyo/lf-forest/lf-rose→lf-obsidian`——原目标 paper/mist/slate/nocturne/midnight 已随 v0.55.0 删除，已重指向）；**旧 cat-* 12 项**（深色→obsidian、latte 系→cream，同样重指向）。未知 id 一律回落 `lf-iris` 并写回存储。**以后删主题必须在这里补映射，且目标必须是仍存在的 id。**
 
-**新增一款主题只需改 3 处 × 2 副本**（别再漏）：① `theme.css` 第 1 节加 `html[data-theme="lf-xxx"]` 变量块——**按上面 85 项协议写全**（`--primary/-light/-dark`、`--accent/-2`、`--neon-*`、`--orange/--red/--blue`、6 组 `-rgb` 三元组 + `--green`/`--green-a12`、`--bg-dark/--bg-gradient/--bg-body/--bg-card/--bg-card2/--bg-elevated`、`--glass-bg/-border/-shadow`、`--text/-secondary/-dim/-strong`、全套 alpha 变体、`--md-*` 9 项、`--orb/--scanline/--grid/--star/--glow/--card-border-glow/--noise-opacity`、`--header-gradient`/`--btn-gradient`/`--focus-ring`/`--scrollbar-*`、`color-scheme`），**不要写 `:root`**（`:root` 只归默认主题 verdant）；② 第 6 节色板区加 `.theme-swatch.swatch-lf-xxx`；③ `theme.js` 的 `THEME_GROUPS` 对应明暗分组的 `themes` 数组加一行 + 深色主题同时登记进 `DARK_THEMES`（漏登记会让 `data-mode` 判成浅色，深色页面级质感层全部失效）。
-**自检口径**：正文 `--text` 对 `--bg-body` ≥6.6:1、`--text-secondary` ≥4.5:1、`--text-dim` ≥3:1；背景不用纯黑/纯白（暗色非纯黑是灵感库硬规则）；`--btn-gradient` 亮端配白字时靠共享层 `text-shadow` 兜底。
+**新增一款主题只需改 3 处 × 2 副本**（别再漏）：① `theme.css` 第 1 节加 `html[data-theme="lf-xxx"]` 变量块——**按 106 项超集协议写全**（现存 cream 为 85 项旧块，不回改）（`--primary/-light/-dark`、`--accent/-2`、`--neon-*`、`--orange/--red/--blue`、6 组 `-rgb` 三元组 + `--green`/`--green-a12`、`--bg-dark/--bg-gradient/--bg-body/--bg-card/--bg-card2/--bg-elevated`、`--glass-bg/-border/-shadow`、`--text/-secondary/-dim/-strong`、全套 alpha 变体、`--md-*` 9 项、`--orb/--scanline/--grid/--star/--glow/--card-border-glow/--noise-opacity`、`--header-gradient`/`--btn-gradient`/`--focus-ring`/`--scrollbar-*`、`color-scheme`），**不要写 `:root`**（`:root` 只归默认主题 iris，v0.55.0 起由 verdant 移交）；② 第 6 节色板区加 `.theme-swatch.swatch-lf-xxx`；③ `theme.js` 的 `THEME_GROUPS` 对应明暗分组的 `themes` 数组加一行 + 深色主题同时登记进 `DARK_THEMES`（漏登记会让 `data-mode` 判成浅色，深色页面级质感层全部失效）。
+**自检口径**：正文 `--text` 对 `--bg-body` ≥6.6:1、`--text-secondary` ≥4.5:1、`--text-dim` ≥3:1；背景不用纯黑/纯白（暗色非纯黑是灵感库硬规则）；`--btn-gradient` 亮端配白字时靠共享层 `text-shadow` 兜底。**v0.54.0 起改主题后必跑 `node tests/theme.test.mjs`**（v0.55.0 重写 71 项：注册一致性 + 9 删除 id 零残留/兜底迁移/`:root` 锚定/变量超集/WCAG 分级/控件精修层/双副本）。
 
 #### 3.4.2 立体感令牌体系（v0.47.3 新增，改阴影前必读）
 
@@ -90,10 +88,10 @@ LinguaFlow 是一个基于大模型 API（OpenAI 兼容 `/chat/completions` 接�
 1. **阴影刻度改为"色相 + 三层结构"**（第 8 节 `:root`）：`--shadow-1..4` = 接触阴影（贴地 1px）+ 定向主投影 + 环境光遮蔽；颜色写成 `rgba(var(--shadow-tint-rgb,0,0,0), α)`。**关键坑**：`--shadow-tint-rgb` 是**逗号三元组**，`var()` 的**回退也必须写成三元组**（`var(--shadow-tint-rgb,15,23,42)`），写成 `var(--shadow-tint-rgb, black)` 会让整条声明在计算值阶段失效 → 阴影整体消失。
 2. **浅/深两档强度**（`html[data-mode="light"]` / `html[data-mode="dark"]`）：浅色**只留色相投影、不加黑**（纸感干净）；深色在色相层外再叠一层纯黑做环境遮蔽（避免发灰泛蓝）。
 3. **4 个立体面令牌**（同两个 mode 块内定义，浅深各一套）：`--bevel-top` 顶缘受光（浅 .90 白 / 深 .12 白，统一"光从左上来"）、`--bevel-bottom` 底部接触线（给卡片厚度）、`--inset-field` 内凹面（上方暗 + 底部受光，用于输入框/凹槽）、`--vignette` 画布四周压暗（`.bg-canvas` 的 inset 阴影，浅 .07 / 深 .38）。
-4. **第 8b 节「立体感增强层」**（位置在**第 8 节末尾、第 9 节之前**，为的是压过第 2/6 节基础规则、又不影响第 12 节青屿专属层）：控件三态（静置 `--shadow-1` → 悬停 `--shadow-2` → 按下 `--inset-field`）、浮层层级（`.theme-panel`/弹窗/抽屉 → `--shadow-4`，Toast → `--shadow-3`）、内容面抬升（`.el-result-card`/`.word-card`/`.kb-col`/`.side-card` → `--shadow-2`）。**新增"有体积"的控件就往 8b.1 的类名列表里加**，别在各页面写死阴影。
+4. **第 8b 节「立体感增强层」**（位置在**第 8 节末尾、第 9 节之前**，为的是压过第 2/6 节基础规则、第 12 节青屿专属层已随 v0.55.0 删除）：控件三态（静置 `--shadow-1` → 悬停 `--shadow-2` → 按下 `--inset-field`）、浮层层级（`.theme-panel`/弹窗/抽屉 → `--shadow-4`，Toast → `--shadow-3`）、内容面抬升（`.el-result-card`/`.word-card`/`.kb-col`/`.side-card` → `--shadow-2`）。**新增"有体积"的控件就往 8b.1 的类名列表里加**，别在各页面写死阴影。
 5. **页面级联动**：`english_learning.html` 的 `--el-shadow-sm/md/lg/xl/hover` 已改接全局刻度 + `--bevel-top`（写死黑阴影的地方一律换成变量）；`todolist.html` 分段控件 `.filter-group` 凹槽改用 `--inset-field`。
 
-**注意**：`--glass-shadow` 仍是**每套主题自洽定义**的 4 层玻璃阴影（第 1 节），8b 层只在卡片基座额外补 `var(--bevel-bottom)`；改主题块时不要删 `--shadow-tint-rgb`（删了会走三元组回退，10 套主题的投影色相一起丢）。第 12 节青屿专属层的阴影已改为 `var(--shadow-2/3), var(--bevel-top), 品牌绿辉光` 组合，新增/修改主题专属层时沿用这个写法。
+**注意**：`--glass-shadow` 仍是**每套主题自洽定义**的 4 层玻璃阴影（第 1 节），8b 层只在卡片基座额外补 `var(--bevel-bottom)`；改主题块时不要删 `--shadow-tint-rgb`（删了会走三元组回退，各主题的投影色相一起丢）。新增/修改主题专属层时沿用 `var(--shadow-2/3), var(--bevel-top), 品牌色辉光` 组合写法（原第 12 节青屿专属层已随 v0.55.0 删除）。
 
 ### 3.5 Side Panel 现代极简 UI（v0.18.0）
 `sidepanel.css` 完全重写：
@@ -390,10 +388,90 @@ v0.20.0 对 workreport / todolist / english_learning / sidepanel 的视觉重构
 - **文件形式的邮件内容（用户实测反馈补强）**：邮件以各种导出文件形式作为附件导入时自动识别——`.eml` 原有归一化；**`.html/.htm` 邮件导出新增共享 `htmlToPlainText`**（readAttachmentText 载入时转换：去 script/style/head/注释、br/p/div/tr→换行、td/th→制表符、剥标签、实体解码、压空行，双副本逐字一致；头部 From/Subject 转换后可被 looksLikeEmail 识别 → 正确走邮件线程规范；普通 .html 文档同受益）；PDF/docx/txt 导出经 pdf.js/OOXML 提取后头部保留，既有 looksLikeEmail 已覆盖；**`.msg`（Outlook 二进制）明确报错指引另存为 .eml/.html**。实现坑：剩余标签须以空串剥除——剥成空格会让制表符相邻空格被压缩规则吃掉（表格分隔失效）。浏览器拦截实测：HTML 邮件导出→SKILL_PROMPT、普通 html→DOC_SUMMARY_PROMPT+来源标注、.msg→报错 toast。
 - **验证**：`tests/attachment.test.mjs` 扩至 **145 项全绿**（新增 Office XML 纯函数提取 / 实体解码 / 共享字符串 / 幻灯片乱序 / 旧格式报错 / JSZip 双副本一致 / 三页 accept·解析要求接线 / 内容形态自适应 / HTML 转文本与 .msg 拒绝）；手工构造最小 OOXML 样例（`tests/office_samples/`，python zipfile 生成，含乱序 slide、legacy.doc 与 email_export.html）+ 真实浏览器全链路实测；既有套全绿（summary-template 106 / markdown-export 45 / 其余）。
 
+### 3.26 解析要求输入框升级：自动增高 textarea + ⤢ 大编辑器弹窗（v0.52.1，邮件总结 / 工作报告）
+
+用户反馈：总结要求/解析要求内容多时，单行 `<input type="text">` 只能横向滚动，无法全局查看修改。两页（含 `chrome_extension/` 副本，共 4 份 HTML + 4 份 JS）同款升级：
+
+- **单行 input → 自动增高 textarea**（id 不变 `summaryInstruction`，既有读取/持久化/发送代码零改动）：`rows=1` 起步 44px，`input` 事件里 `height:auto → scrollHeight` 自动长高，上限 220px 后 `overflow-y:auto` 内滚；`white-space:pre-wrap` 支持多行粘贴；init 恢复值后立即调 `autoGrowInstruction()` 按已有内容撑高。外层 `.instruction-wrap`（flex:1 1 260px + min-width）承接原 input 的 flex 布局，⤢ 按钮绝对定位右侧。
+- **⤢ 大编辑器弹窗**（`#instrModalOverlay` / `#instrModalText` / `#instrModalSave` / `#instrModalCancel`）：宽 `min(860px,100%)`、`max-height:calc(100vh - 48px)` flex 列布局，文本域 `flex:1` + `min-height:min(280px,40vh)` + `resize:vertical`，长要求可整体查看/修改。**保存 = 写回原字段 + `dispatchEvent(new Event('change'))`**——复用既有 change 持久化链路（workreport `work_config.summaryInstruction` / email `email_summary_config.instruction`），不新增存储写入路径（§3.10 局部写入合并原则天然满足）；Ctrl+Enter 保存、Esc/取消/点击遮罩关闭且不保存。⤢ 按钮 `mousedown → preventDefault()`（§5.2 输入法合成态保护）。
+- **实现坑（特异性）**：弹窗文本域规则必须写 `.instr-modal-overlay .instr-modal textarea`——theme.css 触屏媒体查询 `html[data-theme="lf-verdant"] textarea { min-height:44px }` 特异性高于单类选择器，会把 280px 压成 44px；全局 `textarea` 还带 `--inset-field` 内凹阴影，弹窗内显式 `box-shadow:none`（focus 用 `--focus-ring`）。阴影/圆角只用 theme.css 令牌（`--shadow-4`/`--radius-lg`，v0.47.3 约定）。
+- **升级段同款约束**：两页 JS 的 `// ===== 解析要求字段升级（v0.52.1）` 段逐字一致（`autoGrowInstruction` + `initInstructionModal`），测试断言锁定双副本一致 + 跨页同款。
+- **验证**：`tests/attachment.test.mjs` 扩至 **164 项全绿**（textarea 化/弹窗结构/change 写回/升级段一致性）；既有套全绿（summary-template 106 / markdown-export 45 / bridge-timeout / stream-and-url / pdf-parse）；浏览器实测：12 行长要求自动增高 44→220px 封顶内滚、弹窗保存/Esc/取消/Ctrl+Enter、刷新后恢复且高度自适应、764×429 窄视口弹窗不溢出、lf-verdant 浅色与 lf-graphite 深色配色正常、扩展副本页面冒烟通过。
+
+### 3.27 通读优先规则：先完全理解全部输入与附件，再按要求总结（v0.52.2，工作报告 / 邮件总结 / AI 解析）
+
+用户要求：AI 必须在完全理解所有的输入以及附件的内容之后，再根据用户的要求进行总结。三页全部总结路径（默认提示词 / 25 套模板 / 邮件线程 / 文档总结，中英文）统一注入：
+
+- **单一事实源**：`ai-service.js` 新增 `READ_FIRST_RULE`（中）/ `READ_FIRST_RULE_EN`（英），段标记 `// ===== 通读优先规则（v0.52.2） =====` … `// ===== 通读优先规则（结束） =====`，双副本逐字一致（测试锁定）。规则要点：逐份完整通读全部输入与所有附件（多附件以「===== 附件 N：文件名 =====」分界，禁止跳过）；禁止只凭标题/开头/局部片段下结论；完全理解后再按【解析要求】与结构规范总结；内容标注截断/省略时必须明确声明、禁止臆造被省略部分。
+- **注入点（全部追加式，不改既有提示词结构与用户消息组装）**：
+  - `summaryTemplatePrompt()` 返回值末尾追加 → 覆盖 25 套模板 × 三页；
+  - `analyzePrompt()` / `emailPrompt()`（zh 与非 zh 两分支）返回值追加 → 覆盖 AI 解析默认/邮件模式；
+  - 工作报告默认中/英系统提示词引用 `window.AiService.READ_FIRST_RULE(_EN)` 追加（AiService 缺失时兜底空串，与模板路径降级行为一致）；
+  - 邮件页 `DOC_SUMMARY_PROMPT` 开头强化为「必须先完整阅读并理解全部输入与附件内容（逐份读全…），完全理解后再按用户要求输出」；`SKILL_PROMPT` 新增铁律 7「通读优先」。
+- **用户消息结构不变**：【解析要求】仍在 user 消息最前、材料在后——顺序约束由系统级规则保证，不动既有截断（autoTruncate）/来源分界逻辑。
+- **验证**：`tests/attachment.test.mjs` 扩至 **175 项全绿**；既有套全绿；浏览器实测以 `window.fetch` 桩拦截真实请求体，9 场景全过：AI 解析（默认分析/模板 M1/邮件模式）、邮件总结（文档/邮件线程/模板 M2）、工作报告（默认中文/英文输出/模板 M1），系统提示词均含通读优先规则。
+- **实测坑**：ai-service 内部 `chat()` 调的是闭包内 `proxyFetch`，覆盖导出属性 `window.AiService.proxyFetch` 不生效——拦截请求须桩 `window.fetch`（网页版 proxyFetch 最终走全局 fetch）。
+
+### 3.28 时间轴导出对齐 voice_transcription：确定性识别 + 行内卡片（v0.52.3，共享 markdown.js + downloadText 闸门）
+
+用户要求：导出文件的时间轴参考 F:\gitee\voice_transcription 项目。移植该项目 `src/lib/ai/timeline.ts`（识别+渲染）/ `exporters.ts`（导出升级）思路，单点实现进共享 `markdown.js`，17 个引入页的预览与全部导出同时覆盖：
+
+- **识别（确定性，不依赖模型输出骨架）**：`tlDetectTable`——表头时间列（时间/日期/时间戳/时间点/when/date，或首列全为 mm:ss）+ 事件/任务列（事件/标题/事项/任务/议题/节点/动作/阶段），≥2 行；状态列（状态/完成情况/进度/结果）→ 任务轴，否则事件轴；说明列合并其余未占用列（' · ' 连接）。`tlParseList`——先剥行首彩点 emoji 再匹配日期（🟢 2026-11-20 …），≥2 条、≥60% 命中、≥50% 带时间戳；✅❌🚧📦 计数判任务轴。仅平铺列表（indent 全等）尝试升级，嵌套/任务 checkbox 不动。
+- **渲染 `tlRender`（第二轮按用户样张 1:1 复刻，第三轮改深浅主题自适应）**：行内样式一律 `var(--tl-*, 浅色兜底)`——浅色兜底（#ffffff 面板 / #cbd5e1 竖线 / #0f172a 标题 / #475569 正文 / 四色 #16a34a/#0284c7/#dc2626/#b45309）供导出单文件 HTML（浅色壳）与 md 查看器自成一体；`theme.css`（双副本一致，文件末尾追加）在 5 款深色主题 `html[data-theme=…] .md-timeline` 覆盖为样张深色（#0c1220/#3d5166/#e8eef6/#c9d4e0/#3cb371/#4aa3d8/#e05c66/#d9a520，要点白色），`@media print` 块再覆盖回落浅色（特异性同主题块、源序在后胜出，满足 v0.47.3 打印基线）。版式：15px 空心彩环（2.5px 描边，内底色遮竖线呈断点）+ 同色加粗时间戳与标题同行 + 正文强调 `tlInlineHtml` 保留（**要点**→--tl-strong、*斜体*→--tl-em、`代码`→暗/亮底 chip、链接图片降文本）+ 面板顶部四色图例行；任务轴完成划线 + 状态 chip。检测匹配仍走 `tlStripInline` 纯文本，两套主题同一 DOM。
+- **三处接线**：① `renderMarkdown` 表格分支（rows 收集后）与列表分支（buildList 前）命中 → `tlRender` + continue；② `mdToHtml` 走同一渲染器天然一致；③ md 导出双闸门覆盖——`downloadText` 函数首闸门（双副本逐字一致，9 处调用点一处生效）+ 4 处**页面本地直连 Blob 下载点**（workreport/email_summary 结果区 `downloadSummary`、wechat_schedule `triggerDownload`、english_learning `downloadFile`，双副本同款 mime 判定）；非 markdown 下载不受影响；todolist「导出 Markdown」实为剪贴板复制无需接线。
+- **`upgradeMarkdownTimeline` 保护**：跳过代码围栏内容、跳过既有 tl-* 骨架（§3.23 模型骨架路线与确定性路线共存不冲突）、幂等（二次升级不再变化）；普通 md/非时间轴表格一字不动；`markdownToWechat` 公众号纯文本路径不改。
+- **缺陷坑（已修）**：astral emoji 在字符类 `/[✅❌🚧📦]/` 无 `/u` 标志时按代理对半匹配（🚧=D83D DEA7、🟢=D83D DFE2 共享高代理 D83D）——彩点列表被误判任务轴、徽章塞整句文本；字符类含 astral 字符必须加 `/u`。alternation（如 `/归档|📦/`）按完整序列匹配不受影响。
+- **浏览器实测坑**：workreport 页 `#workInput` 经 MdEditor 初始化后**本身即 TEXTAREA**（原 div 被替换），`querySelector('#workInput textarea')` 恒 null——直接 `getElementById('workInput')` 取值/赋值；主题切换需要 `.theme-fab` 点开面板再点 `button.theme-option`（按文本含主题名匹配，选项无 data-theme 属性）；驱动生成时给 textarea 直接赋 `.value` 可能不同步 `workEditor.getMarkdown()` 内部模型（表现为按钮静默无动作）——须 `focus()+select()+document.execCommand('insertText',...)`；API 桩配置要先写 localStorage 再 reload（config 页面初始化时读入内存，事后 setItem 不生效）。
+- **验证**：新增 `tests/timeline-export.test.mjs` 44 项全绿（含主题变量兜底、theme.css 双副本一致、5 深色主题覆盖块、@media print 回落块） + markdown-export 45 / attachment 175 / summary-template 106 / bridge-timeout / stream-and-url / pdf-parse 全绿；浏览器 fetch 桩实测：工作报告生成 4 类时间轴 → 预览 3 卡片（事件表/任务表/彩点列表），MD/HTML 导出均含卡片、普通表格/列表保留，lf-verdant 浅色 + lf-graphite 深色截图验证；第三轮主题自适应 computed style 双向实测（graphite rgb(12,18,32)+白要点 / verdant rgb(255,255,255)+深色要点）；第二轮按用户样张换深色圆环风格后，再以邮件线索夹具（含 **7台NG**/`NCR-192001486` 等行内强调）复测：预览 2 卡片 10 环 6 白色要点、导出 HTML/md 下载同款（截图核验，竖线提亮后清晰）。
+
+### 3.29 AI 总结输出对齐 voice_transcription（v0.53.0，三页 + 双副本）
+
+- **背景**：用户要求工作报告/邮件总结/AI 解析三页的 AI 总结输出与参考项目 `F:\gitee\voice_transcription`（HEAD `bbc7594`，`src/lib/ai/summarize.ts` / `templates.ts` / `llm.ts`）对齐。模板正文与 G-SPEC 本已一致（同源 scenario-templates 技能）；缺的是默认自由总结契约、语言机制与超长文 map-reduce。
+- **用户决策（clarify）**：① 默认模式也统一套 G-SPEC 契约，与参考自由总结完全一致（替换现有默认格式）；② 语言收敛为参考同款：跟随原文 + 16 种常用语言，三页统一由 `AiService.OUTPUT_LANGS` 渲染。
+- **改动**：
+  - `ai-service.js`（+ext）：新增 `OUTPUT_LANGS`（17 项，auto name 为空＝跟随原文）、`getOutputLang`、`outputLangNote`（语言指令 + ①-⑦ 对照清单，置 system 最末防契约衰减）、`freeSummaryPrompt`（取代三页旧默认提示词）、`MAP_CHUNK_CHARS=8000` / `MAP_THRESHOLD=12000` / `MAP_MAX_CHUNKS=120`、`MAP_SYSTEM`、`splitByParagraphs`、`mapWithConcurrency`（并发 2，每轮检查 `signal.aborted`）、`summarizeContent` / `analyzeContent` 编排入口；`chat` 支持 `opts.config`（页面级配置）与 `opts.signal`；**取消快路径三处**（chat 预检 / send catch / proxyFetch catch——abort 立即抛 `AbortError`，不再等 `bridgePing` 1.5s）。物理删除 `CONTENT_ANALYZE_PROMPT` / `EMAIL_THREAD_PROMPT`；`READ_FIRST_RULE` 的【解析要求】→【用户额外要求】。
+  - `workreport.js`（+ext）：删 `LANG_NAMES_EN`，`LANG_NAMES` 降级为历史展示用 + `auto:'跟随原文'`；`initLangSelect` 渲染 17 项、非法值回退 auto；接 `summarizeContent`（template/userPrompt/lang/config/onProgress「理解全文 x/y」）；输入语言侧 UI `display:none`（元素保留，兼容旧配置与 `saveSummaryResult(...inputLang...)`）。
+  - `email_summary.js`（+ext）：删 `DOC_SUMMARY_PROMPT` / `SKILL_PROMPT` / `MAX_INPUT_CHARS=60000` + autoTruncate 首尾截断；语言持久化键 **`config.lang`**（`normOutputLang` 非法回退 auto）；接 `summarizeContent` + AbortController 取消。
+  - `ai_parse.js`（+ext）：`langSelect` 渲染 17 项；接 `analyzeContent`（附件分界 `===== 附件 N：文件名 =====`、正文置末、`parts.join('\n\n———\n\n')`）。
+  - `workreport.html` / `email_summary.html`（+ext）：`outputLang` 改空 select 由 JS 渲染；workreport 输入语言侧与 lang-arrow `display:none`。
+  - `wechat_schedule.js`（+ext）：语言下拉与 `langName` 排除 auto。
+- **坑**：
+  - 邮件页语言持久化键是 `config.lang` 而非 `outputLang`——测试种子写错键会看似「偏好未恢复」，非缺陷。
+  - 浏览器 fetch 桩必须实现 `.text()`（`proxyFetch` 用 `r.text()` 而非 `.json()`），否则落 catch → bridgePing → 「网络请求失败」。
+  - workreport 页 `/api/status` 与 `/api/browser-data` 是本地同步服务心跳，非 AI 调用，勿计入请求数。
+  - 取消语义：旧 `proxyFetch` catch 先跑 `bridgePing`（1500ms）再抛错，邮件页取消 >2s 才落定；加 abort 快路径后 <0.8s。
+- **验证**：`tests/summary-template.test.mjs` 重写 172 项全绿（17 语言表逐字对齐 / freeSummaryPrompt / map-reduce 参数与编排 / 取消快路径 / 双副本 prompt 相等 + abort 快路径锁定）；attachment 193 / markdown-export 45 / timeline-export 44 / bridge-timeout / stream-and-url / pdf-parse 全绿；`node --check` 10 个 JS 通过。浏览器 fetch 桩实测：工作报告（默认 en sys 2014 字符 / 会议纪要模板 sys 8433 字符含时间轴规范 / auto sys 1231 字符无语言注入但保留 G-SPEC+【待确认】，均 temperature 0.3）；邮件总结（短文本 1 请求；20829 字符 → 3 map + 1 final，块最大 7823，final 含顺序正确的【片段 N 要点】，进度「理解全文 0/3→2/3」；en 偏好经 `config.lang` 恢复；取消 <0.8s 落定 toast「已取消生成」）；AI 解析（17 项 / en 恢复 / G-SPEC+语言尾注+【用户额外要求】/ M1 模板分支）；扩展副本三页冒烟（17 项 + `AiService.summarizeContent`）。
+- **导出产物对齐（同批追加，用户三项要求）**：① 内容宽度 1180→**1280px**（参考 `exporters.ts` DOC_CSS，与 App `max-w-7xl` 同步），打印收回 **760px**（A4@96dpi）；② 视觉全面换参考规格：白底 `#fff`/字 `#1f2937`/行高 1.75，主色 teal `#0f766e`→靛蓝 `#6366f1` 系（h1 下划线 3px / h2 左竖条 4px+1.3em / 表头 `#eef2ff` 深靛字 / 代码块 `#111827` / 引用 `#f5f6ff`+`#a5b4fc` / mermaid 主题变量 + cScale0..11 + pie1..6 全靛蓝化），**模块卡片功能保留**（details.mod 折叠/逐模块复制/工具栏/modsrc——用户 clarify 决策）；③ 命名改总结标题：新增 `AiService.summaryFileTitle(md)`（首个 `# ` 标题→去 `[\/:*?"<>|]`→30 字→回退「AI总结」）+ `timestampName(name, ext)`（`名-YYYYMMDD-HHMMSS.ext`），三页 HTML/MD 导出共用（workreport/email 走 `AiService.*`，ai_parse 走 `Ai.*`），HTML `<title>`/header 也用总结名；历史批量导出保留旧命名（多条总结无单一标题）。
+- **导出坑**：mindmap/pie 走独立 cScale/pie 色板不吃 primaryColor（base 主题默认黄/多彩）；mindmap 节点下划线 `.section-N line` 的 stroke 由 mermaid 内部从默认色板推导、cScalePeer 覆盖不全 → 导出壳 CSS `[class*="section-"] line{stroke:…!important}` 压过 SVG 内 #id 规则；任务列表须 `li.task-item{list-style:none;margin-left:-1.2em}` + `accent-color`（同预览 theme.css:1268），否则圆点与复选框双重标记。
+- **导出验证**：markdown-export 45→**59 项**全绿（命名 5 项 + 版式/打印/排版细节 + cScale/pie + 下划线覆盖 + 双副本导出面/三页站点 marker；并修复双副本样式段比对的长期空洞——旧锚点「导出壳」不存在致切片恒空串，改真实锚点 + `length>5000` 下限）。浏览器实测：三页 + 扩展副本 workreport 下载文件名 `<总结标题>-YYYYMMDD-HHMMSS.html/.md` ✓；1440 视口 `.page` 实宽 1280 ✓；计算样式（th `#eef2ff`/pre `#111827`/h1 边框 `#6366f1`/行高 28px）✓；真实 CDN mermaid 内嵌渲染全靛蓝（含节点下划线）✓；任务列表去圆点 + accent ✓；截图目视无溢出/错位。
+
+### 3.30 全站控件精修 + 靛蓝 Iris / 曜石 Obsidian（v0.54.0，共享 theme.css/theme.js）
+
+- **控件精修层（theme.css §8c/8c.2，双副本）**：高度令牌 `--ctl-h:34px`/`--ctl-h-lg:42px`（min-height 兜底「只抬不压」，不改页面 padding/响应式）；次级按钮字重 600 + `--radius-md` + hover translateY(-2px)；主 CTA 字重 650 + letter-spacing .02em；焦点环 `var(--primary)`（保留 !important，页面级 `:focus{outline:none}` 后加载，WCAG 2.4.7）；Toast success/info 用 `rgba(var(--green-rgb,64,160,130),…)`/`rgba(var(--primary-rgb,90,130,190),…)` 带回退；`.btn-record/.btn-summarize/.translate-btn .kbd` 统一白字（深色字压渐变主色底对比不足，全主题通病）。
+- **源序坑（重要）**：各页 `<style>` 在外链 theme.css **之后**加载，同特异性页面胜出 → 共享层精修用 `button.btn-tool` 等**元素限定选择器**抬高特异性温和压过，只统一字重/圆角/悬停，不动排布。
+- **新主题 2 款（10→12）**：`lf-iris` 靛蓝（浅，`#f6f6fa`×`#6366f1`，与导出壳同源）/ `lf-obsidian` 曜石（深，`#121218`×`#8b93f8`+琥珀 `#f5a623`）。注册三处×2 副本（变量块/`.theme-swatch`/THEME_GROUPS+DARK_THEMES）。**变量协议升级**：基线 = 旧 10 块变量名交集（85 项），新块须覆盖 **106 项超集**（补 17 项：`--green/--green-a12/--cyan-a12/--green-a20/--red-a08/10/12/--accent2-a10/--white-a08/12/15/--md-pre-color/--md-table-border/--md-th-bg/--scanline-opacity/--grid-opacity/--star-opacity`）；旧块不回改。
+- **WCAG 分级**：iris/obsidian/verdant 严格档（正文 4.5:1 / 大字与 UI 3:1）；旧款底线 dim≥2.5、btn 白字≥1.5（lf-sky 2.89 / lf-orbit 1.75 属历史配色，27 处严格缺口记为已知遗留，本轮不改旧配色）。
+- **主题切换过渡**：`applyTheme` 挂 `theme-transitioning`（0.35s !important）400ms 后移除，body 自身 transition 接续 → 计算色完全落地约需 2-4s；浏览器量测/截图必须等过渡结束，否则拿到中间值。
+- **验证**：新增 `tests/theme.test.mjs` **38 项**全绿（注册一致性/超集/WCAG 分级/精修层/双副本）+ 既有 7 套全绿；浏览器实测 workreport/index × Iris/Obsidian：面板 12 选项（滚动可达）、data-theme/data-mode 落地、body 背景计算色、btn-tool/btn-summarize 计算字重圆角、kbd 白字、截图目视。
+
+### 3.31 主题精简 12 → 3（v0.55.0，共享 theme.css/theme.js）
+
+- **删除 9 款**：verdant/paper/mist/sky（浅）+ graphite/slate/midnight/orbit/nocturne（深）。删除 = 「三处注册 × 双副本」的逆操作：第 1 节变量块、第 6 节色板、theme.js THEME_GROUPS/DARK_THEMES 全删；**第 4 处**迁移 map 补映射（见 §3.4.1 硬规则）。`:root` 兜底锚点移交新默认 `lf-iris`（与 iris 块并列声明，JS 加载前浅色回退一致）。
+- **连带清理**：第 12 节「青屿专属组件层」整层删除（--radius:16px 覆盖、44px 触控 min-height、词头卡覆盖等随之失效，相关测试断言同步移除）；`.md-timeline` 深色选择器组收敛为 obsidian 单款；popup.css 硬编码主题 id 选择器、tests/timeline-export、tests/wx-scheduler-mock.e2e 的主题桩同步改现存 id。theme.css 2469 → 1315 行、theme.js → 250 行，双副本逐字一致。
+- **验证**：tests/theme.test.mjs 重写 38 → **71 项**全绿（注册/零残留/set/迁移/`:root` 锚定/超集/WCAG/精修层）+ 既有 7 套 + wx e2e 全绿；浏览器实测 index：面板 3 选项（浅 2/深 1）、默认 iris、残留 lf-graphite→obsidian（data-mode=dark 保留）、lf-verdant→iris、cream/obsidian 计算色与截图。
+- **量测坑（后台标签页节流）**：主题切换过渡在后台标签页被 Chromium 节流，sleep 8s 后计算色仍可能停在上一主题；量测/截图前先注入 `*{transition:none!important}` 临时禁过渡（拍完移除），或确保标签页前台活跃。
+
+
 ## 4. 版本与分支历史
 
 | 版本 | 关键改动 |
 |------|---------|
+| v0.55.0 | **主题精简 12 → 3 款（共享 theme.css/theme.js，双副本）**：删除青屿/纸感白/雾霭/晴空/石墨/板岩/午夜/轨道/夜曲 9 款（变量块/色板/注册三处×2 副本 + 第 12 节青屿专属层整层），仅留 靛蓝 Iris（新默认，`:root` 移交）/奶油 Cream/曜石 Obsidian；getSavedTheme 迁移 map 补 9 删除款 + 重指向 cat-*/v0.47.2 旧目标（深色残留不静默变浅）；theme.css 2469→1315 行。详见 §3.31。验证：tests/theme.test.mjs 重写 71 项 + 全套 8 套 + wx e2e 全绿 + 浏览器实测（面板 3 选项/默认/迁移/计算色/截图） |
+| v0.54.0 | **全站控件精修 + 两款新主题（共享 theme.css/theme.js，双副本）**：§8c/8c.2 控件精修层（高度令牌只抬不压/次级按钮字重 600+圆角+hover -2px/主 CTA 650+字距/焦点环主色化/Toast 令牌化/CTA kbd 白字；元素限定选择器压页内后加载样式）；新增浅「靛蓝 Iris」深「曜石 Obsidian」（10→12 款，注册三处×2 副本，106 项变量超集协议）；新增 tests/theme.test.mjs 38 项（注册/超集/WCAG 分级/精修层/双副本）。详见 §3.30。验证：8 套测试全绿 + 浏览器实测 workreport/index × 双新主题（面板 12 选项/切换落地/计算样式/截图） |
+| v0.53.0 | **AI 总结输出对齐 voice_transcription（三页，双副本）**：默认提示词统一 G-SPEC 自由总结契约（旧默认格式物理删除）；输出语言收敛 17 项（跟随原文+16 语言，OUTPUT_LANGS 统一渲染，语言指令置 system 最末+①-⑦ 对照清单）；超长文 map-reduce（>12k/8000 块/并发 2/上限 120 块，替代邮件 60k 首尾截断）；取消快路径（abort 立即抛 AbortError）；chat 支持页面级 config+signal。**导出产物同批对齐**：HTML 内容宽 1280px/打印 760px、视觉换参考靛蓝规格（保留模块卡片功能）、mermaid cScale/pie 色板靛蓝化、下载文件名取总结标题（summaryFileTitle+timestampName，三页共用）。详见 §3.29。验证：summary-template 172 + markdown-export 59 项全绿 + 既有套全绿 + 浏览器实测三页与扩展副本（命名/宽度/配色/mermaid 渲染） |
+| v0.52.3 | **时间轴导出对齐 voice_transcription（共享 markdown.js，双副本）**：移植确定性识别（时间列表格/彩点日期列表）+ 彩色圆环时间轴卡片渲染（1:1 复刻用户指定 Gmail 线索样张，深浅主题自适应：行内 var + 浅色兜底，theme.css 深色覆盖，打印回落浅色），预览/HTML 导出/MD 导出三处一致；downloadText 闸门 + 4 处页面本地直连下载点按 text/markdown 统一升级（upgradeMarkdownTimeline，幂等+围栏/骨架保护）；修复 astral emoji 字符类无 /u 误判。详见 §3.28。验证：tests/timeline-export.test.mjs 44 项全绿 + 既有套全绿 + 浏览器实测（浅/深主题截图） |
+| v0.52.2 | **通读优先规则（工作报告/邮件总结/AI 解析三页，双副本）**：ai-service.js 新增 READ_FIRST_RULE(_EN) 共享规则，summaryTemplatePrompt（25 模板）/ analyzePrompt / emailPrompt 统一追加；工作报告默认中/英提示词引用追加；邮件页 DOC 提示词强化 + SKILL 铁律 7。AI 必须先完整阅读理解全部输入与附件，再按【解析要求】总结。详见 §3.27。验证：tests/attachment.test.mjs 175 项全绿 + 既有套全绿 + 浏览器实测 9 场景请求体 |
+| v0.52.1 | **解析要求输入框升级（邮件总结/工作报告，双副本）**：单行 input → 自动增高 textarea（44px 起、220px 封顶内滚）+ ⤢ 大编辑器弹窗（860px 宽、min(280px,40vh) 高、Ctrl+Enter 保存/Esc 取消），保存写回原字段复用既有 change 持久化；弹窗选择器提升特异性防 theme.css 触屏规则压制。详见 §3.26。验证：tests/attachment.test.mjs 164 项全绿 + 既有套全绿 + 浏览器实测（增高/弹窗/持久化/窄视口/浅深主题/扩展副本冒烟） |
 | v0.52.0 | **附件支持 Office 文档（docx/xlsx/pptx）+ 三页「解析要求」输入框**：打包 JSZip 3.10.1（jszip.min.js 双副本），ai-service.js 新增 extractOfficeText 统一入口 + docx/xlsx/pptx 纯函数 XML→文本提取（12 万字符预算截取，旧 .doc/.xls/.ppt 明确报错）；三页 accept 与解析循环接入 Office 分支；工作报告与邮件总结新增 `#summaryInstruction` 解析要求输入框（随内容以「【解析要求】」段发给 AI，与模板并行生效，持久化 work_config.summaryInstruction / email_summary_config.instruction）；工作报告无记录时兜底总结编辑器内容。详见 §3.25。验证：tests/attachment.test.mjs 145 项全绿 + 既有套全绿 + 手工 OOXML 样例浏览器实测 |
 | v0.51.1 | **附件统一处理 150MB 上限 + 三页多文件附件/清空输入补齐**：ai-service.js 新增共享助手（checkAttachment / extractPdfText 自 email 上移 / truncateLargeText / readAttachmentText / readAttachmentBuffer 带读取进度，双副本逐字一致）；统一规则 >150MB 拒绝、文本 >10MB 截首尾载入；**三页多文件**：workreport/email fileInput 加 multiple（ai_parse 原有），逐个校验/解析超限跳过不中断，多文件合并载入加「附件 N：文件名」分界行；email_summary 旧 PDF 200MB/文本 10MB 拒绝规则改为统一 150MB+截断；ai_parse 修复 .pdf 直读乱码（走 pdf.js 提取）+ 补 150MB 校验；**工作报告新增「选择附件/文件标签/清空输入」**（本版补齐第三页），三页 HTML 补引 pdf.min.js（workreport/ai_parse）。详见 §3.24。验证：tests/attachment.test.mjs 74 项全绿 + 既有套全绿（106/45/其余）+ 浏览器实测三页多文件 |
 | v0.51.0 | **总结模板切换为 scenario-templates 25 套（工作报告 / 邮件总结 / AI 解析三页共用）**：移除 v0.49.0 的 8 套 ai-template-kit 模板（旧选择自动回落默认），内嵌用户本机 scenario-templates 技能的 25 套可粘贴提示词（专属正文 + 共享【输出契约】G-SPEC 构建时拼接，与技能生成内容/格式一致），下拉按 会议纪要/日报周报/任务提取/邮件总结/邮件撰写 5 组 optgroup 分组；工作报告（default=要点总结不变）与 AI 解析（auto=原行为不变）沿用既有接入，**邮件总结页新增「总结模板」下拉**（default=邮件线程四段式规范不变，持久化 `email_summary_config.template`）；未知/旧 id 自动回落默认。详见 §3.23。验证：tests 重写 89 项全绿 + 既有套全绿 + 浏览器实测三页（分组渲染/持久化/旧 id 回退） |
@@ -517,7 +595,7 @@ node tests/stream-and-url.test.mjs
 # PDF 解析管线（用页面同一份 pdf.min.js 解析样例 PDF）
 node tests/pdf-parse.test.mjs
 
-# 总结模板单测（25 套清单/正文/契约/语言规则/优先级/双副本一致）
+# 总结模板单测（25 套清单/正文/契约/17 语言表/map-reduce/取消快路径/双副本一致）
 node tests/summary-template.test.mjs
 
 # Markdown 导出渲染单测（SVG 放行/净化/表格/mdToHtml 壳/双副本一致）
@@ -525,6 +603,9 @@ node tests/markdown-export.test.mjs
 
 # 附件处理单测（150MB 上限/PDF+Office 提取/三页接线/双副本一致）
 node tests/attachment.test.mjs
+
+# 主题协议单测（3 款注册/9 删除 id 零残留/兜底迁移/变量超集/WCAG 分级/控件精修层/双副本一致）
+node tests/theme.test.mjs
 
 # 用 git 旧版对照，确认该测试真能捕获回归（预期报红，exit=1）
 git show HEAD:ai-service.js > /tmp/ai-service-old.js && SVC_PATH=/tmp/ai-service-old.js node tests/bridge-timeout.test.mjs
@@ -563,7 +644,7 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 - [ ] **PDF 解析仍依赖 pdf.js 本地打包**（~1.3MB），每个 iframe 首次打开都会加载，可考虑按需动态 `import()`
 - [ ] **Apple 提醒事项 URL Scheme** 仅 macOS，Windows/Linux 用户无替代方案
 - [ ] **任务清单与 Google Calendar 同步** 仅实现了 .ics 下载，未做 OAuth 直连
-- [ ] **灵感库全站分批改版（v0.37.0 起动）** — 设计规范源：《网页设计灵感参考库》。已完成：主题体系（**10 款**：v0.40.0 移除书斋/鎏金/极光后为 9 款 + 此后新增 青屿 Verdant；v0.47.2 试制 6 款参考公开配色主题后**全部撤下**，见 §3.4.1）+ 任务清单页（Bento KPI）+ **v0.38.0 设计评审十项落实（全局令牌刻度/焦点环/降级/打印/大纲/字体统一/去硬编码/断点/ai-panel.css 抽取）**。待跟进批次：工作报告→Bento 指标面板（L2 范式：KPI 左色条+等宽数字）、英语学习→杂志多栏阅读（L3 范式：衬线词头+等宽音标+多栏正文）、邮件总结/AI 解析→结论置顶卡片流（L4 范式：渐变 TL;DR 区+等宽编号要点）、智能翻译→双语对照分栏（L1 范式：行同步高亮+术语标注）；改版时遵守库内硬规则（暗色非纯黑、对比度≥4.5:1、60-30-10、数字全等宽、动画≤400ms）
+- [ ] **灵感库全站分批改版（v0.37.0 起动）** — 设计规范源：《网页设计灵感参考库》。已完成：主题体系（**现 3 款**：靛蓝/奶油/曜石，v0.55.0 删除 9 款旧主题；历史：v0.40.0 移除书斋/鎏金/极光后为 9 款 + 新增青屿，v0.47.2 试制 6 款后全部撤下，见 §3.4.1）+ 任务清单页（Bento KPI）+ **v0.38.0 设计评审十项落实（全局令牌刻度/焦点环/降级/打印/大纲/字体统一/去硬编码/断点/ai-panel.css 抽取）**。待跟进批次：工作报告→Bento 指标面板（L2 范式：KPI 左色条+等宽数字）、英语学习→杂志多栏阅读（L3 范式：衬线词头+等宽音标+多栏正文）、邮件总结/AI 解析→结论置顶卡片流（L4 范式：渐变 TL;DR 区+等宽编号要点）、智能翻译→双语对照分栏（L1 范式：行同步高亮+术语标注）；改版时遵守库内硬规则（暗色非纯黑、对比度≥4.5:1、60-30-10、数字全等宽、动画≤400ms）
 - [ ] **index.html 深层选择器压平**（v0.38.0 评审报告遗留）— 最深 21 层选择器链，报告自身建议避免大重构，待后续小批次处理
 
 ### v0.47.3 交接：待推送 / 待验收 / 清理口径
@@ -584,7 +665,7 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 
 接手本项目时，按此顺序验证环境：
 
-1. `git pull` 拉最新 master，确认版本徽章为 v0.52.0（`chrome_extension/manifest.json` 的 `version`）
+1. `git pull` 拉最新 master，确认版本徽章为 v0.55.0（`chrome_extension/manifest.json` 的 `version`）
 2. 浏览器打开 `index.html`，配置 API（可用 DeepSeek `https://api.deepseek.com/v1` + `deepseek-chat` 测试）
 3. 依次点击 8 个 Tab，确认每个都能正常工作；在智能翻译生成一次译文、或在工作报告/邮件总结/AI 解析/AI 提示词生成一次结果后点「微信格式」，确认区域展开、内容无 `#`/`**` 残留且 emoji 正常；编辑译文/结果后区块应自动隐藏
 4. Chrome 加载 `chrome_extension/`（v0.25.11 起新增 `clipboardRead` 权限，加载/更新后需在扩展卡片点「重新加载」）：
@@ -595,8 +676,9 @@ DELAY_MS=420000 DEADLINE_MS=470000 node tests/bridge-long-request.e2e.mjs
 5. 在弹窗改 API 配置 → 切到侧边栏「AI 解析」，应立即使用新配置（无需刷新）
 6. 切换主题（右下角面板 / 侧边栏右下角圆形按钮）→ 全部 8 个 Tab + 弹窗 + 网页版全部同步
 7. 英语学习句子模式（v0.47.1）：贴一句 ≤50 词英文 → 三个卡片（句子翻译 / 句式讲解 / 单词讲解）+ 提示行应显示「句子较短（N 词）：已对句中全部 M 个单词逐一讲解…」，难点词带「难点」徽章与展开的难点讲解；再贴一句 **>50 词的单句**（可含 `Mr.` / `U.S.` / `3.14` 验证不被误判成多句）→ 应仍走句子模式、提示行显示「句子较长（N 词）：已挑选 M 个重点/难点单词讲解…」；点该条历史回放，提示行词数应与学习时一致。≥3 句的长材料仍应走材料模式（全文翻译 + ≤20 词）。
+8. 三页输出语言（v0.53.0）：工作报告/邮件总结/AI 解析的输出语言下拉均应为 17 项（首项「跟随原文」）；邮件总结贴 >12000 字符 → 进度应显示「理解全文 x/y」（分块通读，而非首尾截断）；生成中点「取消生成」→ 应立即落定（toast「已取消生成」、按钮恢复）。
 
 ---
 
-**最后更新**：2026-11-25 · v0.52.0（Office 附件 docx/xlsx/pptx + 三页解析要求输入框；详见 §4 版本表与 §3.25）
+**最后更新**：2026-11-27 · v0.55.0（主题精简 12 → 3：靛蓝 Iris（默认）/奶油 Cream/曜石 Obsidian，9 款旧主题删除 + 兜底迁移 + tests/theme.test.mjs 71 项；详见 §4 版本表与 §3.31）
 **参考文档**：`README.md` · `README_EN.md`（changelog 停在 v0.25.11，正文随版本更新，仍以中文版为准） · `ai_summary_prompt.md` · `translate_tool_prompts.txt`

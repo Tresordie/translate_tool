@@ -5,6 +5,9 @@
  *   1. AiService 附件助手：150MB 上限校验 / 大文本首尾截断 / PDF 提取依赖守卫 / 带进度读取
  *   2. 三页接线：email_summary / ai_parse / workreport 源码引用共享助手与 UI 元素（含多文件 multiple + 循环处理 + 合并载入）
  *   3. 双副本一致：助手段逐字一致 + page JS/HTML 接线一致
+ *   4. v0.52.1：解析要求/总结要求 单行input → 自动增高textarea + ⤢大编辑器弹窗（双副本 + 跨页同款）
+ *   5. v0.52.2：通读优先规则——三页全部总结路径先完整理解全部输入与附件，再按用户要求总结
+ *   6. v0.53.0：对齐 voice_transcription——三页统一 summarizeContent + OUTPUT_LANGS（跟随原文+16 种）+ 空 select 由 JS 渲染
  *
  * 运行: node tests/attachment.test.mjs
  */
@@ -80,11 +83,13 @@ for (const [i, s] of both('email_summary.js').entries()) {
   check(tag + ' 全文组装 buildFullText（附件分界 + 输入框正文）', s.indexOf('function buildFullText') !== -1 && s.indexOf("'===== 附件 ' + (i + 1) + '：' + f.name") !== -1);
   check(tag + ' PDF 读取走共享 readAttachmentBuffer', s.indexOf('AiService.readAttachmentBuffer') !== -1);
   check(tag + ' Office 附件走共享 extractOfficeText', s.indexOf('AiService.extractOfficeText') !== -1);
-  check(tag + ' 解析要求输入框随内容组装', s.indexOf("const instruction = (($('summaryInstruction') || {}).value || '').trim();") !== -1 && s.indexOf("'【解析要求】\\n' + instruction") !== -1);
+  check(tag + ' 总结要求随内容组装并注入 userPrompt（v0.53.0）', s.indexOf("const instruction = (($('summaryInstruction') || {}).value || '').trim();") !== -1 && s.indexOf('userPrompt: instruction') !== -1);
   check(tag + ' 解析要求持久化 email_summary_config.instruction', s.indexOf('config.instruction = instrInput.value.trim();') !== -1 && s.indexOf('instruction: config.instruction') !== -1);
-  check(tag + ' 内容形态自适应：.eml 或邮件特征 → 邮件规范', s.indexOf("loadedFiles.some((f) => f.status === 'done' && /\\.eml$/i.test(f.name))") !== -1 && s.indexOf('AiService.looksLikeEmail ? AiService.looksLikeEmail(trunc.text)') !== -1);
-  check(tag + ' 纯文档默认走 DOC_SUMMARY_PROMPT（不强套邮件四段式）', s.indexOf('const DOC_SUMMARY_PROMPT') !== -1 && s.indexOf('tplPrompt || (isEmailContent ? SKILL_PROMPT : DOC_SUMMARY_PROMPT)') !== -1);
-  check(tag + ' 文档模式用户消息标注来源附件', s.indexOf("'文档内容（来源附件：' + srcName + '）'") !== -1);
+  check(tag + ' 解析要求自动增高 + 大编辑器弹窗（v0.52.1）', s.indexOf('function autoGrowInstruction') !== -1 && s.indexOf('function initInstructionModal') !== -1 && s.indexOf('initInstructionModal();') !== -1);
+  check(tag + ' 弹窗保存派发 change 复用持久化（v0.52.1）', s.indexOf("el.dispatchEvent(new Event('change'))") !== -1);
+  check(tag + ' 统一走 AiService.summarizeContent（v0.53.0，不再 looksLikeEmail 分支）', s.indexOf('_as.summarizeContent({') !== -1 && s.indexOf('AiService.looksLikeEmail') === -1);
+  check(tag + ' 旧 SKILL/DOC 默认提示词已移除（统一 G-SPEC）', s.indexOf('const SKILL_PROMPT') === -1 && s.indexOf('const DOC_SUMMARY_PROMPT') === -1 && s.indexOf("template: tplId !== 'default' ? tplId : ''") !== -1);
+  check(tag + ' 超长输入不再首尾截断（map-reduce 由 AiService 处理）', s.indexOf('function autoTruncate') === -1 && s.indexOf('const MAX_INPUT_CHARS') === -1 && s.indexOf('map-reduce') !== -1);
 }
 for (const [i, s] of both('ai_parse.js').entries()) {
   const tag = 'ai_parse.js[' + (i ? 'ext' : 'root') + ']';
@@ -113,8 +118,10 @@ for (const [i, s] of both('workreport.js').entries()) {
   check(tag + ' PDF 读取走共享 readAttachmentBuffer', s.indexOf('AiService.readAttachmentBuffer') !== -1);
   check(tag + ' Office 附件走共享 extractOfficeText', s.indexOf('AiService.extractOfficeText') !== -1);
   check(tag + ' 无记录时兜底：附件清单 + 输入框正文', s.indexOf('var usingEditor = false;') !== -1 && s.indexOf('function buildInputSourceText') !== -1 && s.indexOf("!draftText && !loadedFiles.some") !== -1);
-  check(tag + ' 解析要求输入框随内容组装', s.indexOf("const instruction = (($('summaryInstruction') || {}).value || '').trim();") !== -1 && s.indexOf("'【解析要求】\\n' + instruction") !== -1);
+  check(tag + ' 总结要求随内容组装并注入 userPrompt（v0.53.0）', s.indexOf("const instruction = (($('summaryInstruction') || {}).value || '').trim();") !== -1 && s.indexOf('userPrompt: instruction') !== -1);
   check(tag + ' 解析要求持久化 work_config.summaryInstruction', s.indexOf('config.summaryInstruction = this.value.trim();') !== -1 && s.indexOf('summaryInstruction: config.summaryInstruction') !== -1);
+  check(tag + ' 解析要求自动增高 + 大编辑器弹窗（v0.52.1）', s.indexOf('function autoGrowInstruction') !== -1 && s.indexOf('function initInstructionModal') !== -1 && s.indexOf('initInstructionModal();') !== -1 && s.indexOf('autoGrowInstruction();') !== -1);
+  check(tag + ' 弹窗保存派发 change 复用持久化（v0.52.1）', s.indexOf("el.dispatchEvent(new Event('change'))") !== -1);
   check(tag + ' 配置 pdf worker', s.indexOf("pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js'") !== -1);
 }
 for (const [i, s] of both('workreport.html').entries()) {
@@ -125,11 +132,15 @@ for (const [i, s] of both('workreport.html').entries()) {
   check(tag + ' fileInput 支持多文件', /id="fileInput"[^>]*multiple/.test(s));
   check(tag + ' accept 含 Office 格式', s.indexOf('.docx,.xlsx,.xlsm,.pptx') !== -1);
   check(tag + ' 解析要求输入框存在', s.indexOf('id="summaryInstruction"') !== -1);
+  check(tag + ' 解析要求为自动增高 textarea（v0.52.1）', /<textarea[^>]*id="summaryInstruction"/.test(s) && s.indexOf('type="text" id="summaryInstruction"') === -1 && s.indexOf('.instruction-wrap') !== -1);
+  check(tag + ' 解析要求 ⤢ 展开按钮 + 大编辑器弹窗（v0.52.1）', s.indexOf('id="instrExpandBtn"') !== -1 && s.indexOf('id="instrModalOverlay"') !== -1 && s.indexOf('id="instrModalText"') !== -1 && s.indexOf('.instr-modal') !== -1);
 }
 for (const [i, s] of both('email_summary.html').entries()) {
   check('email_summary.html[' + (i ? 'ext' : 'root') + '] fileInput 支持多文件', /id="fileInput"[^>]*multiple/.test(s));
   check('email_summary.html[' + (i ? 'ext' : 'root') + '] accept 含 Office 格式', s.indexOf('.docx,.xlsx,.xlsm,.pptx') !== -1);
   check('email_summary.html[' + (i ? 'ext' : 'root') + '] 解析要求输入框存在', s.indexOf('id="summaryInstruction"') !== -1);
+  check('email_summary.html[' + (i ? 'ext' : 'root') + '] 总结要求为自动增高 textarea（v0.52.1）', /<textarea[^>]*id="summaryInstruction"/.test(s) && s.indexOf('type="text" id="summaryInstruction"') === -1 && s.indexOf('.instruction-wrap') !== -1);
+  check('email_summary.html[' + (i ? 'ext' : 'root') + '] 总结要求 ⤢ 展开按钮 + 大编辑器弹窗（v0.52.1）', s.indexOf('id="instrExpandBtn"') !== -1 && s.indexOf('id="instrModalOverlay"') !== -1 && s.indexOf('id="instrModalText"') !== -1 && s.indexOf('.instr-modal') !== -1);
 }
 for (const [i, s] of both('email_summary.html').entries()) {
   check('email_summary.html[' + (i ? 'ext' : 'root') + '] fileInput 支持多文件', /id="fileInput"[^>]*multiple/.test(s));
@@ -229,6 +240,69 @@ check('workreport.js 绑定段逐字一致', wrBindRoot !== null && wrBindRoot =
 check('workreport.html 工具栏段逐字一致',
   sliceBetween(src('workreport.html'), '<div class="input-toolbar">', '<div id="workInput"')
   === sliceBetween(src('chrome_extension/workreport.html'), '<div class="input-toolbar">', '<div id="workInput"'));
+
+// 解析要求字段升级段（v0.52.1）：双副本逐字 + 跨页同款
+const INSTR_FROM = '// ===== 解析要求字段升级（v0.52.1）';
+const INSTR_TO = '// ===== 解析要求字段升级（结束） =====';
+const instrWrRoot = sliceBetween(src('workreport.js'), INSTR_FROM, INSTR_TO);
+const instrWrExt = sliceBetween(src('chrome_extension/workreport.js'), INSTR_FROM, INSTR_TO);
+check('workreport.js 解析要求升级段逐字一致', instrWrRoot !== null && instrWrRoot === instrWrExt);
+const instrEsRoot = sliceBetween(src('email_summary.js'), INSTR_FROM, INSTR_TO);
+const instrEsExt = sliceBetween(src('chrome_extension/email_summary.js'), INSTR_FROM, INSTR_TO);
+check('email_summary.js 解析要求升级段逐字一致', instrEsRoot !== null && instrEsRoot === instrEsExt);
+check('两页解析要求升级段跨页同款', instrWrRoot !== null && instrWrRoot === instrEsRoot);
+
+// 通读优先规则（v0.52.2）：三页全部总结路径必须先完整理解全部输入与附件再按要求总结
+console.log('— 通读优先规则（v0.52.2） —');
+check('READ_FIRST_RULE 中文规则导出', typeof svc.READ_FIRST_RULE === 'string' && svc.READ_FIRST_RULE.indexOf('通读优先') !== -1 && svc.READ_FIRST_RULE.indexOf('【用户额外要求】') !== -1);
+check('READ_FIRST_RULE_EN 英文规则导出', typeof svc.READ_FIRST_RULE_EN === 'string' && svc.READ_FIRST_RULE_EN.indexOf('fully read and understand') !== -1);
+check('25 套模板提示词全部注入通读优先', svc.SUMMARY_TEMPLATES.every((t) => svc.summaryTemplatePrompt(t.id, '中文').indexOf('通读优先') !== -1));
+check('自由分析默认提示词注入通读优先', svc.PROMPTS.analyze.indexOf('通读优先') !== -1);
+const aiSrc = src('ai-service.js');
+check('旧 analyzePrompt/emailPrompt 已移除，统一 freeSummaryPrompt + summarizeContent', aiSrc.indexOf('function analyzePrompt') === -1 && aiSrc.indexOf('function emailPrompt') === -1 && aiSrc.indexOf('function freeSummaryPrompt') !== -1 && aiSrc.indexOf('function summarizeContent') !== -1);
+check('默认路径统一注入通读优先（freeSummaryPrompt → PROMPTS.analyze）', svc.freeSummaryPrompt('').indexOf('通读优先') !== -1 && svc.PROMPTS.analyze === svc.freeSummaryPrompt(''));
+const RF_FROM = '// ===== 通读优先规则（v0.52.2） =====';
+const RF_TO = '// ===== 通读优先规则（结束） =====';
+const rfRoot = sliceBetween(aiSrc, RF_FROM, RF_TO);
+const rfExt = sliceBetween(src('chrome_extension/ai-service.js'), RF_FROM, RF_TO);
+check('ai-service.js 通读优先段双副本逐字一致', rfRoot !== null && rfRoot === rfExt);
+for (const [tag, rel] of [['root', 'workreport.js'], ['ext', 'chrome_extension/workreport.js']]) {
+  const s = src(rel);
+  check(tag + ' workreport 统一走 summarizeContent（通读优先由 AiService 注入）', s.indexOf('_as.summarizeContent({') !== -1 && s.indexOf('userPrompt: instruction') !== -1 && s.indexOf('var readFirstRule') === -1);
+}
+for (const [tag, rel] of [['root', 'email_summary.js'], ['ext', 'chrome_extension/email_summary.js']]) {
+  const s = src(rel);
+  check(tag + ' email 统一走 summarizeContent（旧 SKILL 铁律段已移除）', s.indexOf('_as.summarizeContent({') !== -1 && s.indexOf('7. **通读优先**') === -1);
+}
+
+// v0.53.0 对齐 voice_transcription：语言表统一 + HTML 空 select + wechat 排除 auto
+console.log('— v0.53.0 输出语言统一（跟随原文 + 16 种） —');
+check('OUTPUT_LANGS 17 项且首项 auto（name 空＝跟随原文）', svc.OUTPUT_LANGS.length === 17 && svc.OUTPUT_LANGS[0].code === 'auto' && svc.OUTPUT_LANGS[0].name === '');
+for (const [tag, rel, marker] of [
+  ['root', 'workreport.js', 'AiService.OUTPUT_LANGS.map'],
+  ['ext', 'chrome_extension/workreport.js', 'AiService.OUTPUT_LANGS.map'],
+  ['root', 'email_summary.js', 'AiService.OUTPUT_LANGS.map'],
+  ['ext', 'chrome_extension/email_summary.js', 'AiService.OUTPUT_LANGS.map'],
+  ['root', 'ai_parse.js', 'Ai.OUTPUT_LANGS.map'],
+  ['ext', 'chrome_extension/ai_parse.js', 'Ai.OUTPUT_LANGS.map'],
+]) {
+  check(tag + ' ' + rel + ' 语言下拉由 OUTPUT_LANGS 渲染', src(rel).indexOf(marker) !== -1);
+}
+for (const [i, s] of both('workreport.html').entries()) {
+  const tag = 'workreport.html[' + (i ? 'ext' : 'root') + ']';
+  check(tag + ' outputLang 空 select 由 JS 渲染', /<select id="outputLang"><!-- v0\.53\.0[^>]*--><\/select>/.test(s));
+  check(tag + ' 输入语言侧隐藏（不再参与组 prompt）', s.indexOf('id="inputLang"') !== -1 && s.indexOf('class="lang-select-wrap" style="display:none;"') !== -1);
+}
+for (const [i, s] of both('email_summary.html').entries()) {
+  check('email_summary.html[' + (i ? 'ext' : 'root') + '] outputLang 空 select 由 JS 渲染', /<select id="outputLang"><!-- v0\.53\.0[^>]*--><\/select>/.test(s));
+}
+for (const [i, s] of both('wechat_schedule.js').entries()) {
+  check('wechat_schedule.js[' + (i ? 'ext' : 'root') + '] 语言下拉排除 auto（保持显式选语言）', s.indexOf(".filter(function (l) { return l.code !== 'auto'; })") !== -1);
+}
+for (const [i, s] of both('workreport.js').entries()) {
+  check('workreport.js[' + (i ? 'ext' : 'root') + '] LANG_NAMES_EN 已移除', s.indexOf('LANG_NAMES_EN') === -1);
+}
+check('ai_parse 附件分界与正文置末（v0.53.0）', src('ai_parse.js').indexOf("'===== 附件 ' + (parts.length + 1)") !== -1);
 
 console.log('');
 console.log(`共 ${passed + failed} 项断言: ${passed} passed, ${failed} failed`);

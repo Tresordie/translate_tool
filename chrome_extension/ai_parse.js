@@ -4,7 +4,8 @@
  * 双模式（与 TaskFlow AI Parse 一致）:
  *   - 任务抽取（经典）: 无解析要求 + 无附件 → parseNotes() → 结构化任务卡片（勾选 → 创建任务清单）
  *   - 自由分析: 有解析要求 或 有附件 → analyzeContent() → Markdown 总结（可复制 / 下载）
- * 邮件线程自动识别: 附件含 .eml 或文本匹配 looksLikeEmail → 走邮件线程 playbook
+ * v0.53.0 对齐 voice_transcription：默认自由总结 + G-SPEC 契约，超长输入 map-reduce
+ *   （AiService.summarizeContent）；邮件线程不再单独 playbook（E1-E5 模板与 G-SPEC 时间轴条款覆盖）
  *
  * 依赖: markdown.js, md-editor.js, ai-service.js
  */
@@ -30,7 +31,7 @@
 
   const STATE_KEY = 'ai_parse_state';
   const HISTORY_LIMIT = 30;
-  const state = { draft: '', instructions: '', lang: 'zh', template: 'auto', history: [] };
+  const state = { draft: '', instructions: '', lang: 'auto', template: 'auto', history: [] };
 
   let saveTimer = null;
   function scheduleSave() {
@@ -442,28 +443,33 @@
   }
 
   async function runAnalyze(instructions, notes) {
+    // 附件分界与工作报告/邮件总结对齐（===== 附件 N：文件名 =====，READ_FIRST_RULE 要求逐份读全），正文置末
     const parts = [];
-    if (notes.trim()) parts.push('【笔记】\n' + notes);
-    loadedFiles.filter((f) => f.status === 'done').forEach((f) => { parts.push('【附件：' + f.name + '】\n' + f.content); });
+    loadedFiles.filter((f) => f.status === 'done').forEach((f) => {
+      parts.push('===== 附件 ' + (parts.length + 1) + '：' + f.name + ' =====\n' + f.content);
+    });
+    if (notes.trim()) parts.push(notes);
     const content = parts.join('\n\n———\n\n');
-    const email = loadedFiles.some((f) => f.status === 'done' && f.isEmail) || Ai.looksLikeEmail(instructions + '\n' + notes);
 
     _busy = true;
     setLoading(true);
     $('runBtn').innerHTML = runBtnHtml('分析中...');
     try {
       const md = await Ai.analyzeContent({
-        instructions, content, email, lang: state.lang,
-        // 显式选择总结模板时传给 analyzeContent（auto = 默认结构 / 邮件 playbook）
+        instructions, content, lang: state.lang,
+        // 显式选择总结模板时传给 analyzeContent（auto = 自由总结 + G-SPEC 契约）
         template: state.template !== 'auto' ? state.template : '',
+        onProgress: (stage, done, total) => {
+          $('runBtn').innerHTML = runBtnHtml(total > 0 ? '理解全文 ' + done + '/' + total : '生成总结...');
+        },
       });
       currentSummaryMd = md;
-      showSummary(md, email ? '邮件线程分析' : '分析结果');
+      showSummary(md, '分析结果');
       pushHistory({
-        mode: 'analyze', lang: state.lang, email: email, tpl: state.template,
+        mode: 'analyze', lang: state.lang, tpl: state.template,
         input: (instructions ? instructions + '\n' : '') + notes, md: md,
       });
-      showToast(email ? '邮件线程总结已生成' : '分析完成', 'success');
+      showToast('分析完成', 'success');
     } catch (err) {
       showError(err);
     } finally {
@@ -660,7 +666,7 @@
     if (!sel) return;
     const tpls = Ai.SUMMARY_TEMPLATES || [];
     const scenes = ['会议纪要', '日报周报', '任务提取', '邮件总结', '邮件撰写'];
-    let html = '<option value="auto" title="默认结构（邮件附件自动走邮件线程 playbook）">默认（自动）</option>';
+    let html = '<option value="auto" title="自由总结 + G-SPEC 输出契约（对齐 voice_transcription）">默认（自动）</option>';
     scenes.forEach((sc) => {
       const group = tpls.filter((t) => t.scene === sc);
       if (!group.length) return;
@@ -703,7 +709,7 @@
         try { legacy = localStorage.getItem('ai_parse_draft'); } catch (e) {}
         if (legacy) state.draft = legacy;
       }
-      if (!Ai.OUTPUT_LANGS.some((l) => l.code === state.lang)) state.lang = 'zh';
+      if (!Ai.OUTPUT_LANGS.some((l) => l.code === state.lang)) state.lang = 'auto';
       if (state.template !== 'auto' && !Ai.getSummaryTemplate(state.template)) state.template = 'auto';
       notesEditor.setMarkdown(state.draft);
       $('instructionsInput').value = state.instructions;
@@ -770,13 +776,18 @@
     });
     $('downloadMdBtn').addEventListener('click', () => {
       if (!currentSummaryMd) return;
-      Ai.downloadText('ai-parse-' + stamp() + '.md', currentSummaryMd, 'text/markdown;charset=utf-8');
+      // v0.53.0: 文件名 = 总结名称（首个一级标题）+ 时间戳，对齐参考项目 timestampName
+      const base = Ai.summaryFileTitle ? Ai.summaryFileTitle(currentSummaryMd) : 'ai-parse';
+      const name = Ai.timestampName ? Ai.timestampName(base, 'md') : 'ai-parse-' + stamp() + '.md';
+      Ai.downloadText(name, currentSummaryMd, 'text/markdown;charset=utf-8');
     });
     $('downloadHtmlBtn').addEventListener('click', async () => {
       if (!currentSummaryMd) return;
       // mdToHtmlAsync 额外把 mermaid 块（思维导图/流程图）内嵌打包库渲染成图
-      const html = Ai.mdToHtmlAsync ? await Ai.mdToHtmlAsync(currentSummaryMd, 'AI 解析总结') : Ai.mdToHtml(currentSummaryMd, 'AI 解析总结');
-      Ai.downloadText('ai-parse-' + stamp() + '.html', html, 'text/html;charset=utf-8');
+      const base = Ai.summaryFileTitle ? Ai.summaryFileTitle(currentSummaryMd) : 'ai-parse';
+      const html = Ai.mdToHtmlAsync ? await Ai.mdToHtmlAsync(currentSummaryMd, base) : Ai.mdToHtml(currentSummaryMd, base);
+      const name = Ai.timestampName ? Ai.timestampName(base, 'html') : 'ai-parse-' + stamp() + '.html';
+      Ai.downloadText(name, html, 'text/html;charset=utf-8');
     });
     $('wechatFormatBtn').addEventListener('click', convertToWechat);
     $('copyWechatBtn').addEventListener('click', copyWechat);

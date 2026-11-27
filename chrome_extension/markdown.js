@@ -168,6 +168,349 @@
     return html;
   }
 
+  /* ---------- 时间轴可视化（v0.52.3，移植自 voice_transcription src/lib/ai/timeline.ts） ----------
+   * 自动识别两类时间轴数据并渲染为可视化卡片（不再是朴素表格/列表）：
+   *   1. 表格：表头含时间列（时间/日期/时间戳/when/date，或首列全为 mm:ss）+ 事件/任务列；
+   *   2. 列表：G-SPEC「彩点 emoji + 日期」条目（🟢 2026-11-20 …），≥2 条、≥60% 命中、≥50% 带时间戳。
+   * 全部行内样式 + hex 颜色：预览 / 单文件 HTML 导出 / md 导出 / 打印一致；
+   * 外层白色面板保证深色预览下可读（参考项目为浅色主题故无面板，此处为适配深色预览的补充）。
+   * 颜色语义来自 scenario-templates/timeline.md：绿=完成、红=风险、琥珀=卡点、蓝=推进。
+   */
+
+  // 检测输入统一为纯文本：去掉 markdown 行内标记（粗体/斜体/代码/链接/删除线/图片）
+  function tlStripInline(s) {
+    return String(s == null ? '' : s)
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1$2')
+      .replace(/(^|[^\w_])_([^_\n]+)_(?![\w_])/g, '$1$2')
+      .replace(/~~([^~]+)~~/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .trim();
+  }
+
+  function tlIsTimeText(s) {
+    return /时间|日期|时间戳|时间点|when|date/i.test(s) || /^\d{1,2}:\d{2}$/.test(String(s).trim());
+  }
+
+  // 表格时间轴识别：时间列 + 事件/任务列（+ 可选状态列）→ 时间轴数据；非时间轴返回 null
+  function tlDetectTable(header, rows, rawRows) {
+    if (!rows || rows.length < 2 || !header || header.length < 2) return null;
+    var timeCol = -1;
+    for (var ti = 0; ti < header.length; ti++) { if (tlIsTimeText(header[ti])) { timeCol = ti; break; } }
+    if (timeCol === -1) {
+      // 兜底：第一列全部是 mm:ss 时间戳（转写稿时间轴表常无表头语义）
+      var allTime = rows.every(function (r) { return /^\d{1,2}:\d{2}(\.\d+)?$/.test(String(r[0] || '').trim()); });
+      if (!allTime) return null;
+      timeCol = 0;
+    }
+    var used = [timeCol];
+    function pick(re) {
+      for (var pi = 0; pi < header.length; pi++) {
+        if (used.indexOf(pi) === -1 && re.test(header[pi])) return pi;
+      }
+      return -1;
+    }
+    var statusCol = pick(/状态|完成情况|进度|结果/i);
+    var titleCol = pick(/事件|标题|事项|任务|议题|节点|动作|阶段/i);
+    if (titleCol === -1) {
+      for (var fi = 0; fi < header.length; fi++) { if (used.indexOf(fi) === -1) { titleCol = fi; break; } }
+    }
+    if (titleCol === -1) return null;
+    used.push(titleCol);
+    if (statusCol >= 0) used.push(statusCol);
+    var descCol = pick(/内容|说明|详情|描述|要点|备注|结论|负责人|发言人/i);
+
+    var entries = [];
+    for (var ri = 0; ri < rows.length; ri++) {
+      var r = rows[ri];
+      // 展示取原始单元格（保留 **加粗**/`代码` 强调），检测匹配仍用剥离纯文本 rows
+      var d = (rawRows && rawRows[ri]) ? rawRows[ri] : r;
+      var time = String(d[timeCol] || '').trim();
+      var title = String(d[titleCol] || '').trim();
+      var status = statusCol >= 0 ? String(d[statusCol] || '').trim() : '';
+      var descParts = descCol >= 0 ? [d[descCol]] : [];
+      for (var ci = 0; ci < header.length; ci++) {
+        if (used.indexOf(ci) === -1 && ci !== descCol) descParts.push(d[ci]);
+      }
+      var seen = [];
+      var desc = descParts
+        .map(function (s) { return String(s || '').trim(); })
+        .filter(function (s, si) {
+          var key = tlStripInline(s);
+          if (!key || seen.indexOf(key) !== -1) return false;
+          seen.push(key);
+          return true;
+        })
+        .join(' · ');
+      if (!tlStripInline(time) && !tlStripInline(title)) continue;
+      entries.push({ time: time, title: title, desc: desc, status: status });
+    }
+    entries = entries.slice(0, 40);
+    if (entries.length < 2) return null;
+    return { entries: entries, style: statusCol >= 0 ? 'task' : 'event' };
+  }
+
+  // ——— v0.52.3 彩色时间轴（1:1 参考 voice_transcription 仪表盘的 Gmail 线索时间轴）———
+  // 空心彩色圆环节点 + 同色加粗时间戳 + 正文（**要点** 加粗）+ 细竖线 + 四色图例。
+  // 主题自适应：行内样式一律 var(--tl-*, 浅色兜底)——导出单文件 HTML（浅色壳）与 md 查看器
+  // 吃兜底值自成一体；应用内由 theme.css 在 5 款深色主题下覆盖为深色配色（样张同款），打印回落浅色。
+  var TL_BG = 'var(--tl-bg,#ffffff)', TL_LINE = 'var(--tl-line,#cbd5e1)', TL_TITLE = 'var(--tl-title,#0f172a)',
+      TL_BODY = 'var(--tl-body,#475569)', TL_MUT = 'var(--tl-mut,#64748b)', TL_STRONG = 'var(--tl-strong,#0b1220)',
+      TL_EM = 'var(--tl-em,#475569)', TL_BORDER = 'var(--tl-border,#e2e8f0)', TL_LEGEND = 'var(--tl-legend,#64748b)',
+      TL_OK = 'var(--tl-ok,#16a34a)', TL_INFO = 'var(--tl-info,#0284c7)', TL_RISK = 'var(--tl-risk,#dc2626)',
+      TL_WARN = 'var(--tl-warn,#b45309)', TL_CHIP_BG = 'var(--tl-chip-bg,rgba(15,23,42,0.04))',
+      TL_CHIP_BORDER = 'var(--tl-chip-border,#e2e8f0)', TL_CODE_BG = 'var(--tl-code-bg,rgba(15,23,42,0.05))',
+      TL_CODE_BORDER = 'var(--tl-code-border,#e2e8f0)', TL_CODE = 'var(--tl-code,#0f172a)';
+
+  // 展示用文本：转义 HTML 但保留 markdown 行内强调（检测匹配仍走 tlStripInline 纯文本）
+  function tlInlineHtml(s) {
+    var t = escapeHtml(String(s == null ? '' : s));
+    t = t.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+    t = t.replace(/\*\*([^*]+)\*\*/g, '<b style="color:' + TL_STRONG + ';font-weight:700;">$1</b>');
+    t = t.replace(/__([^_]+)__/g, '<b style="color:' + TL_STRONG + ';font-weight:700;">$1</b>');
+    t = t.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<i style="color:' + TL_EM + ';">$2</i>');
+    t = t.replace(/~~([^~]+)~~/g, '<del style="color:' + TL_MUT + ';">$1</del>');
+    t = t.replace(/`([^`]+)`/g, '<code style="background:' + TL_CODE_BG + ';border:1px solid ' + TL_CODE_BORDER + ';padding:0 5px;border-radius:4px;font-size:0.92em;color:' + TL_CODE + ';">$1</code>');
+    return t;
+  }
+
+  // 事件轴阶段配色（对齐样张语义，主题变量驱动）：完成/推进=绿、风险/升级=红、卡点/停滞=琥珀、中性/进行=蓝
+  function tlPhaseColor(text) {
+    if (/完成|✅|成功|通过|正常|已解决/.test(text)) return TL_OK;
+    if (/失败|风险|⚠|异常|故障|错误|升级|投诉|施压/.test(text)) return TL_RISK;
+    if (/卡点|阻塞|停滞|延期|待确认|待补|逾期|pending/i.test(text)) return TL_WARN;
+    return TL_INFO;
+  }
+
+  // 任务轴状态：✅完成 / 📦归档 / ❌逾期 / ⏳待处理 / 🚧进行中
+  function tlTaskStatus(text) {
+    if (/完成|✅|已归档|已关闭/.test(text)) return { color: TL_OK, icon: '✅', done: true };
+    if (/归档|📦/.test(text)) return { color: TL_MUT, icon: '📦', done: true };
+    if (/逾期|失败|❌|超时/.test(text)) return { color: TL_RISK, icon: '❌', done: false };
+    if (/卡点|阻塞|停滞|待确认|待补|pending/i.test(text)) return { color: TL_WARN, icon: '⏳', done: false };
+    return { color: TL_INFO, icon: '🚧', done: false };
+  }
+
+  // 时间轴骨架：细竖线 + 空心圆环节点（左缘对齐，环心压在线上）
+  function tlShell(rowsHtml) {
+    return '<div style="position:relative;padding-left:28px;">' +
+      '<div style="position:absolute;left:9px;top:10px;bottom:14px;width:2px;background:' + TL_LINE + ';border-radius:1px;"></div>' +
+      rowsHtml + '</div>';
+  }
+  function tlRing(color) {
+    return '<span style="position:absolute;left:-28px;top:3px;width:15px;height:15px;border-radius:50%;background:' + TL_BG +
+      ';border:2.5px solid ' + color + ';display:block;"></span>';
+  }
+
+  // 事件时间轴条目：同色加粗时间戳 + 标题同行，正文灰蓝色（行内强调保留）
+  function tlEventCard(entries) {
+    var rows = entries.map(function (e) {
+      var color = e.color || tlPhaseColor(e.title + ' ' + e.desc + ' ' + e.status);
+      return '<div style="position:relative;padding:0 0 18px 0;">' +
+        tlRing(color) +
+        '<div style="font-size:14px;line-height:1.55;">' +
+          '<span style="font-weight:700;color:' + color + ';letter-spacing:0.3px;">' + tlInlineHtml(e.time) + '</span>' +
+          '<span style="margin-left:10px;font-weight:600;color:' + TL_TITLE + ';">' + tlInlineHtml(e.title) + '</span>' +
+        '</div>' +
+        (e.desc ? '<div style="color:' + TL_BODY + ';font-size:13px;line-height:1.7;margin-top:3px;">' + tlInlineHtml(e.desc) + '</div>' : '') +
+        '</div>';
+    }).join('');
+    return tlShell(rows);
+  }
+
+  // 任务时间轴条目：圆环节点 + 时间戳 + 标题（完成置灰划线）+ 状态 chip
+  function tlTaskCard(entries) {
+    var rows = entries.map(function (e) {
+      var st = tlTaskStatus(e.status || e.title + ' ' + e.desc);
+      return '<div style="position:relative;padding:0 0 18px 0;">' +
+        tlRing(st.color) +
+        '<div style="font-size:14px;line-height:1.55;">' +
+          (e.time ? '<span style="font-weight:700;color:' + st.color + ';letter-spacing:0.3px;">' + tlInlineHtml(e.time) + '</span>' : '') +
+          '<span style="' + (e.time ? 'margin-left:10px;' : '') + 'font-weight:600;color:' + (st.done ? TL_MUT : TL_TITLE) + ';' +
+            (st.done ? 'text-decoration:line-through;' : '') + '">' + tlInlineHtml(e.title) + '</span>' +
+          '<span style="margin-left:8px;font-size:11px;font-weight:600;color:' + st.color +
+            ';background:' + TL_CHIP_BG + ';border:1px solid ' + TL_CHIP_BORDER + ';border-radius:4px;padding:1px 7px;vertical-align:1px;text-decoration:none;">' +
+            st.icon + ' ' + escapeHtml(e.status || (st.done ? '完成' : '进行中')) + '</span>' +
+        '</div>' +
+        (e.desc ? '<div style="color:' + TL_BODY + ';font-size:13px;line-height:1.7;margin-top:3px;">' + tlInlineHtml(e.desc) + '</div>' : '') +
+        '</div>';
+    }).join('');
+    return tlShell(rows);
+  }
+
+  // 面板包裹 + 图例行：颜色全走 --tl-* 变量（浅色兜底，深色主题由 theme.css 覆盖，打印回落浅色）
+  function tlRender(data) {
+    var card = data.style === 'task' ? tlTaskCard(data.entries) : tlEventCard(data.entries);
+    var legend = '<div style="font-size:12px;color:' + TL_LEGEND + ';line-height:1.6;margin:0 0 12px;">' +
+      '<span style="color:' + TL_OK + ';">●</span> 完成/推进&ensp;<span style="color:' + TL_INFO + ';">●</span> 进行中/中性&ensp;' +
+      '<span style="color:' + TL_RISK + ';">●</span> 风险/升级&ensp;<span style="color:' + TL_WARN + ';">●</span> 卡点/停滞</div>';
+    return '<div class="md-timeline" style="background:' + TL_BG + ';border:1px solid ' + TL_BORDER + ';border-radius:12px;padding:16px 18px 0;margin:12px 0;">' +
+      legend + card + '</div>';
+  }
+
+  // G-SPEC 时间轴列表识别：行首日期支持 mm/dd、yyyy-mm-dd、mm月dd日（可带 hh:mm）或 mm:ss，
+  // 且后接空白/标点才算（避免误吞 "3.5 版本发布" 这类数字开头条目）
+  var TL_DATE_LEAD = /^(?:\d{1,2}\/\d{1,2}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}月\d{1,2}日)(?:\s+\d{1,2}:\d{2})?(?=[\s：:，,、．.）)\-—])|^\d{1,2}:\d{2}(?=[\s：:，,、．.）)\-—])/u;
+  var TL_DOT_LEAD = /^[\u{1F534}\u{1F7E0}\u{1F7E1}\u{1F7E2}\u{1F535}\u{1F7E3}\u{1F7E4}\u{26AA}\u{26AB}\u{2B55}\u{2705}\u{274C}\u{2757}\u{2753}\u{1F6A7}\u{1F4E6}]\s*/u;
+
+  // 列表 → 时间轴数据：≥2 条命中且命中率 ≥60%；任务类 emoji 占多数 → 任务轴，否则事件轴
+  function tlParseList(items) {
+    if (!items || items.length < 2) return null;
+    var taskLike = 0;
+    var parsed = [];
+    for (var k = 0; k < items.length; k++) {
+      var rawText = String(items[k].text || '').trim();
+      // 先剥行首彩点 emoji 再匹配日期（🟢 2026-11-20 …）；任务类 emoji 按原文统计（含行首 ✅）
+      var text = rawText.replace(TL_DOT_LEAD, '').trim();
+      var dateMatch = text.match(TL_DATE_LEAD);
+      if (!dateMatch) continue;
+      if (/[✅❌🚧📦]/u.test(rawText)) taskLike++;
+      var body = text.slice(dateMatch[0].length).replace(/^[\s：:，,、．.\-—]+/, '');
+      // 展示正文优先取原始 markdown（保留 **加粗**），日期前缀/彩点剥法与剥离版一致；取不到回退纯文本
+      var dispBody = '';
+      var rawRough = items[k].raw != null ? String(items[k].raw).trim().replace(TL_DOT_LEAD, '') : '';
+      var rd = rawRough ? TL_DATE_LEAD.exec(rawRough) : null;
+      if (rd) dispBody = rawRough.slice(rd[0].length).replace(/^[\s：:，,、．.\-—]+/, '');
+      var strong = items[k].strong;
+      var title, desc;
+      if (strong && text.indexOf(strong) === 0) {
+        // strong 只包时间戳（**14:00–14:20** 议题…）：标题退化为正文首段，时间戳进日期胶囊
+        if (dateMatch[0].trim() === String(strong).trim()) {
+          title = body.split(/[；;：:，,。]/).filter(Boolean)[0] || body;
+          desc = body;
+        } else {
+          title = strong;
+          desc = body;
+        }
+      } else {
+        title = body.split(/[；;：:，,。]/).filter(Boolean)[0] || body;
+        desc = body;
+      }
+      parsed.push({
+        time: dateMatch[0].trim(),
+        title: String(title).trim(),
+        desc: String(dispBody || desc).trim(),
+        status: text,
+        color: tlTaskStatus(text).color
+      });
+    }
+    if (parsed.length < 2 || parsed.length < items.length * 0.6) return null;
+    return {
+      entries: parsed.slice(0, 40),
+      style: taskLike * 2 >= items.length ? 'task' : 'event'
+    };
+  }
+
+  /* ---------- md 导出时间轴升级（参考 voice_transcription exporters.upgradeMarkdownFigures） ----------
+   * 导出 .md 时把时间轴表格/列表就地替换为行内样式卡片 HTML（Typora/VSCode/Obsidian 等可直接渲染）；
+   * 代码围栏与既有 raw HTML 块（含 tl-* 骨架）原样保留，普通内容一字不动。
+   */
+  function upgradeMarkdownTimeline(md) {
+    if (md === null || md === undefined) return '';
+    var lines = String(md).replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    var out = [];
+    var listLines = [];
+    var inFence = false;
+    var n = lines.length;
+    var i = 0;
+
+    function flushList() {
+      if (!listLines.length) return;
+      var src = listLines;
+      listLines = [];
+      var itemLines = src.filter(function (l) { return l.trim() !== ''; });
+      if (itemLines.length >= 2) {
+        var items = itemLines.map(function (l) {
+          var raw = l.replace(/^\s*(?:[-*+•▸►]|\d+[.)])\s+/, '');
+          var sm = /\*\*([^*]+)\*\*/.exec(raw);
+          return { text: tlStripInline(raw), raw: raw, strong: sm ? sm[1] : undefined };
+        });
+        var data = tlParseList(items);
+        if (data) {
+          out.push('', tlRender(data), '');
+          return;
+        }
+      }
+      for (var fk = 0; fk < src.length; fk++) out.push(src[fk]);
+    }
+
+    while (i < n) {
+      var line = lines[i];
+      // 代码围栏：整块原样保留
+      if (/^\s*```/.test(line)) {
+        flushList();
+        inFence = !inFence;
+        out.push(line);
+        i++;
+        continue;
+      }
+      if (inFence) { out.push(line); i++; continue; }
+      // raw HTML 块（style/div/svg/注释，含既有时间轴骨架）：原样保留，不重复升级
+      if (/^\s*<(style|div|svg)\b/i.test(line) || /^\s*<!--/.test(line)) {
+        flushList();
+        var isStyle = /^\s*<style\b/i.test(line);
+        var isSvg = /^\s*<svg[\s>]/i.test(line);
+        var isComment = /^\s*<!--/.test(line);
+        var depth = 0;
+        while (i < n) {
+          var bl = lines[i];
+          out.push(bl);
+          if (isComment) { if (/-->/.test(bl)) { i++; break; } }
+          else if (isStyle) { if (/<\/style\s*>/i.test(bl)) { i++; break; } }
+          else if (isSvg) { if (/<\/svg\s*>/i.test(bl)) { i++; break; } }
+          else {
+            var ot = bl.match(/<div\b/gi); depth += ot ? ot.length : 0;
+            var ct = bl.match(/<\/div>/gi); depth -= ct ? ct.length : 0;
+            if (depth <= 0) { i++; break; }
+          }
+          i++;
+        }
+        continue;
+      }
+      // 表格块：时间轴表格 → 卡片，其余原样
+      if (line.indexOf('|') !== -1 && i + 1 < n && isTableSep(lines[i + 1])) {
+        flushList();
+        var tHeader = splitTableRow(line);
+        var tStart = i;
+        i += 2;
+        var tRows = [];
+        while (i < n && lines[i].indexOf('|') !== -1 && lines[i].trim() !== '') {
+          tRows.push(splitTableRow(lines[i]));
+          i++;
+        }
+        var tData = tlDetectTable(tHeader.map(tlStripInline), tRows.map(function (r) { return r.map(tlStripInline); }), tRows);
+        if (tData) {
+          out.push('', tlRender(tData), '');
+        } else {
+          for (var tk = tStart; tk < i; tk++) out.push(lines[tk]);
+        }
+        continue;
+      }
+      // 列表行（含 •▸► 符号）
+      if (/^\s*(?:[-*+•▸►]|\d+[.)])\s+\S/.test(line)) { listLines.push(line); i++; continue; }
+      // 缩进续行并入上一条列表项
+      if (listLines.length && /^\s+\S/.test(line)) {
+        listLines[listLines.length - 1] += ' ' + line.trim();
+        i++;
+        continue;
+      }
+      // 空行：后续仍是列表项则继续累积（与 renderMarkdown 的列表解析一致）
+      if (line.trim() === '' && listLines.length) {
+        var j = i + 1;
+        while (j < n && lines[j].trim() === '') j++;
+        if (j < n && /^\s*(?:[-*+•▸►]|\d+[.)])\s+\S/.test(lines[j])) { listLines.push(line); i++; continue; }
+      }
+      flushList();
+      out.push(line);
+      i++;
+    }
+    flushList();
+    return out.join('\n');
+  }
+
   /* ---------- Main renderer ---------- */
 
   function renderMarkdown(md) {
@@ -295,6 +638,9 @@
           rows.push(splitTableRow(lines[i]));
           i++;
         }
+        // v0.52.3：时间轴表格 → 可视化卡片（参考 voice_transcription richRender 的时间轴表格升级）
+        var tlData = tlDetectTable(headers.map(tlStripInline), rows.map(function (r) { return r.map(tlStripInline); }), rows);
+        if (tlData) { html.push(tlRender(tlData)); continue; }
         var t = '<table><thead><tr>';
         for (var hi = 0; hi < headers.length; hi++) {
           t += '<th' + (aligns[hi] ? ' style="text-align:' + aligns[hi] + '"' : '') + '>' +
@@ -336,6 +682,15 @@
           } else {
             break;
           }
+        }
+        // v0.52.3：G-SPEC「彩点 emoji + 日期」列表 → 时间轴卡片（仅平铺列表尝试；嵌套列表保持原渲染）
+        if (items.length >= 2 && items.every(function (it) { return it.indent === items[0].indent; })) {
+          var tlItems = items.map(function (it) {
+            var sm = it.text.match(/\*\*([^*]+)\*\*/);
+            return { text: tlStripInline(it.text), raw: it.text, strong: sm ? sm[1] : undefined };
+          });
+          var tlListData = tlParseList(tlItems);
+          if (tlListData) { html.push(tlRender(tlListData)); continue; }
         }
         html.push(buildList(items));
         continue;
@@ -678,4 +1033,5 @@
   global.renderMarkdown = renderMarkdown;
   global.markdownEscapeHtml = escapeHtml;
   global.markdownToWechat = markdownToWechat;
+  global.upgradeMarkdownTimeline = upgradeMarkdownTimeline;
 })(typeof window !== 'undefined' ? window : this);

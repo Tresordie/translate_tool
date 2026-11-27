@@ -500,9 +500,10 @@
     return text;
   }
 
-  // ---- 输出语言下拉（复用共享 OUTPUT_LANGS，30 种全球常用语言）----
+  // ---- 输出语言下拉（复用共享 OUTPUT_LANGS；v0.53.0 表为「跟随原文 + 16 种常用语言」，本页排除 auto，保持显式选语言）----
   function buildLangSelect() {
-    var langs = (window.AiService && AiService.OUTPUT_LANGS) || [{ code: 'zh', label: '中文' }];
+    var langs = ((window.AiService && AiService.OUTPUT_LANGS) || [{ code: 'zh', label: '中文' }])
+      .filter(function (l) { return l.code !== 'auto'; });
     els.sumLang.innerHTML = langs.map(function (l) {
       return '<option value="' + esc(l.code) + '">' + esc(l.label) + '</option>';
     }).join('');
@@ -513,7 +514,7 @@
   function langName(code) {
     if (window.AiService && typeof AiService.getOutputLang === 'function') {
       var l = AiService.getOutputLang(code);
-      if (l) return l.name || l.label;
+      if (l && l.code !== 'auto') return l.name || l.label;
     }
     return code === 'zh' ? 'Simplified Chinese (中文)' : code;
   }
@@ -842,6 +843,8 @@
     return 'wx-summary-' + safe + '-' + stampNow();
   }
   function triggerDownload(content, filename, mime) {
+// v0.52.3: md 导出统一升级时间轴（与 AiService.downloadText 闸门同款）
+    if (/^text\/markdown\b/i.test(String(mime || '')) && window.upgradeMarkdownTimeline) content = window.upgradeMarkdownTimeline(content);
     var blob = new Blob([content], { type: mime });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

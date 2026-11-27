@@ -108,14 +108,17 @@ const doc = svc.mdToHtml(md1, '测试标题');
 check('完整 HTML 壳', doc.startsWith('<!DOCTYPE html>') && doc.includes('<style>') && doc.includes('</html>'));
 check('一级标题提取为 header.top h1 + 日期胶囊（不重复出现在模块里）', doc.includes('<header class="top"><h1>标题</h1><div class="meta">') && doc.includes('class="pill"') && doc.includes('<details class="mod"') && !doc.includes('<h1>标题</h1></details>'));
 check('工具栏（全部展开/折叠 + 打印导出 PDF）', doc.includes('id="expandAll"') && doc.includes('id="collapseAll"') && doc.includes('id="printBtn"'));
-check('技能同款版式（浅底深字 + teal 主色白卡片）', doc.includes('background:#eef1f5') && doc.includes('color:#1a2332') && doc.includes('#0f766e'));
+check('参考规格版式（白底深字 + indigo 主色 + 1280px 内容宽度）', doc.includes('background:#fff') && doc.includes('color:#1f2937') && doc.includes('#6366f1') && doc.includes('.page{max-width:1280px'));
 check('模块可折叠 + 逐模块复制源码（details/modsrc/copy）', doc.includes('<details class="mod" open>') && doc.includes('class="modsrc"') && doc.includes('button class="copy"'));
 check('模块内嵌 markdown 源（复制可用）', doc.includes('## 30 秒 TL;DR') || doc.split('class="modsrc"').length >= 2);
 check('内联 CSS + 打印样式（打印前全展开）', doc.includes('@media print') && doc.includes('beforeprint'));
+check('打印收回 A4 宽度 760px（参考 PRINT_CSS）', doc.includes('.page{max-width:760px;padding:0}'));
+check('参考排版细节（h1 靛蓝下划线 / h2 左竖条 / 深色代码块 / 浅靛引用 / 行高 1.75）', doc.includes('border-bottom:3px solid #6366f1') && doc.includes('.body h2{font-size:1.3em') && doc.includes('.body pre{background:#111827') && doc.includes('border-left:4px solid #a5b4fc') && doc.includes('line-height:1.75'));
+check('任务列表去圆点 + 复选框主题色（与预览 theme.css 同款）', doc.includes('li.task-item{list-style:none;margin-left:-1.2em}') && doc.includes('accent-color:#6366f1'));
 check('正文含渲染后的 SVG（.fig 图框；转义 SVG 仅出现在 modsrc 复制源中）', doc.includes('<div class="fig"><svg width="600"') && doc.indexOf('<div class="fig"><svg') < doc.indexOf('class="modsrc"'));
-check('表格包 .tablewrap（横滚/斑马纹/th teal）', (() => {
+check('表格包 .tablewrap（横滚/斑马纹/th 浅靛）', (() => {
   const t = svc.mdToHtml('| 事项 | 负责人 |\n|---|---|\n| 写周报 | 张三 |', 't');
-  return t.includes('<div class="tablewrap"><table>') && t.includes('.body th{background:#0f766e');
+  return t.includes('<div class="tablewrap"><table>') && t.includes('.body th{background:#eef2ff');
 })());
 check('mermaid 源码块标记类', svc.mdToHtml(md3, 't').includes('<pre><code class="mermaid-src">'));
 check('导出保留时间轴骨架（md-embed 作用域化）', svc.mdToHtml('## 模块\n\n' + TL_A, 't').includes('<div class="md-embed"><style>.md-embed .tl-panel-light'));
@@ -127,9 +130,11 @@ globalThis.fetch = async () => ({ ok: true, status: 200, text: async () => fakeL
 const docM = await svc.mdToHtmlAsync('## 图\n\n```mermaid\nmindmap\n  root((主题))\n```\n\n正文', 't');
 check('mermaid 源码块替换为 .mmd 卡 + pre.mermaid', docM.includes('<div class="mmd"><pre class="mermaid">') && docM.includes('mindmap'));
 check('源码折叠兜底（.mmd-src）', docM.includes('<details class="mmd-src"><summary>Mermaid 源码</summary>'));
-check('内嵌 mermaid 库 + 初始化（base 主题/teal 变量）', docM.includes('window.__mmdFake=1') && docM.includes('mermaid.initialize') && docM.includes('#0f766e'));
+check('内嵌 mermaid 库 + 初始化（base 主题/indigo 变量）', docM.includes('window.__mmdFake=1') && docM.includes('mermaid.initialize') && docM.includes('#6366f1'));
+check('mindmap/pie 独立色板也收敛 indigo（cScale/pie，不吃 primaryColor）', docM.includes('"cScale0":"#eef2ff"') && docM.includes('"cScalePeer0":"#6366f1"') && docM.includes('"pie1":"#6366f1"') && docM.includes('"cScale11":"#c7d2fe"'));
+check('mindmap 下划线/连线 CSS 强制靛蓝（压过 SVG 内 #id 规则）', doc.includes('.mmd svg [class*="section-"] line{stroke:#818cf8!important}') && doc.includes('.mmd svg [class*="section-edge-"]{stroke:#a5b4fc!important}'));
 check('各图型 useMaxWidth:false（自然尺寸防宽图文字挤压）', docM.includes('timeline":{"useMaxWidth":false}') || docM.includes('"timeline":{"useMaxWidth":false}'));
-check('.mmd 图卡自然宽度 + 溢出横滚（非缩放）', docM.includes('.mmd{margin:14px 0;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;overflow-x:auto}') && docM.includes('.mmd pre.mermaid{width:max-content'));
+check('.mmd 图卡自然宽度 + 溢出横滚（非缩放）', docM.includes('.mmd{margin:14px 0;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;overflow-x:auto}') && docM.includes('.mmd pre.mermaid{width:max-content'));
 check('库内 </script> 已转义防断标签', docM.includes('<\\/script>'));
 check('渲染初始化脚本在 </body> 前', docM.indexOf('mermaid.run') < docM.indexOf('</body>'));
 const docPlain = await svc.mdToHtmlAsync('## 无图\n\n只有正文。', 't');
@@ -143,12 +148,26 @@ check('无标题结构回退单模块', (() => { const d = svc.mdToHtml('只有�
 const docNoRm = (() => { const rm = globalThis.renderMarkdown; globalThis.renderMarkdown = undefined; const d = svc.mdToHtml('<b>x</b>', 't'); globalThis.renderMarkdown = rm; return d; })();
 check('renderMarkdown 缺失时回退转义输出', docNoRm.includes('&lt;b&gt;x&lt;/b&gt;'));
 
+console.log('— 导出命名（总结名称 + 时间戳，对齐参考 timestampName/resultTitle） —');
+check('总结名称取首个一级标题', svc.summaryFileTitle('# 会议纪要：Q4 复盘\n\n正文') === '会议纪要：Q4 复盘');
+check('非法文件名字符剔除', svc.summaryFileTitle('# a/b\\c:d*e?f"g<h>i|j\n') === 'abcdefghij');
+check('超长标题截断 30 字符', svc.summaryFileTitle('# ' + '长'.repeat(50)).length === 30);
+check('无一级标题回退 AI总结（## 不算）', svc.summaryFileTitle('## 二级\n正文') === 'AI总结' && svc.summaryFileTitle('') === 'AI总结');
+check('时间戳文件名格式 名称-YYYYMMDD-HHMMSS.ext', /^会议纪要-\d{8}-\d{6}\.html$/.test(svc.timestampName('会议纪要', 'html')));
+
 console.log('— 双副本一致 —');
 check('markdown.js 逐字一致', fs.readFileSync(path.join(root, 'markdown.js'), 'utf8') === fs.readFileSync(path.join(root, 'chrome_extension', 'markdown.js'), 'utf8'));
 const a = fs.readFileSync(path.join(root, 'ai-service.js'), 'utf8');
 const b = fs.readFileSync(path.join(root, 'chrome_extension', 'ai-service.js'), 'utf8');
-const sec = (c) => c.slice(c.indexOf('  // 单文件 HTML 导出壳'), c.indexOf('  function describeApiError(err) {'));
-check('mdToHtml 段逐字一致', sec(a) === sec(b));
+// 锚点必须真实命中（旧锚点「导出壳」不存在 → slice(-1,…) 空串恒等，检查形同虚设）
+const sec = (c) => { const i = c.indexOf('  // 单文件 HTML 导出（'); const j = c.indexOf('  function describeApiError(err) {'); return i >= 0 && j > i ? c.slice(i, j) : null; };
+check('mdToHtml 段逐字一致（CSS/命名函数/mermaid 主题）', sec(a) !== null && sec(a).length > 5000 && sec(a) === sec(b));
+check('双副本均导出命名函数', a.includes('summaryFileTitle: summaryFileTitle,') && b.includes('summaryFileTitle: summaryFileTitle,') && a.includes('timestampName: timestampName,') && b.includes('timestampName: timestampName,'));
+for (const [f, marker] of [['workreport.js', 'AiService.summaryFileTitle(raw)'], ['email_summary.js', 'AiService.summaryFileTitle(raw)'], ['ai_parse.js', 'Ai.summaryFileTitle(currentSummaryMd)']]) {
+  const r = fs.readFileSync(path.join(root, f), 'utf8');
+  const e = fs.readFileSync(path.join(root, 'chrome_extension', f), 'utf8');
+  check(f + ' 双副本结果区导出均按总结名称命名', r.includes(marker) && e.includes(marker) && r.includes('timestampName') && e.includes('timestampName'));
+}
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);
